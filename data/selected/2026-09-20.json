@@ -1,0 +1,63 @@
+{
+  "enriched_run": "2026-09-20.json",
+  "failed_sources": [],
+  "stories": [
+    {
+      "headline": "'We simply don't know' - JP Morgan struggling to forecast oil prices due to Trump's war with Iran",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cq0m3gmv8n7ko?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 17:57:30 GMT",
+      "topics": [
+        "oil",
+        "energy"
+      ],
+      "selection_score": 8,
+      "selection_reason": "Matched: oil, energy."
+    },
+    {
+      "headline": "Interest rates held but Bank signals rise if energy prices stay high",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cm4gjrxez1q0o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 17 Sep 2026 14:05:38 GMT",
+      "topics": [
+        "energy",
+        "policy"
+      ],
+      "selection_score": 7,
+      "selection_reason": "Matched: energy, policy."
+    },
+    {
+      "headline": "Trump signs sweeping Russia sanctions bill",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cqvgy34ndj4eo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 22:05:47 GMT",
+      "topics": [
+        "policy"
+      ],
+      "selection_score": 4,
+      "selection_reason": "Matched: policy."
+    },
+    {
+      "headline": "Japan raises interest rate to new 31-year high to curb rising prices",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cqn74jeek06no?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 07:14:57 GMT",
+      "topics": [
+        "policy"
+      ],
+      "selection_score": 4,
+      "selection_reason": "Matched: policy."
+    },
+    {
+      "headline": "Why Trump's hand-picked Fed chair defied him by raising interest rates",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/videos/c54g7wg1l3d3o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 17 Sep 2026 00:38:50 GMT",
+      "topics": [
+        "policy"
+      ],
+      "selection_score": 4,
+      "selection_reason": "Matched: policy."
+    }
+  ]
+}

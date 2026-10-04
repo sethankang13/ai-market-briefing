@@ -1,0 +1,827 @@
+{
+  "raw_run": "2026-09-20.json",
+  "failed_sources": [],
+  "stories": [
+    {
+      "headline": "German Chancellor Merz calls state election a 'disaster' for his party but vows to stay on",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cvwyz29n0nn2o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Mon, 21 Sep 2026 03:22:44 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Largest attack on Moscow sees Ukraine fire hundreds of drones, mayor says",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/c34gdjk1ne8yo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 20 Sep 2026 10:45:39 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Ed Sheeran admits 'mistakes' at first show since Macklemore controversy",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cm780ll1de18o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 20 Sep 2026 04:49:11 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Trump says triumphal arch will be military complex with drones and snipers",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cqdj4pez00dzo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 20 Sep 2026 16:36:43 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Man, 82, dies after beach fight with 76-year-old over sunlounger in Greece",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cqm27pnyd294o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 20 Sep 2026 21:17:22 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Sister of Pakistan's ex-PM Imran Khan arrested",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cm36l2pye2kwo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 20 Sep 2026 19:04:11 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Houthis say they targeted Saudi capital with ballistic missiles",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cwly5d9v7r43o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 23:49:26 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Converse pulls 'deeply upsetting' advert after backlash",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/crwyzj53pl1lo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 14:05:01 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Nato welcomes Greenland deal as Trump says it will give US 'permanent security control'",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/c63d7lexyym1o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 23:00:27 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Google's Gemini AI hacked three companies in security test",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/c607l0k72rlvo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 13:39:32 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "Trump says US will form 'AI Force' and appoint an artificial intelligence tsar",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cqlykr2vrv04o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 21:01:56 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "Grim discoveries of murdered women spark fear in South Africa",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cjkg71e67k17o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 23:04:41 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Shark attack prompts rare kill order in Western Australia as victim named",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cqwyzdnk442lo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 11:50:22 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Journalists denied White House access after Trump banned some media outlets",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cj4gklz9dxplo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 19:13:49 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Trump signs sweeping Russia sanctions bill",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cqvgy34ndj4eo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 22:05:47 GMT",
+      "topics": [
+        "policy"
+      ]
+    },
+    {
+      "headline": "Millions without power as Cuba hit by latest major blackout",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/c6j9x4387lzxo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 10:27:37 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Cultural treasures are being destroyed worldwide - so why is no-one being punished?",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cvgy1q2k2z0o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 23:18:18 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Our head teacher was an abuser. We joined forces to get justice - now we're married",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cg4d9vly636o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 23:01:38 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "'I don't even know if my parents are alive' - the war heroes jailed 25 years ago",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cx1l6762jeq4o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 23:01:45 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Trump escalates media fight after week of setbacks",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cmn8ed1xpxnyo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 17:23:37 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Mum's viral barefoot race sparks debate over India's education crisis",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cw62m6z7m7zjo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 23:18:06 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Not all AI workers think the tech could kill everyone",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cm5y7qj54klpo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 23:01:57 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "Tata Sons: India's corporate crown braces for upheaval amid boardroom revolt",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/c670lkvdzkn2o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 23:07:16 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Watch: Fans react as Ed Sheeran speaks out over Macklemore controversy at show",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/videos/ck980m0pr1e0o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 20 Sep 2026 05:01:47 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Watch: Concertgoers and pro-Palestinian activists arrive at Ed Sheeran concert",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/videos/ckd68l9g0gy5o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 20 Sep 2026 02:45:43 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "'Enough is enough': Women protest after string of murders near Johannesburg",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/videos/cm4gjxq1dx2eo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 11:50:50 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Is the Kennedy Center losing 'hundreds of millions of dollars'?",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/videos/cqy4zw4xr717o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 18:56:17 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "UK should 'team up' with Canada in new Europe alliance, Canadian minister tells BBC",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cmed7p06epxjo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Mon, 21 Sep 2026 04:00:38 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Nvidia boss rejects AI extinction fears as 'doomsday narratives'",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cr5ye7p13jg7o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Mon, 21 Sep 2026 00:34:53 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "Will you get \u00a313,000 a year when you stop working? Here's how to check",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/crq5x74yv6dxo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 20 Sep 2026 23:02:45 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Billionaire Man United owner loses moral high ground after tax exile, Labour chair says",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cm0rexrwjj1vo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 20 Sep 2026 11:22:21 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Ed Davey calls for immediate 10p cut to fuel duty",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cr89j514dly2o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 20 Sep 2026 14:42:42 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Not all AI workers think the tech could kill everyone",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cm5y7qj54klpo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 23:01:57 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "Chiltern Railways renationalised after 30 years",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c68xk701d975o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 20 Sep 2026 10:45:39 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Lib Dems vow to end 'computer says no' economy to boost growth",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cqrk31k7pprlo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 20 Sep 2026 14:05:15 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Billionaire Man United owner says he has lost confidence in the UK",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cm0463619r1no?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 23:06:16 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Google's Gemini AI hacked three companies in security test",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c607l0k72rlvo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 19 Sep 2026 13:39:32 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "'We simply don't know' - JP Morgan struggling to forecast oil prices due to Trump's war with Iran",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cq0m3gmv8n7ko?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 17:57:30 GMT",
+      "topics": [
+        "oil",
+        "energy"
+      ]
+    },
+    {
+      "headline": "Flight chaos caused by 'millisecond' software defect, report says",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cw0kl1571lpmo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 15:48:58 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Ryanair boss Michael O'Leary apologises over 'high-fare rapists' remarks",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cm1j4kj57k08o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 17:10:58 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Warren Buffett steps down after six decades at Berkshire - 'Father Time always wins'",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cvj64dl1w6yno?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 17:15:02 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "We bought our \u00a3242,000 home without a deposit - here's how",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cvj64w204y58o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 10:43:03 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "British Steel plan lacks credibility, MPs say",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cklyjzv4nl7wo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 12:47:15 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Thames Water rescue deal should be rejected - MPs",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c6qjk9q1wpqeo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 05:16:57 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "'Insufficient funds' to pay Brewdog creditors after takeover deal",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cw1mvjyv937eo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 13:19:34 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Healey to ask EU finance ministers to let UK into Made in Europe scheme",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cr6240ej07ejo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 06:52:47 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Early Bowie music available to stream for first time",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cm4gj5z9xvnqo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 17 Sep 2026 23:01:03 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Japan raises interest rate to new 31-year high to curb rising prices",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cqn74jeek06no?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 07:14:57 GMT",
+      "topics": [
+        "policy"
+      ]
+    },
+    {
+      "headline": "Interest rates held but Bank signals rise if energy prices stay high",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cm4gjrxez1q0o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 17 Sep 2026 14:05:38 GMT",
+      "topics": [
+        "energy",
+        "policy"
+      ]
+    },
+    {
+      "headline": "Barclays workers ask for more money to return to the office",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cqlym1n9kpyvo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 17 Sep 2026 14:20:27 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "I sent 200 LinkedIn messages and got a job: How to nail networking",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c9vgyd02mdvno?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 17 Sep 2026 10:37:43 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Warm words on Canada's EU 'associate membership' but no guarantees",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/crlyqg1ekj4po?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 17 Sep 2026 16:59:43 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Uncontrolled AI could lead to 'silicon species' rivalling humans, warns Microsoft",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 17 Sep 2026 08:22:12 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "OpenAI reveals six more safety issues and unveils plan to disclose incidents",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cmpq0wj5g899o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 17 Sep 2026 03:09:21 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "The virtual worlds where robots are trained",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c79g0j3d4q9o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 17 Sep 2026 23:00:47 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Would you buy branded clothing from your favourite tech firm?",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cgqd9zkkvlyo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Wed, 16 Sep 2026 23:18:47 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "The extreme engineering of aircraft windows",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c0lr69zeyrwo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Tue, 15 Sep 2026 23:19:38 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Can Europe recharge its battery industry?",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cjeg8ly0qd3o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 10 Sep 2026 23:05:47 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "I asked my husband to pay into my pension when we had a child - here's why",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cde02k65427o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 10 Sep 2026 23:04:30 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Why some experts increasingly fear AI will take over",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c74edv9887eo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Wed, 09 Sep 2026 23:17:33 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "Should promotion depend on how workers use AI?",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c1j1896e973o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Tue, 08 Sep 2026 23:05:23 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "'Tirana teeth': Albania hopes to be the new Turkey for dental work",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cq63m88ymqro?at_medium=RSS&at_campaign=rss",
+      "published_at": "Tue, 08 Sep 2026 09:00:28 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "From 'dog fruit' to darling: India's avocado boom",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/clyjzpgv29do?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 04 Sep 2026 05:09:02 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Prosecco, cakes and beauty products - how to get birthday freebies and why there's a catch",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c5y4jr4yr2eo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 04 Sep 2026 07:19:06 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Why wait? Business grads buying firms to install themselves as CEO",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/czxqpqrzq01o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Wed, 02 Sep 2026 23:13:44 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "'My parents won't lend me \u00a310k but helped my brother': When families play financial favourites",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cx279dml00ro?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 30 Aug 2026 23:22:24 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Will you get \u00a313,000 a year when you stop working? Here's how to check",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/crq5x74yv6dxo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 20 Sep 2026 23:02:45 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "What food items should you stock up on in case of an emergency?",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c20veglyjp8o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 20 Sep 2026 23:02:27 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Family shares hidden cost of cancer care",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c8qlwg07p906o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 20 Sep 2026 09:25:34 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Families missing out on NHS money for healthy food",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cme30e8zyvjno?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 20 Sep 2026 06:12:13 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Economy minister accuses SoS of 'mischief making' in social media exchange",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c94gm0mxmy65o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 12:12:59 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Aviation faces hotter, stormier skies \u2013 and passengers might have to accept more disruption",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cm274p8m88lo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 05 Sep 2026 23:20:00 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Why the UK is dithering over what to do about e-scooters",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cn4nvn9w00no?at_medium=RSS&at_campaign=rss",
+      "published_at": "Wed, 22 Jul 2026 23:51:24 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Why Gen Z are planning for life without a state pension",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c8e2yp1gg37o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Tue, 30 Jun 2026 23:05:19 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "The furious dispute over what caused Air India flight 171 to crash",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cwyk9exxp2qo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Wed, 10 Jun 2026 23:10:11 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "How the High Street became a window on our political instability",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cq5p59286v5o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 07 Jun 2026 23:00:04 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Dragon Deborah opens with a terrible negotiation tactic",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/videos/cwkgxlze1pr9o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 13:49:43 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Former shoplifter ran 'steal-to-order' Whatsapp group",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/videos/cqy0z3w9r17lo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 10:10:42 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "'I would tip up to 30% at a restaurant'",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/videos/ckgjqzl755j0o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 18 Sep 2026 05:13:49 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Why Trump's hand-picked Fed chair defied him by raising interest rates",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/videos/c54g7wg1l3d3o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 17 Sep 2026 00:38:50 GMT",
+      "topics": [
+        "policy"
+      ]
+    },
+    {
+      "headline": "The Documentary",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/sounds/play/w3ct9fh5?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 17 Sep 2026 02:00:00 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "This Minnesota farmer is feeling the pressure of rising gas prices",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/09/20/nx-s1-5974317/this-minnesota-farmer-is-feeling-the-pressure-of-rising-gas-prices",
+      "published_at": "Sun, 20 Sep 2026 17:15:57 -0400",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Energy expert Bob McNally on how to protect consumers from a looming gas price spike",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/09/19/nx-s1-5973146/energy-expert-bob-mcnally-on-how-to-protect-consumers-from-a-looming-gas-price-spike",
+      "published_at": "Sat, 19 Sep 2026 07:40:43 -0400",
+      "topics": [
+        "energy"
+      ]
+    },
+    {
+      "headline": "Ever wonder how the Fed's interest rate actually works? We've got answers",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/09/19/nx-s1-5969816/federal-reserve-interest-rate-inflation-economy",
+      "published_at": "Sat, 19 Sep 2026 05:00:00 -0400",
+      "topics": [
+        "policy"
+      ]
+    },
+    {
+      "headline": "Diesel prices reach record territory, creating ripple effects throughout the economy",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/09/18/nx-s1-5974133/diesel-prices-reach-record-territory-creating-ripple-effects-throughout-the-economy",
+      "published_at": "Fri, 18 Sep 2026 17:07:24 -0400",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "What expensive sulfur means for your dinner table",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/sections/planet-money/2026/09/18/nx-s1-5974103/what-expensive-sulfur-means-for-your-dinner-table",
+      "published_at": "Fri, 18 Sep 2026 12:40:58 -0400",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Stocks hit records as AI optimism grows, but bond markets tell a different story",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/09/18/nx-s1-5969828/stocks-hit-records-as-ai-optimism-grows-but-bond-markets-tell-a-different-story",
+      "published_at": "Fri, 18 Sep 2026 04:45:21 -0400",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "The Federal Reserve raises interest rates by a quarter percentage point",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/09/17/nx-s1-5971226/the-federal-reserve-raises-interest-rates-by-a-quarter-percentage-point",
+      "published_at": "Thu, 17 Sep 2026 06:45:30 -0400",
+      "topics": [
+        "policy"
+      ]
+    },
+    {
+      "headline": "Economist explains the Fed's decision to raise interest rates",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/09/17/nx-s1-5971197/economist-explains-the-feds-decision-to-raise-interest-rates",
+      "published_at": "Thu, 17 Sep 2026 06:44:23 -0400",
+      "topics": [
+        "policy"
+      ]
+    },
+    {
+      "headline": "What the Fed rate hike means for pocketbooks and politics",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/09/16/nx-s1-5971127/what-the-fed-rate-hike-means-for-pocketbooks-and-politics",
+      "published_at": "Wed, 16 Sep 2026 16:53:18 -0400",
+      "topics": [
+        "policy"
+      ]
+    },
+    {
+      "headline": "Fed raises interest rates for first time in more than three years",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/09/16/nx-s1-5971122/fed-raises-interest-rates-for-first-time-in-more-than-three-years",
+      "published_at": "Wed, 16 Sep 2026 16:47:38 -0400",
+      "topics": [
+        "policy"
+      ]
+    }
+  ]
+}

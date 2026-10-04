@@ -1,0 +1,793 @@
+{
+  "raw_run": "2026-10-04.json",
+  "failed_sources": [],
+  "stories": [
+    {
+      "headline": "Kyiv bridge hit in further Russian drone attack as German chancellor makes surprise visit",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/ckreyjzzzywqo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 04 Oct 2026 12:09:04 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Watch: What we know about Russian strikes on Kyiv bridges",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/videos/cmglwkyl9djyo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 04 Oct 2026 14:25:32 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Yemen's government announces all-out war to reclaim land from Houthis",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cx8dzj9vpp01o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 04 Oct 2026 16:51:30 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Polls close in Brazil as Lula and Fl\u00e1vio Bolsonaro remain neck and neck",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/ck1l34ed592no?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 04 Oct 2026 23:20:03 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Ethiopian rebel forces withdraw from Tigray regional capital",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cqm249v07j4xo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 04 Oct 2026 13:33:05 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Christa Pike's prognosis still unclear after failed execution, lawyer says",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/ckgelynyg7d3o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 04 Oct 2026 16:24:48 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Indian police accused of sexually harassing journalists at protest",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/c9e8lvm6nrr3o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 04 Oct 2026 17:01:19 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "US Marine arrested over murder of woman in Okinawa, Japan",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cme3xw4yy28do?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 04 Oct 2026 14:36:57 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Australia investigating Flydubai co-pilot's links to country",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cxly4nym57q9o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 04 Oct 2026 06:19:17 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "What to know about Brazil's election as Lula and Fl\u00e1vio Bolsonaro face off",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/c6wyz0r2n0djo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 04 Oct 2026 20:14:49 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "'Anger in the streets': Tens of thousands protest in Spain over housing crisis",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cm2kej47095no?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 04 Oct 2026 03:42:15 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Rescuers suspend search for survivors after plane went missing off US coast",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cme3x85013llo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 04 Oct 2026 23:29:18 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Cornell president says university 'must do better' after frat house rape allegations",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/ckly0leelnz4o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 04 Oct 2026 00:11:25 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "US father and son arrested after 'gas station heroin' deaths",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/c6qjnlk4r2jjo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 03 Oct 2026 22:39:06 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Why Canada is wargaming a (long shot) US invasion",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/c9m2mjj3yvg4o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 03 Oct 2026 23:30:06 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Why pastors may not be seen - or heard - preaching on Ghana's buses for much longer",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/articles/cwnvln99v2ygo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 03 Oct 2026 23:37:46 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Could El Ni\u00f1o mean there are no Atlantic hurricanes this year?",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/weather/articles/cwgkvyyg8115o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 02 Oct 2026 23:37:13 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Rare tornado whips through small Australian town",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/videos/c69qzvggzppro?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 04 Oct 2026 04:15:36 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Why has Brazil accused the US of election interference?",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/videos/c3eweld0nddeo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 03 Oct 2026 13:52:13 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Will Spain's housing crisis lead to a snap election?",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/videos/cmgj9vz2zxelo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 03 Oct 2026 12:26:30 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Newly released video shows Luigi Mangione\u2019s arrest",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/videos/cmewelkydwwyo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 02 Oct 2026 20:37:34 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "How widely used is the death penalty in the US?",
+      "source": "BBC World",
+      "link": "https://www.bbc.co.uk/news/videos/c54g1e3yxv0ko?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 02 Oct 2026 19:56:28 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "The job interview question you don't have to answer",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cje3r35p0qeno?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 04 Oct 2026 23:22:07 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "G7 to release millions of barrels of oil and diesel after Trump threat",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/ck87zg8jnwngo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 03 Oct 2026 04:38:31 GMT",
+      "topics": [
+        "oil",
+        "energy"
+      ]
+    },
+    {
+      "headline": "Suppliers pile pressure on government over energy bills",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cq0ld88kzxw8o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 03 Oct 2026 08:58:44 GMT",
+      "topics": [
+        "energy"
+      ]
+    },
+    {
+      "headline": "UK diesel prices top \u00a32 a litre for first time, RAC says",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/crn8e86y5n0zo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 02 Oct 2026 15:50:05 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "US jobs market sees sharp slowdown ahead of midterm elections",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cm2d6gg0642yo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 02 Oct 2026 14:30:48 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "'It could cost me \u00a310k but I need the money now': Why Gen Z are opting out of pensions",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c68xk0ndqz8jo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 01 Oct 2026 23:00:06 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "What's gone wrong at Nike? How the world's sportswear giant lost its mojo",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c6je85jzk9y7o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 01 Oct 2026 23:32:59 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "The wealthy Cuban Americans ready and waiting for Havana to fall",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/ckrerylrlg9vo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 01 Oct 2026 23:00:05 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "No more cereal at the end of the aisle? New rules in Scotland's supermarkets",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cmwyzye21463o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 02 Oct 2026 10:47:07 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Why UK diesel prices have breached the \u00a32 per litre mark",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c20zgjzz0e4o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 02 Oct 2026 13:38:22 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Crypto thieves attack man in home and threaten to kill pregnant wife's baby in 'horrific' robbery",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c6eq84eygz0qo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 01 Oct 2026 23:45:06 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "OpenAI fires workers for 'mishandling sensitive information'",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c6y9z9r4ejzwo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 02 Oct 2026 08:20:32 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Thames Water apologises after \u00a3145,000 customer billing mistake",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/ck24j46424veo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 01 Oct 2026 18:09:16 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "PM warned Rosebank oil field could breach West Bank sanctions",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cmrl6lz454lgo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 01 Oct 2026 18:38:22 GMT",
+      "topics": [
+        "oil",
+        "energy",
+        "policy"
+      ]
+    },
+    {
+      "headline": "US pressures Europe to release diesel reserves as Trump threatens export ban",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c5zjzjgdeneeo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 02 Oct 2026 08:54:00 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Trump's AI rebrand causes 'unprecedented' demand for Slovenian website names",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cqx2z23xj555o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 01 Oct 2026 11:37:46 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "AI boom could trigger market shocks, Bank of England boss warns",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cv8e30enrkxyo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 01 Oct 2026 10:05:25 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "HMRC urged to scrutinise tax implications of Man City case",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/sport/football/articles/cjkg7g93y5yno?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 01 Oct 2026 18:21:22 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Vape tax comes into effect - but prices won't rise yet",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c6j4jrjgv2j7o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Wed, 30 Sep 2026 23:02:11 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Travelodge failed sex assault victim 'at every stage'",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c93429dg425o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 01 Oct 2026 16:40:03 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Employers should teach primary-age children about work, says Milburn",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cr2kwlw0p3v9o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 01 Oct 2026 07:07:08 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Energy bills are rising by \u00a360 a year - here's how you can bring that down",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/crm4rygl4m3o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 01 Oct 2026 07:08:22 GMT",
+      "topics": [
+        "energy"
+      ]
+    },
+    {
+      "headline": "Household energy bills forecast to see biggest rise in four years",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cwz0zvj4m1myo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Wed, 30 Sep 2026 14:36:45 GMT",
+      "topics": [
+        "energy"
+      ]
+    },
+    {
+      "headline": "Greggs to shut four factories and cut 740 jobs",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cm7802ylq973o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Wed, 30 Sep 2026 15:03:22 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Three takeaways from Trump's 'Super Intelligence' summit",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cme30dz5vkzko?at_medium=RSS&at_campaign=rss",
+      "published_at": "Wed, 30 Sep 2026 04:01:52 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Regulating AI 'not the right place to start' says Bailey",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cvzez7k0pn40o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Wed, 30 Sep 2026 14:00:33 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "Doubters spur me on: why more women are taking up DIY",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cm89jkn232xxo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Wed, 30 Sep 2026 07:27:11 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "The AI telling farmers when to harvest",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cgk53dkmyxko?at_medium=RSS&at_campaign=rss",
+      "published_at": "Wed, 30 Sep 2026 23:02:21 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "The start-ups hoping to return battery making to the US",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cvgyexx4g8ro?at_medium=RSS&at_campaign=rss",
+      "published_at": "Tue, 29 Sep 2026 23:06:50 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "X-planes: Are they needed in the new era of drones?",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c9q92x359xdo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 24 Sep 2026 23:03:53 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "How the oil capital of the US welcomed a solar power boom",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cmx2zxv6936zo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Wed, 23 Sep 2026 23:12:22 GMT",
+      "topics": [
+        "oil",
+        "energy"
+      ]
+    },
+    {
+      "headline": "Spain battles climate change on several fronts",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cwg59g3vz564o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Tue, 22 Sep 2026 09:11:48 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "The virtual worlds where robots are trained",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c79g0j3d4q9o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 17 Sep 2026 23:00:47 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Would you buy branded clothing from your favourite tech firm?",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cgqd9zkkvlyo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Wed, 16 Sep 2026 23:18:47 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "The extreme engineering of aircraft windows",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c0lr69zeyrwo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Tue, 15 Sep 2026 23:19:38 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Can Europe recharge its battery industry?",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cjeg8ly0qd3o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 10 Sep 2026 23:05:47 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "I asked my husband to pay into my pension when we had a child - here's why",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cde02k65427o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 10 Sep 2026 23:04:30 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Why some experts increasingly fear AI will take over",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c74edv9887eo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Wed, 09 Sep 2026 23:17:33 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "Should promotion depend on how workers use AI?",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c1j1896e973o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Tue, 08 Sep 2026 23:05:23 GMT",
+      "topics": [
+        "technology"
+      ]
+    },
+    {
+      "headline": "'Tirana teeth': Albania hopes to be the new Turkey for dental work",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cq63m88ymqro?at_medium=RSS&at_campaign=rss",
+      "published_at": "Tue, 08 Sep 2026 09:00:28 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "From 'dog fruit' to darling: India's avocado boom",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/clyjzpgv29do?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 04 Sep 2026 05:09:02 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "The job interview question you don't have to answer",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cje3r35p0qeno?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 04 Oct 2026 23:22:07 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Suppliers pile pressure on government over energy bills",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cq0ld88kzxw8o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 03 Oct 2026 08:58:44 GMT",
+      "topics": [
+        "energy"
+      ]
+    },
+    {
+      "headline": "New baby bank 'open to everybody'",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/ck624p1y8ejyo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 03 Oct 2026 06:08:05 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Rising energy costs add to cost of living for Northern Ireland's consumers",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c5j9x99yep92o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 03 Oct 2026 05:27:43 GMT",
+      "topics": [
+        "energy"
+      ]
+    },
+    {
+      "headline": "Watch: Why has UK diesel price hit an all time high?",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/videos/c6m2d3mpm7r8o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 02 Oct 2026 16:58:30 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "My hometown shows that high streets have to change or die",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/crd689de186jo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sun, 27 Sep 2026 23:05:53 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Europe's car makers are in crisis. Will the threat of war rescue them?",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c6vgyq598k9po?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 25 Sep 2026 08:31:56 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Aviation faces hotter, stormier skies \u2013 and passengers might have to accept more disruption",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cm274p8m88lo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Sat, 05 Sep 2026 23:20:00 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Why the UK is dithering over what to do about e-scooters",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/cn4nvn9w00no?at_medium=RSS&at_campaign=rss",
+      "published_at": "Wed, 22 Jul 2026 23:51:24 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Why Gen Z are planning for life without a state pension",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/articles/c8e2yp1gg37o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Tue, 30 Jun 2026 23:05:19 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Watch: Why has UK diesel price hit an all time high?",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/videos/c6m2d3mpm7r8o?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 02 Oct 2026 16:58:30 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Why are minimum alcohol prices going up?",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/videos/cm2dwd97repyo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Fri, 02 Oct 2026 08:23:31 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Business Daily",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/sounds/play/w3ct8g9w?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 01 Oct 2026 20:30:00 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Is it time to ditch premium bonds?",
+      "source": "BBC Business",
+      "link": "https://www.bbc.co.uk/news/videos/cmy5z5qx19pwo?at_medium=RSS&at_campaign=rss",
+      "published_at": "Thu, 01 Oct 2026 15:28:18 GMT",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Economist Betsey Stevenson breaks down the gender gap in recent hiring reports",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/10/03/nx-s1-5989546/economist-betsey-stevenson-breaks-down-the-gender-gap-in-recent-hiring-reports",
+      "published_at": "Sat, 03 Oct 2026 07:47:09 -0400",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "The U.S. added only 29,000 jobs in September as job market lacks spark",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/10/02/nx-s1-5989140/jobs-labor-wages-federal-reserve",
+      "published_at": "Fri, 02 Oct 2026 09:54:18 -0400",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Why is diesel more expensive than regular gas?",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/sections/planet-money/2026/10/02/nx-s1-5988075/why-is-diesel-more-expensive-than-regular-gas",
+      "published_at": "Fri, 02 Oct 2026 07:00:00 -0400",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "U.S. employers add only 29,000 jobs in September, much less than August",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/10/02/nx-s1-5987754/u-s-employers-add-only-29-000-jobs-in-september-much-less-than-august",
+      "published_at": "Fri, 02 Oct 2026 06:47:02 -0400",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Economist discusses high bond yields and the September jobs report",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/10/02/nx-s1-5987794/economist-discusses-high-bond-yields-and-the-september-jobs-report",
+      "published_at": "Fri, 02 Oct 2026 06:46:57 -0400",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Some of the super wealthy are plowing money into a tax loophole to slash taxes to 0",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/10/01/nx-s1-5983748/some-of-the-super-wealthy-are-plowing-money-into-a-tax-loophole-to-slash-taxes-to-0",
+      "published_at": "Thu, 01 Oct 2026 18:27:11 -0400",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "The rising cost of borrowing piles more financial pressure onto consumers",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/10/01/nx-s1-5987951/the-rising-cost-of-borrowing-piles-more-financial-pressure-onto-consumers",
+      "published_at": "Thu, 01 Oct 2026 17:34:50 -0400",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Trade tensions mean fewer Canadians flocking to South Florida",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/10/01/nx-s1-5971507/trade-tensions-fewer-canadians-south-florida",
+      "published_at": "Thu, 01 Oct 2026 05:00:00 -0400",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "The poverty rate among older Americans is rising, survey shows",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/09/28/nx-s1-5978908/the-poverty-rate-among-older-americans-is-rising-survey-shows",
+      "published_at": "Mon, 28 Sep 2026 18:21:04 -0400",
+      "topics": [
+        "misc"
+      ]
+    },
+    {
+      "headline": "Mortgage rates break past 7% as bond yields surge, deepening U.S. housing gridlock",
+      "source": "NPR Economy",
+      "link": "https://www.npr.org/2026/09/26/nx-s1-5980302/mortgage-rates-break-past-7-as-bond-yields-surge-deepening-u-s-housing-gridlock",
+      "published_at": "Sat, 26 Sep 2026 07:37:58 -0400",
+      "topics": [
+        "misc"
+      ]
+    }
+  ]
+}

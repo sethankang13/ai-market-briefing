@@ -128,12 +128,13 @@ For a cluster of reports about the same event, an AI-generated summary may use o
 
 ```text
 ai-market-briefing/
-├── README.md       # roadmap and decisions
-├── src/            # the small programs we build together
-├── data/raw/       # saved incoming story data, if we choose to retain it
-├── data/enriched/  # saved copies with derived topic tags
-├── data/selected/  # saved top-story candidates and their score explanation
-└── briefs/         # generated readable daily briefings
+├── README.md            # roadmap and decisions
+├── src/                 # the small programs we build together
+├── data/raw/            # saved incoming story data, if we choose to retain it
+├── data/enriched/       # saved copies with derived topic tags
+├── data/selected/       # saved top-story candidates and their score explanation
+├── data/summarized/     # selected stories plus AI Why It Matters text
+└── briefs/              # generated readable daily briefings
 ```
 
 Raw inputs and generated outputs are separate so we can inspect what the program received before trusting what it produced.
@@ -158,15 +159,25 @@ python3 src/select_stories.py
 
 The initial ranking is deliberately simple and visible: `oil` is worth 5 points, `policy` 4, `energy` 3, and `technology` 2. A story's score is the sum of its tags, and ties retain the original feed order. The selected copy includes both the score and a short rule-based reason. A `misc` story can fill one otherwise unused slot, but cannot displace a tagged story.
 
+## Current summarization step (V2)
+
+Create AI "Why It Matters" copy from the latest selected run with:
+
+```bash
+python3 src/summarize_stories.py
+```
+
+The program reads `data/selected/YYYY-MM-DD.json` and writes `data/summarized/YYYY-MM-DD.json`, creating `data/summarized/` if it does not exist. It tries Gemini `gemini-2.0-flash` when `GEMINI_API_KEY` is set, falls back to OpenAI `gpt-4o-mini` when `OPENAI_API_KEY` is set, and otherwise stores `[AI Summary Pending: <Headline>]`. Selected files are left unchanged.
+
 ## Current writing step
 
-Create a readable Markdown briefing from the latest selected run with:
+Create a readable Markdown briefing from the latest summarized run (or selected run, if summaries are missing) with:
 
 ```bash
 python3 src/write_brief.py
 ```
 
-The briefing groups stories into Policy & economics, Energy, Technology, and Interesting aside. Stories with more than one tag appear once, under their most decision-relevant section, while displaying all their tags. V1 includes only source-supported metadata and a link to the original report; analysis comes later when we have source text to support it.
+The briefing groups stories into Policy & economics, Energy, Technology, and Interesting aside. Stories with more than one tag appear once, under their most decision-relevant section, while displaying all their tags. Each headline is followed by a **Why It Matters:** line from `ai_summary`.
 
 ## Rules for this project
 

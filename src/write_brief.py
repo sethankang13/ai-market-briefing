@@ -1,4 +1,4 @@
-"""Render a readable local briefing from a selected story run.
+"""Render a readable local briefing from a summarized or selected story run.
 
 Run from the project folder:
     python3 src/write_brief.py
@@ -11,24 +11,40 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SUMMARIZED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "summarized"
 SELECTED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "selected"
 BRIEFS_DIRECTORY = PROJECT_ROOT / "briefs"
 SECTION_ORDER = ("Policy & economics", "Energy", "Technology", "Interesting aside")
 
 
-def latest_selected_run(selected_data_directory: Path = SELECTED_DATA_DIRECTORY) -> Path:
+def latest_summarized_run(summarized_data_directory=None):
+    """Return the newest summarized run, or None when none exist."""
+    directory = summarized_data_directory or SUMMARIZED_DATA_DIRECTORY
+    summarized_runs = sorted(directory.glob("*.json"))
+    return summarized_runs[-1] if summarized_runs else None
+
+
+def latest_selected_run(selected_data_directory=None):
     """Return the newest selected run, or explain why one cannot be found."""
-    selected_runs = sorted(selected_data_directory.glob("*.json"))
+    directory = selected_data_directory or SELECTED_DATA_DIRECTORY
+    selected_runs = sorted(directory.glob("*.json"))
     if not selected_runs:
         raise FileNotFoundError(
-            f"No selected story runs found in {selected_data_directory}. "
+            f"No selected story runs found in {directory}. "
             "Run select_stories.py first."
         )
     return selected_runs[-1]
 
 
+def latest_briefing_source(summarized_data_directory=None, selected_data_directory=None):
+    """Prefer a summarized run; fall back to the latest selected run."""
+    return latest_summarized_run(summarized_data_directory) or latest_selected_run(
+        selected_data_directory
+    )
+
+
 def load_selected_run(input_path: Path) -> dict[str, object]:
-    """Load one selected run and make sure it has a story list."""
+    """Load one story run and make sure it has a story list."""
     selected_run = json.loads(input_path.read_text(encoding="utf-8"))
     if not isinstance(selected_run, dict) or not isinstance(selected_run.get("stories"), list):
         raise ValueError(f"{input_path} does not contain a 'stories' list.")
@@ -52,12 +68,21 @@ def display_date(date_stem: str) -> str:
     return datetime.strptime(date_stem, "%Y-%m-%d").strftime("%B %-d, %Y")
 
 
+def why_it_matters(story: dict[str, object]) -> str:
+    """Use the stored AI summary, or a pending placeholder."""
+    summary = story.get("ai_summary")
+    if isinstance(summary, str) and summary.strip():
+        return summary.strip()
+    return f"[AI Summary Pending: {story['headline']}]"
+
+
 def render_story(story: dict[str, object]) -> str:
-    """Render only source-supported metadata; this V1 makes no analysis claims."""
+    """Render source metadata plus a Why It Matters line under the headline."""
     topics = ", ".join(story["topics"])
     return (
         f"- [{story['headline']}]({story['link']})  \n"
-        f"  {story['source']} · {story['published_at']} · Topics: {topics}"
+        f"  {story['source']} · {story['published_at']} · Topics: {topics}  \n"
+        f"  Why It Matters: {why_it_matters(story)}"
     )
 
 
@@ -98,14 +123,14 @@ def parse_arguments() -> argparse.Namespace:
         "input_file",
         nargs="?",
         type=Path,
-        help="Selected JSON file to render. Defaults to the latest data/selected file.",
+        help="Summarized or selected JSON file to render. Defaults to summarized, then selected.",
     )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     arguments = parse_arguments()
-    input_file = arguments.input_file or latest_selected_run()
+    input_file = arguments.input_file or latest_briefing_source()
     selected_run = load_selected_run(input_file)
     saved_file = save_brief(selected_run, input_file)
     print(f"Wrote {len(selected_run['stories'])} stories.")

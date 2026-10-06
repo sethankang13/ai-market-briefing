@@ -36,10 +36,6 @@ SOURCES = [
         "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
     },
     {
-        "source": "VentureBeat AI",
-        "url": "https://venturebeat.com/category/ai/feed/",
-    },
-    {
         "source": "OpenAI News",
         "url": "https://openai.com/news/rss.xml",
     },

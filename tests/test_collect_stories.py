@@ -17,7 +17,7 @@ def google_article_link(publisher_url: str) -> str:
 
 
 class CollectStoriesTests(unittest.TestCase):
-    def test_sources_are_the_eight_v25_feeds(self):
+    def test_sources_are_the_seven_v25_feeds(self):
         names = [feed["source"] for feed in collect_stories.SOURCES]
         self.assertEqual(
             names,
@@ -27,7 +27,6 @@ class CollectStoriesTests(unittest.TestCase):
                 "AP News Policy",
                 "FT & WSJ Proxy",
                 "TechCrunch AI",
-                "VentureBeat AI",
                 "OpenAI News",
                 "Google AI Blog",
             ],

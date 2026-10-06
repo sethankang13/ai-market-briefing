@@ -84,7 +84,6 @@ We will choose the specific feeds after deciding how V1 should handle the same e
 | AP News Policy | [Google News search](https://news.google.com/rss/search?q=site:apnews.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en) |
 | FT & WSJ Proxy | [Google News search](https://news.google.com/rss/search?q=(site:ft.com+OR+site:wsj.com)+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en) |
 | TechCrunch AI | [Category feed](https://techcrunch.com/category/artificial-intelligence/feed/) |
-| VentureBeat AI | [Category feed](https://venturebeat.com/category/ai/feed/) |
 | OpenAI News | [RSS](https://openai.com/news/rss.xml) |
 | Google AI Blog | [RSS](https://blog.google/technology/ai/rss/) |
 

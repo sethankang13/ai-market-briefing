@@ -4,7 +4,7 @@ Run from the project folder:
     python3 src/summarize_stories.py
 
 Provider order:
-1. Gemini ``gemini-3.5-flash`` when ``GEMINI_API_KEY`` is set.
+1. Gemini ``gemini-3.6-flash`` when ``GEMINI_API_KEY`` is set.
 2. OpenAI ``gpt-4o-mini`` when Gemini is missing or fails and ``OPENAI_API_KEY`` is set.
 3. Otherwise pending placeholders for the headline and summary.
 
@@ -30,7 +30,7 @@ from typing import NamedTuple
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SELECTED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "selected"
 SUMMARIZED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "summarized"
-GEMINI_MODEL = "gemini-3.5-flash"
+GEMINI_MODEL = "gemini-3.6-flash"
 OPENAI_MODEL = "gpt-4o-mini"
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
@@ -44,7 +44,7 @@ SKIP_TAGS = {"script", "style", "noscript", "svg", "iframe", "nav", "header", "f
 SYSTEM_PROMPT = (
     "You write a short why-it-matters headline and one or two sentences for a personal "
     "market briefing. Use only the supplied article text when it is present. "
-    "If the article was not read, use only the headline, source, topics, and selection "
+    "If the article was not read, use only the headline, source, tags, and selection "
     "reason, and do not pretend the page was analyzed. Do not invent facts. "
     "Label market-impact or causal language as interpretation, not established fact. "
     'Return JSON only: {"ai_headline": "...", "ai_summary": "..."}.'
@@ -195,8 +195,13 @@ def read_article(url: object) -> tuple[str | None, bool]:
     parsed = urllib.parse.urlparse(url.strip())
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         return None, False
+    article_url = url.strip()
+    if "news.google.com" in parsed.netloc.lower():
+        from collect_stories import resolve_publisher_url
+
+        article_url = resolve_publisher_url(article_url)
     try:
-        text = extract_article_text(fetch_html(url.strip()))
+        text = extract_article_text(fetch_html(article_url))
     except (urllib.error.URLError, TimeoutError, OSError, ValueError):
         return None, False
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
@@ -207,12 +212,15 @@ def read_article(url: object) -> tuple[str | None, bool]:
 
 def story_prompt(story: dict[str, object], article_text: str | None, article_read: bool) -> str:
     """Build the user prompt from the article when it was read, otherwise the headline."""
-    topics = ", ".join(story.get("topics") or [])
+    labels = story.get("tags")
+    if not isinstance(labels, list):
+        labels = story.get("topics") or []
+    tags = ", ".join(label for label in labels if isinstance(label, str))
     reason = story.get("selection_reason") or "Not provided."
     lines = [
         f"Headline: {story['headline']}",
         f"Source: {story.get('source', 'Unknown')}",
-        f"Topics: {topics or 'none'}",
+        f"Tags: {tags or 'none'}",
         f"Selection reason: {reason}",
     ]
     if article_read and article_text:
@@ -223,7 +231,7 @@ def story_prompt(story: dict[str, object], article_text: str | None, article_rea
         lines.append(f"Article text:\n{article_text}")
     else:
         lines.append(
-            "The article was not read. Use only the headline, source, topics, "
+            "The article was not read. Use only the headline, source, tags, "
             "and selection reason. Do not claim the article was analyzed."
         )
     lines.append(

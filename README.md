@@ -75,15 +75,20 @@ Use one free public RSS feed from each category:
 
 We will choose the specific feeds after deciding how V1 should handle the same event appearing across multiple sources.
 
-### Selected V1 feeds
+### Selected V2.5 feeds
 
-| Category | Feed | Why it is in V1 |
-| --- | --- | --- |
-| General news | [BBC World](https://feeds.bbci.co.uk/news/world/rss.xml) | Broad international and geopolitical coverage |
-| Finance | [BBC Business](https://feeds.bbci.co.uk/news/business/rss.xml) | Accessible business, company, and market-adjacent reporting |
-| Economics | [NPR Economy](https://feeds.npr.org/1017/rss.xml) | Economic context and cost-of-living coverage |
+| Source | Feed |
+| --- | --- |
+| Reuters AI | [Google News search](https://news.google.com/rss/search?q=site:reuters.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en) |
+| CNBC Tech & Markets | [Google News search](https://news.google.com/rss/search?q=site:cnbc.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en) |
+| AP News Policy | [Google News search](https://news.google.com/rss/search?q=site:apnews.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en) |
+| FT & WSJ Proxy | [Google News search](https://news.google.com/rss/search?q=(site:ft.com+OR+site:wsj.com)+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en) |
+| TechCrunch AI | [Category feed](https://techcrunch.com/category/artificial-intelligence/feed/) |
+| VentureBeat AI | [Category feed](https://venturebeat.com/category/ai/feed/) |
+| OpenAI News | [RSS](https://openai.com/news/rss.xml) |
+| Google AI Blog | [RSS](https://blog.google/technology/ai/rss/) |
 
-These are public RSS feeds, so V1 needs no account, paid subscription, or API key. The Federal Reserve's official press-release feed is a future primary-source supplement, not one of the three general daily feeds.
+These are public RSS feeds, so the briefing needs no account or paid subscription. Each saved story keeps its headline, source, link, publication time, and RSS description. A Google News redirect is resolved to the publisher URL when the story is collected, and again before an article is fetched if the stored link is still a Google News URL. The raw JSON file is not edited after it is written.
 
 ### Availability behavior
 
@@ -95,18 +100,24 @@ If a feed is unavailable, continue with the other feeds. The eventual email will
 - Show a short preview rather than the whole raw collection.
 - In V1, use repeated independent coverage as a possible importance signal. RSS feeds do not reliably provide article view counts, so popularity is a future enhancement rather than a V1 rule.
 - Keep source records unchanged and create a separate enriched collection for derived tags. This preserves the evidence while allowing tagging rules to improve over time.
-- Tag stories that match none of the initial topic rules as `misc`. The reader still sees only selected stories, not the full raw collection.
-- Reserve at most one email slot for a `misc` story. In V1, it is a candidate for a conversationally interesting item; RSS does not provide a reliable virality measure, so popularity scoring is a future enhancement.
+- Leave `tags` as an empty list when no keyword matches. The reader still sees only selected stories, not the full raw collection.
+- An untagged story cannot take a top-five slot from a tagged story, and the selected set keeps at most one untagged story.
 
-### Initial tag rules
+### V2.5 tag rules
 
-- `oil`: “oil” or “crude” appears in the headline. Oil stories also receive the broader `energy` tag.
-- `energy`: “energy,” “solar,” or “nuclear” appears in the headline.
-- `technology`: a relevant technology term appears; energy technologies may receive both `energy` and `technology`.
-- `policy`: central-bank/rate decisions, inflation, tariffs and trade restrictions, tax-policy phrases (for example, “new taxes” or “tax cuts”), sanctions, government spending, or budgets appear in the headline. A generic reference to tax, such as “tax exile,” does not qualify.
-- `misc`: no initial topic rule matched. This preserves an avenue for a worthwhile but otherwise uncategorized story.
+Keyword matching looks at the headline and the RSS description. A story can receive several of these labels:
 
-Tags are lists, so a story can belong to more than one topic and can later be queried by one tag or a combination.
+- `Market-Valuations`: earnings, stock, market cap, valuation
+- `Venture-&-M&A`: funding, venture, acquisition, seed, valuation
+- `Legislation-&-Policy`: bill, law, government, executive order, policy
+- `Antitrust-&-Compliance`: FTC, regulation, EU AI Act, probe, investigation
+- `Copyright-&-IP`: copyright, lawsuit, licensing, data scraping, IP
+- `Geopolitics-&-Trade`: export controls, chips, sanctions, China, national security
+- `Labor-&-Economy`: jobs, workforce, productivity, economy, lay-offs
+- `Enterprise-Adoption`: enterprise, ROI, corporate, B2B, SaaS
+- `Foundation-Models`: LLM, GPT, Claude, Gemini, weights, benchmark
+
+Tags are a list of those strings. A word such as “valuation” can match more than one label. When nothing matches, the list is empty.
 
 ### Tag-history decision
 
@@ -131,7 +142,7 @@ ai-market-briefing/
 ├── README.md            # roadmap and decisions
 ├── src/                 # the small programs we build together
 ├── data/raw/            # saved incoming story data, if we choose to retain it
-├── data/enriched/       # saved copies with derived topic tags
+├── data/enriched/       # saved copies with derived tags
 ├── data/selected/       # saved top-story candidates and their score explanation
 ├── data/summarized/     # selected stories plus AI Why It Matters text
 └── briefs/              # generated readable daily briefings
@@ -151,7 +162,7 @@ After collecting a run, create its tagged copy with:
 python3 src/enrich_stories.py
 ```
 
-The program chooses the latest file in `data/raw/`, adds a `topics` list to each story, and saves the result under `data/enriched/` with the same date-based filename. It never changes the raw run. To re-enrich a specific historical run, pass its path, for example `python3 src/enrich_stories.py data/raw/2026-09-20.json`.
+The program chooses the latest file in `data/raw/`, adds a `tags` list to each story from the headline and description, and saves the result under `data/enriched/` with the same date-based filename. It never changes the raw run. To re-enrich a specific historical run, pass its path, for example `python3 src/enrich_stories.py data/raw/2026-09-20.json`.
 
 ## Current selection step
 
@@ -161,7 +172,7 @@ Create up to five briefing candidates from the latest enriched run with:
 python3 src/select_stories.py
 ```
 
-The initial ranking is deliberately simple and visible: `oil` is worth 5 points, `policy` 4, `energy` 3, and `technology` 2. A story's score is the sum of its tags, and ties retain the original feed order. The selected copy includes both the score and a short rule-based reason. The selected set is the top five by that score, plus the highest-scoring story for each tag that appears that day. One story can cover more than one tag, a missing tag is skipped, and the list can be longer than five. A `misc` story still cannot take a top-five slot from a tagged story, and the whole set keeps at most one misc story.
+Each assigned tag is worth one point, and a story's score is the count of its tags. Ties retain the original feed order. The selected copy includes both the score and a short rule-based reason. The selected set is the top five by that score, plus the highest-scoring story for each tag that appears that day. One story can cover more than one tag, a missing tag is skipped, and the list can be longer than five. An untagged story still cannot take a top-five slot from a tagged story, and the whole set keeps at most one untagged story.
 
 ## Current summarization step (V2)
 
@@ -171,7 +182,7 @@ Create AI "Why It Matters" copy from the latest selected run with:
 python3 src/summarize_stories.py
 ```
 
-The program reads `data/selected/YYYY-MM-DD.json` and writes `data/summarized/YYYY-MM-DD.json`, creating `data/summarized/` if it does not exist. For each story it fetches `link` with the standard library, extracts readable article text, and sends a capped excerpt to the model. If the fetch or extract fails, the model sees only the headline, source, topics, and selection reason, and the story records `article_read: false` with `Article was not read.` Gemini `gemini-3.5-flash` is used when `GEMINI_API_KEY` is set. A plain `python3 src/run_briefing.py` or `python3 src/summarize_stories.py` loads a gitignored `.env` in the project root first, and does not replace a value already set in the shell. It returns `ai_headline` (a short line that states why the story matters) and `ai_summary` (one or two sentences). Market-impact language is labeled as interpretation. OpenAI `gpt-4o-mini` is the fallback. With no usable key, the story stores `[AI Headline Pending: <Headline>]` and `[AI Summary Pending: <Headline>]`. Selected files are left unchanged.
+The program reads `data/selected/YYYY-MM-DD.json` and writes `data/summarized/YYYY-MM-DD.json`, creating `data/summarized/` if it does not exist. For each story it fetches `link` with the standard library, extracts readable article text, and sends a capped excerpt to the model. If the fetch or extract fails, the model sees only the headline, source, tags, and selection reason, and the story records `article_read: false` with `Article was not read.` Gemini `gemini-3.6-flash` is used when `GEMINI_API_KEY` is set. A plain `python3 src/run_briefing.py` or `python3 src/summarize_stories.py` loads a gitignored `.env` in the project root first, and does not replace a value already set in the shell. It returns `ai_headline` (a short line that states why the story matters) and `ai_summary` (one or two sentences) from the article text. Market-impact language is labeled as interpretation. OpenAI `gpt-4o-mini` is the fallback. With no usable key, the story stores `[AI Headline Pending: <Headline>]` and `[AI Summary Pending: <Headline>]`. Selected files are left unchanged.
 
 ## Current writing step
 
@@ -181,7 +192,7 @@ Create a readable Markdown briefing from the latest summarized run (or selected 
 python3 src/write_brief.py
 ```
 
-The briefing groups stories into Policy & economics, Energy, Technology, and Interesting aside. Stories with more than one tag appear once, under their most decision-relevant section, while displaying all their tags. When `ai_headline` is present, that line leads, followed by the original headline and link, the source, time, and tags, then **Why It Matters:** from `ai_summary`. Stories without `ai_headline` keep the original headline as the first line.
+The briefing groups stories by the V2.5 tag labels, then Other. Stories with more than one tag appear once, under the first matching label in that order, while displaying every assigned tag. When `ai_headline` is present, that line leads, followed by the original headline and link, then an italic line such as `*Tags: #Legislation-&-Policy #Enterprise-Adoption*`, then **Why It Matters:** from `ai_summary`. Stories without `ai_headline` keep the original headline as the first line.
 
 ## Rules for this project
 

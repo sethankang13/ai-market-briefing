@@ -8,18 +8,12 @@ import argparse
 import json
 from pathlib import Path
 
+from tag_stories import TAG_LABELS
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENRICHED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "enriched"
 SELECTED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "selected"
-TOPIC_SCORES = {
-    "oil": 5,
-    "policy": 4,
-    "energy": 3,
-    "technology": 2,
-    "misc": 0,
-}
-TAG_ORDER = ("policy", "oil", "energy", "technology", "misc")
 MAX_STORIES = 5
 
 
@@ -35,27 +29,35 @@ def latest_enriched_run(enriched_data_directory: Path = ENRICHED_DATA_DIRECTORY)
 
 
 def load_enriched_run(input_path: Path) -> dict[str, object]:
-    """Load one enriched run and make sure its stories have topic lists."""
+    """Load one enriched run and make sure its stories have tag lists."""
     enriched_run = json.loads(input_path.read_text(encoding="utf-8"))
     stories = enriched_run.get("stories") if isinstance(enriched_run, dict) else None
     if not isinstance(stories, list) or any(
-        not isinstance(story.get("topics"), list) for story in stories
+        not isinstance(story.get("tags"), list) for story in stories
     ):
-        raise ValueError(f"{input_path} does not contain stories with topic lists.")
+        raise ValueError(f"{input_path} does not contain stories with tag lists.")
     return enriched_run
 
 
+def story_tags(story: dict[str, object]) -> list[str]:
+    """Return the story's tags, treating a missing list as untagged."""
+    tags = story.get("tags")
+    if not isinstance(tags, list):
+        return []
+    return [tag for tag in tags if isinstance(tag, str)]
+
+
 def score_story(story: dict[str, object]) -> int:
-    """Score one story only from its transparent, previously derived topics."""
-    return sum(TOPIC_SCORES.get(topic, 0) for topic in story["topics"])
+    """Score one story as the count of its real tags. Ties keep feed order."""
+    return sum(1 for tag in story_tags(story) if tag != "misc")
 
 
 def selection_reason(story: dict[str, object]) -> str:
     """Give the reader a short explanation of why this story ranked here."""
-    ranked_topics = [topic for topic in story["topics"] if topic != "misc"]
-    if not ranked_topics:
-        return "Interesting aside; no current market-topic rule matched."
-    return "Matched: " + ", ".join(ranked_topics) + "."
+    matched = [tag for tag in story_tags(story) if tag != "misc"]
+    if not matched:
+        return "No tag matched."
+    return "Matched: " + ", ".join(matched) + "."
 
 
 def _ranked_indexes(stories: list[dict[str, object]], indexes: list[int]) -> list[int]:
@@ -63,8 +65,9 @@ def _ranked_indexes(stories: list[dict[str, object]], indexes: list[int]) -> lis
     return sorted(indexes, key=lambda index: (-score_story(stories[index]), index))
 
 
-def _is_misc(story: dict[str, object]) -> bool:
-    return story["topics"] == ["misc"]
+def _is_untagged(story: dict[str, object]) -> bool:
+    tags = [tag for tag in story_tags(story) if tag != "misc"]
+    return not tags
 
 
 def select_stories(
@@ -72,40 +75,36 @@ def select_stories(
 ) -> list[dict[str, object]]:
     """Select the top stories by score, plus the best story for each tag present.
 
-    The top ``maximum`` slots still prefer tagged stories. A misc story fills a
-    leftover slot and can also represent the misc tag, but the whole set keeps
-    at most one misc story. Equal scores keep their original feed order.
+    The top ``maximum`` slots still prefer tagged stories. An untagged story fills
+    a leftover slot only, and the whole set keeps at most one untagged story.
+    Each real tag is worth one point. Equal scores keep their original feed order.
     """
     consequential = [
-        index for index, story in enumerate(stories) if not _is_misc(story)
+        index for index, story in enumerate(stories) if not _is_untagged(story)
     ]
     selected_indexes = _ranked_indexes(stories, consequential)[:maximum]
 
     if len(selected_indexes) < maximum:
-        misc_index = next(
-            (index for index, story in enumerate(stories) if _is_misc(story)),
+        untagged_index = next(
+            (index for index, story in enumerate(stories) if _is_untagged(story)),
             None,
         )
-        if misc_index is not None:
-            selected_indexes.append(misc_index)
+        if untagged_index is not None:
+            selected_indexes.append(untagged_index)
 
     selected = set(selected_indexes)
-    for tag in TAG_ORDER:
-        tagged = [
-            index for index, story in enumerate(stories) if tag in story["topics"]
-        ]
+    for tag in TAG_LABELS:
+        tagged = [index for index, story in enumerate(stories) if tag in story_tags(story)]
         if not tagged:
             continue
         best_index = _ranked_indexes(stories, tagged)[0]
-        if tag == "misc" and any(_is_misc(stories[index]) for index in selected):
-            continue
         selected.add(best_index)
 
-    misc_indexes = [index for index in selected if _is_misc(stories[index])]
-    if len(misc_indexes) > 1:
-        kept_misc = _ranked_indexes(stories, misc_indexes)[0]
+    untagged_indexes = [index for index in selected if _is_untagged(stories[index])]
+    if len(untagged_indexes) > 1:
+        kept = _ranked_indexes(stories, untagged_indexes)[0]
         selected = {
-            index for index in selected if not _is_misc(stories[index]) or index == kept_misc
+            index for index in selected if not _is_untagged(stories[index]) or index == kept
         }
 
     return [

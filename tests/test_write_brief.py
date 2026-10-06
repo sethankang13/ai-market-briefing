@@ -11,7 +11,7 @@ from write_brief import latest_briefing_source, render_brief, section_for_story
 
 def story(
     headline: str,
-    topics: list[str],
+    tags: list[str],
     ai_summary: str | None = None,
     ai_headline: str | None = None,
 ) -> dict[str, object]:
@@ -20,7 +20,7 @@ def story(
         "source": "Example News",
         "link": "https://example.com/story",
         "published_at": "Today",
-        "topics": topics,
+        "tags": tags,
     }
     if ai_summary is not None:
         item["ai_summary"] = ai_summary
@@ -30,63 +30,69 @@ def story(
 
 
 class WriteBriefTests(unittest.TestCase):
-    def test_multi_topic_story_uses_one_primary_section(self):
+    def test_multi_tag_story_uses_one_primary_section(self):
         self.assertEqual(
-            section_for_story(story("Rates and energy", ["energy", "policy"])),
-            "Policy & economics",
+            section_for_story(
+                story("Adoption and policy", ["Enterprise-Adoption", "Legislation-&-Policy"])
+            ),
+            "Legislation-&-Policy",
         )
         self.assertEqual(
-            section_for_story(story("Oil rises", ["oil", "energy"])),
-            "Energy",
+            section_for_story(story("New model", ["Foundation-Models"])),
+            "Foundation-Models",
         )
 
     def test_brief_groups_stories_and_keeps_the_source_link(self):
         briefing = render_brief(
             {"stories": [
-                story("Rates rise", ["policy"], "Policy changes can move rates."),
-                story("Oil rises", ["oil", "energy"], "Energy prices may follow."),
+                story("Bill advances", ["Legislation-&-Policy"], "The bill can change compliance."),
+                story("Model release", ["Foundation-Models"], "Benchmarks may shift adoption."),
             ]},
             "2026-09-20",
         )
 
         self.assertIn("# AI Market Briefing — September 20, 2026", briefing)
-        self.assertLess(briefing.index("## Policy & economics"), briefing.index("## Energy"))
-        self.assertIn("[Rates rise](https://example.com/story)", briefing)
-        self.assertIn("Topics: oil, energy", briefing)
-        self.assertIn("Why It Matters: Policy changes can move rates.", briefing)
-        self.assertIn("Why It Matters: Energy prices may follow.", briefing)
-        self.assertNotIn("## Technology", briefing)
-        rates_bullet = next(line for line in briefing.splitlines() if "Rates rise" in line)
-        self.assertTrue(rates_bullet.startswith("- [Rates rise]("))
+        self.assertLess(
+            briefing.index("## Legislation-&-Policy"),
+            briefing.index("## Foundation-Models"),
+        )
+        self.assertIn("[Bill advances](https://example.com/story)", briefing)
+        self.assertIn("*Tags: #Foundation-Models*", briefing)
+        self.assertIn("Why It Matters: The bill can change compliance.", briefing)
+        self.assertIn("Why It Matters: Benchmarks may shift adoption.", briefing)
+        self.assertNotIn("## Enterprise-Adoption", briefing)
+        bill_line = next(line for line in briefing.splitlines() if "Bill advances" in line)
+        self.assertTrue(bill_line.startswith("- [Bill advances]("))
 
-    def test_ai_headline_leads_and_source_headline_follows(self):
+    def test_ai_headline_leads_then_source_then_tags(self):
         briefing = render_brief(
             {
                 "stories": [
                     story(
-                        "Rates rise",
-                        ["policy"],
-                        "Policy changes can move rates.",
-                        ai_headline="Rate guidance is the market risk",
+                        "Bill advances",
+                        ["Legislation-&-Policy", "Enterprise-Adoption"],
+                        "The bill can change compliance.",
+                        ai_headline="A policy shift for enterprise AI",
                     )
                 ]
             },
             "2026-09-20",
         )
 
-        ai_at = briefing.index("Rate guidance is the market risk")
-        source_at = briefing.index("[Rates rise](https://example.com/story)")
-        why_at = briefing.index("Why It Matters: Policy changes can move rates.")
+        ai_at = briefing.index("A policy shift for enterprise AI")
+        source_at = briefing.index("[Bill advances](https://example.com/story)")
+        tags_at = briefing.index("*Tags: #Legislation-&-Policy #Enterprise-Adoption*")
+        why_at = briefing.index("Why It Matters: The bill can change compliance.")
         self.assertLess(ai_at, source_at)
-        self.assertLess(source_at, why_at)
-        self.assertLess(source_at, briefing.index("Example News · Today · Topics: policy"))
+        self.assertLess(source_at, tags_at)
+        self.assertLess(tags_at, why_at)
 
     def test_missing_ai_summary_uses_pending_placeholder(self):
         briefing = render_brief(
-            {"stories": [story("Rates rise", ["policy"])]},
+            {"stories": [story("Bill advances", ["Legislation-&-Policy"])]},
             "2026-09-20",
         )
-        self.assertIn("Why It Matters: [AI Summary Pending: Rates rise]", briefing)
+        self.assertIn("Why It Matters: [AI Summary Pending: Bill advances]", briefing)
 
     def test_latest_briefing_source_prefers_summarized_over_selected(self):
         with tempfile.TemporaryDirectory() as temp_dir:

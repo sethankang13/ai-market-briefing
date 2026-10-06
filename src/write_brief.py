@@ -10,11 +10,14 @@ from datetime import datetime
 from pathlib import Path
 
 
+from tag_stories import TAG_LABELS
+
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SUMMARIZED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "summarized"
 SELECTED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "selected"
 BRIEFS_DIRECTORY = PROJECT_ROOT / "briefs"
-SECTION_ORDER = ("Policy & economics", "Energy", "Technology", "Interesting aside")
+SECTION_ORDER = TAG_LABELS + ("Other",)
 
 
 def latest_summarized_run(summarized_data_directory=None):
@@ -51,16 +54,29 @@ def load_selected_run(input_path: Path) -> dict[str, object]:
     return selected_run
 
 
+def story_tags(story: dict[str, object]) -> list[str]:
+    """Return assigned tags, ignoring a missing or non-list value."""
+    tags = story.get("tags")
+    if not isinstance(tags, list):
+        return []
+    return [tag for tag in tags if isinstance(tag, str) and tag]
+
+
 def section_for_story(story: dict[str, object]) -> str:
-    """Choose one reader-facing section while retaining every topic label."""
-    topics = story["topics"]
-    if "policy" in topics:
-        return "Policy & economics"
-    if "oil" in topics or "energy" in topics:
-        return "Energy"
-    if "technology" in topics:
-        return "Technology"
-    return "Interesting aside"
+    """Choose one section from the first assigned tag in the V2.5 label order."""
+    tags = story_tags(story)
+    for label in TAG_LABELS:
+        if label in tags:
+            return label
+    return "Other"
+
+
+def tags_line(story: dict[str, object]) -> str:
+    """Render the italic tag line under the story title."""
+    hashes = " ".join(f"#{tag}" for tag in story_tags(story))
+    if hashes:
+        return f"  *Tags: {hashes}*  "
+    return "  *Tags:*  "
 
 
 def display_date(date_stem: str) -> str:
@@ -77,20 +93,14 @@ def why_it_matters(story: dict[str, object]) -> str:
 
 
 def render_story(story: dict[str, object]) -> str:
-    """Lead with the AI headline when present, then the original source line."""
-    topics = ", ".join(story["topics"])
+    """Lead with the AI headline, then the source headline, tags, and why it matters."""
     source_link = f"[{story['headline']}]({story['link']})"
-    meta = f"  {story['source']} · {story['published_at']} · Topics: {topics}  \n"
     why = f"  Why It Matters: {why_it_matters(story)}"
+    body = f"  {source_link}  \n{tags_line(story)}\n{why}"
     ai_headline = story.get("ai_headline")
     if isinstance(ai_headline, str) and ai_headline.strip():
-        return (
-            f"- {ai_headline.strip()}  \n"
-            f"  {source_link}  \n"
-            f"{meta}"
-            f"{why}"
-        )
-    return f"- {source_link}  \n{meta}{why}"
+        return f"- {ai_headline.strip()}  \n{body}"
+    return f"- {source_link}  \n{tags_line(story)}\n{why}"
 
 
 def render_brief(selected_run: dict[str, object], date_stem: str) -> str:

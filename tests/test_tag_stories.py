@@ -5,44 +5,39 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from tag_stories import enrich_story, has_all_topics, tags_for_headline
+from tag_stories import enrich_story, has_all_topics, tags_for_text
 
 
 class TagStoriesTests(unittest.TestCase):
-    def test_oil_is_part_of_the_broader_energy_sector(self):
-        self.assertEqual(tags_for_headline("Crude oil prices rise"), ["oil", "energy"])
-        self.assertEqual(tags_for_headline("Solar energy investment grows"), ["energy"])
-
-    def test_technology_can_overlap_with_energy(self):
-        headline = "New solar technology improves battery storage"
-        self.assertEqual(tags_for_headline(headline), ["energy", "technology"])
-
-    def test_policy_catches_rates_and_trade_measures(self):
+    def test_valuation_matches_market_and_venture_tags(self):
         self.assertEqual(
-            tags_for_headline("Fed signals interest rates may remain elevated"),
-            ["policy"],
+            tags_for_text("Startup valuation jumps after earnings"),
+            ["Market-Valuations", "Venture-&-M&A"],
         )
 
-    def test_policy_requires_a_clear_tax_policy_phrase(self):
-        self.assertEqual(tags_for_headline("Government announces new taxes"), ["policy"])
+    def test_description_can_add_a_tag_the_headline_misses(self):
         self.assertEqual(
-            tags_for_headline("Owner criticised over tax exile"),
-            ["misc"],
+            tags_for_text("Company update", "Regulators opened an FTC probe."),
+            ["Antitrust-&-Compliance"],
         )
 
-    def test_unmatched_headline_is_preserved_as_misc(self):
+    def test_foundation_models_match_model_names(self):
         self.assertEqual(
-            tags_for_headline("A remarkable art installation opens downtown"),
-            ["misc"],
+            tags_for_text("Claude benchmark beats a Gemini model"),
+            ["Foundation-Models"],
         )
-        self.assertEqual(
-            tags_for_headline("New tariffs raise trade concerns"),
-            ["policy"],
-        )
+
+    def test_layoffs_match_the_labor_tag(self):
+        self.assertIn("Labor-&-Economy", tags_for_text("AI layoffs hit the workforce"))
+        self.assertIn("Labor-&-Economy", tags_for_text("Company announces lay-offs"))
+
+    def test_unmatched_text_gets_an_empty_tag_list(self):
+        self.assertEqual(tags_for_text("A remarkable art installation opens"), [])
 
     def test_enrichment_keeps_the_raw_story_fields(self):
         raw_story = {
-            "headline": "Energy markets react to new technology",
+            "headline": "Government policy bill advances",
+            "description": "Enterprise SaaS teams are watching.",
             "source": "Example News",
             "link": "https://example.com/story",
             "published_at": "Today",
@@ -51,13 +46,23 @@ class TagStoriesTests(unittest.TestCase):
         enriched_story = enrich_story(raw_story)
 
         self.assertEqual(enriched_story["source"], "Example News")
-        self.assertEqual(enriched_story["topics"], ["energy", "technology"])
+        self.assertEqual(enriched_story["description"], raw_story["description"])
+        self.assertEqual(
+            enriched_story["tags"],
+            ["Legislation-&-Policy", "Enterprise-Adoption"],
+        )
+        self.assertNotIn("tags", raw_story)
 
     def test_a_combined_query_requires_every_tag(self):
-        story = enrich_story({"headline": "Crude oil and energy technology"})
+        story = enrich_story(
+            {
+                "headline": "Copyright lawsuit follows data scraping",
+                "description": "The EU AI Act investigation continues.",
+            }
+        )
 
-        self.assertTrue(has_all_topics(story, {"oil", "energy"}))
-        self.assertFalse(has_all_topics(story, {"oil", "technology", "policy"}))
+        self.assertTrue(has_all_topics(story, {"Copyright-&-IP", "Antitrust-&-Compliance"}))
+        self.assertFalse(has_all_topics(story, {"Copyright-&-IP", "Foundation-Models"}))
 
 
 if __name__ == "__main__":

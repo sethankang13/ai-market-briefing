@@ -24,7 +24,8 @@ class EnrichStoriesTests(unittest.TestCase):
         raw_run = {
             "stories": [
                 {
-                    "headline": "Crude oil rises after trade restrictions",
+                    "headline": "Government policy bill advances",
+                    "description": "Enterprise teams want a clearer law.",
                     "source": "Example News",
                     "link": "https://example.com/story",
                     "published_at": "Today",
@@ -50,7 +51,11 @@ class EnrichStoriesTests(unittest.TestCase):
         self.assertEqual(raw_run["stories"][0], original_story)
         self.assertEqual(saved_run["raw_run"], "2026-09-20.json")
         self.assertEqual(saved_run["failed_sources"], ["NPR Economy"])
-        self.assertEqual(saved_run["stories"][0]["topics"], ["oil", "energy", "policy"])
+        self.assertEqual(
+            saved_run["stories"][0]["tags"],
+            ["Legislation-&-Policy", "Enterprise-Adoption"],
+        )
+        self.assertEqual(saved_run["stories"][0]["headline"], original_story["headline"])
 
 
 if __name__ == "__main__":

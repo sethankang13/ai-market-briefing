@@ -153,7 +153,7 @@ class SummarizeStoriesTests(unittest.TestCase):
         self.assertIn("shipping delays", prompt)
         self.assertNotIn("The article was not read", prompt)
         self.assertIn("generativelanguage.googleapis.com", post_json.call_args.args[0])
-        self.assertIn("gemini-3.5-flash", post_json.call_args.args[0])
+        self.assertIn("gemini-3.6-flash", post_json.call_args.args[0])
         self.assertEqual(post_json.call_args.args[2]["x-goog-api-key"], "gemini-test")
         self.assertNotIn("key=", post_json.call_args.args[0])
         self.assertEqual(

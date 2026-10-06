@@ -9,7 +9,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from write_brief import latest_briefing_source, render_brief, section_for_story
 
 
-def story(headline: str, topics: list[str], ai_summary: str | None = None) -> dict[str, object]:
+def story(
+    headline: str,
+    topics: list[str],
+    ai_summary: str | None = None,
+    ai_headline: str | None = None,
+) -> dict[str, object]:
     item = {
         "headline": headline,
         "source": "Example News",
@@ -19,6 +24,8 @@ def story(headline: str, topics: list[str], ai_summary: str | None = None) -> di
     }
     if ai_summary is not None:
         item["ai_summary"] = ai_summary
+    if ai_headline is not None:
+        item["ai_headline"] = ai_headline
     return item
 
 
@@ -49,6 +56,30 @@ class WriteBriefTests(unittest.TestCase):
         self.assertIn("Why It Matters: Policy changes can move rates.", briefing)
         self.assertIn("Why It Matters: Energy prices may follow.", briefing)
         self.assertNotIn("## Technology", briefing)
+        rates_bullet = next(line for line in briefing.splitlines() if "Rates rise" in line)
+        self.assertTrue(rates_bullet.startswith("- [Rates rise]("))
+
+    def test_ai_headline_leads_and_source_headline_follows(self):
+        briefing = render_brief(
+            {
+                "stories": [
+                    story(
+                        "Rates rise",
+                        ["policy"],
+                        "Policy changes can move rates.",
+                        ai_headline="Rate guidance is the market risk",
+                    )
+                ]
+            },
+            "2026-09-20",
+        )
+
+        ai_at = briefing.index("Rate guidance is the market risk")
+        source_at = briefing.index("[Rates rise](https://example.com/story)")
+        why_at = briefing.index("Why It Matters: Policy changes can move rates.")
+        self.assertLess(ai_at, source_at)
+        self.assertLess(source_at, why_at)
+        self.assertLess(source_at, briefing.index("Example News · Today · Topics: policy"))
 
     def test_missing_ai_summary_uses_pending_placeholder(self):
         briefing = render_brief(

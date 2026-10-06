@@ -77,13 +77,20 @@ def why_it_matters(story: dict[str, object]) -> str:
 
 
 def render_story(story: dict[str, object]) -> str:
-    """Render source metadata plus a Why It Matters line under the headline."""
+    """Lead with the AI headline when present, then the original source line."""
     topics = ", ".join(story["topics"])
-    return (
-        f"- [{story['headline']}]({story['link']})  \n"
-        f"  {story['source']} · {story['published_at']} · Topics: {topics}  \n"
-        f"  Why It Matters: {why_it_matters(story)}"
-    )
+    source_link = f"[{story['headline']}]({story['link']})"
+    meta = f"  {story['source']} · {story['published_at']} · Topics: {topics}  \n"
+    why = f"  Why It Matters: {why_it_matters(story)}"
+    ai_headline = story.get("ai_headline")
+    if isinstance(ai_headline, str) and ai_headline.strip():
+        return (
+            f"- {ai_headline.strip()}  \n"
+            f"  {source_link}  \n"
+            f"{meta}"
+            f"{why}"
+        )
+    return f"- {source_link}  \n{meta}{why}"
 
 
 def render_brief(selected_run: dict[str, object], date_stem: str) -> str:

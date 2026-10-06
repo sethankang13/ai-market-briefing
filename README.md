@@ -171,7 +171,7 @@ Create AI "Why It Matters" copy from the latest selected run with:
 python3 src/summarize_stories.py
 ```
 
-The program reads `data/selected/YYYY-MM-DD.json` and writes `data/summarized/YYYY-MM-DD.json`, creating `data/summarized/` if it does not exist. It tries Gemini `gemini-3.6-flash` when `GEMINI_API_KEY` is set, falls back to OpenAI `gpt-4o-mini` when `OPENAI_API_KEY` is set, and otherwise stores `[AI Summary Pending: <Headline>]`. Selected files are left unchanged.
+The program reads `data/selected/YYYY-MM-DD.json` and writes `data/summarized/YYYY-MM-DD.json`, creating `data/summarized/` if it does not exist. For each story it fetches `link` with the standard library, extracts readable article text, and sends a capped excerpt to the model. If the fetch or extract fails, the model sees only the headline, source, topics, and selection reason, and the story records `article_read: false` with `Article was not read.` Gemini `gemini-3.6-flash` is used when `GEMINI_API_KEY` is set. It returns `ai_headline` (a short line that states why the story matters) and `ai_summary` (one or two sentences). Market-impact language is labeled as interpretation. OpenAI `gpt-4o-mini` is the fallback. With no usable key, the story stores `[AI Headline Pending: <Headline>]` and `[AI Summary Pending: <Headline>]`. Selected files are left unchanged.
 
 ## Current writing step
 
@@ -181,7 +181,7 @@ Create a readable Markdown briefing from the latest summarized run (or selected 
 python3 src/write_brief.py
 ```
 
-The briefing groups stories into Policy & economics, Energy, Technology, and Interesting aside. Stories with more than one tag appear once, under their most decision-relevant section, while displaying all their tags. Each headline is followed by a **Why It Matters:** line from `ai_summary`.
+The briefing groups stories into Policy & economics, Energy, Technology, and Interesting aside. Stories with more than one tag appear once, under their most decision-relevant section, while displaying all their tags. When `ai_headline` is present, that line leads, followed by the original headline and link, the source, time, and tags, then **Why It Matters:** from `ai_summary`. Stories without `ai_headline` keep the original headline as the first line.
 
 ## Rules for this project
 

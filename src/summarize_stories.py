@@ -1,4 +1,4 @@
-"""Add AI "Why It Matters" summaries to a selected story run.
+"""Add AI headlines and Why It Matters summaries from article text.
 
 Run from the project folder:
     python3 src/summarize_stories.py
@@ -6,7 +6,11 @@ Run from the project folder:
 Provider order:
 1. Gemini ``gemini-3.6-flash`` when ``GEMINI_API_KEY`` is set.
 2. OpenAI ``gpt-4o-mini`` when Gemini is missing or fails and ``OPENAI_API_KEY`` is set.
-3. Otherwise a mock placeholder: ``[AI Summary Pending: <Headline>]``.
+3. Otherwise pending placeholders for the headline and summary.
+
+Each story's ``link`` is fetched with the standard library. Readable article text
+is capped before it is sent. If the fetch or extract fails, the model sees only
+the headline fields and the story records that the article was not read.
 """
 
 from __future__ import annotations
@@ -14,9 +18,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import urllib.error
+import urllib.parse
 import urllib.request
+from html.parser import HTMLParser
 from pathlib import Path
+from typing import NamedTuple
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -29,12 +37,95 @@ GEMINI_URL = (
     f"{GEMINI_MODEL}:generateContent"
 )
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+MAX_ARTICLE_CHARS = 12000
+MIN_ARTICLE_CHARS = 80
+ARTICLE_NOT_READ = "Article was not read."
+SKIP_TAGS = {"script", "style", "noscript", "svg", "iframe", "nav", "header", "footer", "form"}
 SYSTEM_PROMPT = (
-    "You write one or two sentences of Why It Matters for a personal market briefing. "
-    "Use only the supplied headline, source, topics, and selection reason. "
-    "Do not invent facts. Treat market-impact or causal language as interpretation, "
-    "not established fact. Return plain text only."
+    "You write a short why-it-matters headline and one or two sentences for a personal "
+    "market briefing. Use only the supplied article text when it is present. "
+    "If the article was not read, use only the headline, source, topics, and selection "
+    "reason, and do not pretend the page was analyzed. Do not invent facts. "
+    "Label market-impact or causal language as interpretation, not established fact. "
+    'Return JSON only: {"ai_headline": "...", "ai_summary": "..."}.'
 )
+
+
+class ModelCopy(NamedTuple):
+    """Headline, summary, provider, and whether the article text was read."""
+
+    ai_headline: str
+    ai_summary: str
+    provider: str
+    article_read: bool
+
+
+class ArticleTextParser(HTMLParser):
+    """Collect visible text, preferring ``article`` and then ``main``."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.skip_depth = 0
+        self.article_depth = 0
+        self.main_depth = 0
+        self.in_body = False
+        self.article_parts: list[str] = []
+        self.main_parts: list[str] = []
+        self.body_parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag = tag.lower()
+        if tag in SKIP_TAGS:
+            self.skip_depth += 1
+            return
+        if self.skip_depth:
+            return
+        if tag == "body":
+            self.in_body = True
+        elif tag == "article":
+            self.article_depth += 1
+        elif tag == "main":
+            self.main_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+        if tag in SKIP_TAGS:
+            if self.skip_depth:
+                self.skip_depth -= 1
+            return
+        if self.skip_depth:
+            return
+        if tag == "body":
+            self.in_body = False
+        elif tag == "article" and self.article_depth:
+            self.article_depth -= 1
+        elif tag == "main" and self.main_depth:
+            self.main_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if self.skip_depth:
+            return
+        text = " ".join(data.split())
+        if not text:
+            return
+        if self.article_depth:
+            self.article_parts.append(text)
+        elif self.main_depth:
+            self.main_parts.append(text)
+        elif self.in_body:
+            self.body_parts.append(text)
+
+    @property
+    def article_text(self) -> str:
+        return "\n".join(self.article_parts).strip()
+
+    @property
+    def main_text(self) -> str:
+        return "\n".join(self.main_parts).strip()
+
+    @property
+    def body_text(self) -> str:
+        return "\n".join(self.body_parts).strip()
 
 
 def latest_selected_run(
@@ -60,22 +151,86 @@ def load_selected_run(input_path: Path) -> dict[str, object]:
     return selected_run
 
 
+def mock_headline(headline: str) -> str:
+    """Return a visible headline placeholder when no model copy is available."""
+    return f"[AI Headline Pending: {headline}]"
+
+
 def mock_summary(headline: str) -> str:
-    """Return a visible placeholder when no usable API key is available."""
+    """Return a visible summary placeholder when no model copy is available."""
     return f"[AI Summary Pending: {headline}]"
 
 
-def story_prompt(story: dict[str, object]) -> str:
-    """Build the user prompt from source-supported selected-story fields."""
+def extract_article_text(html: str) -> str:
+    """Return readable text from HTML, preferring the article element."""
+    parser = ArticleTextParser()
+    parser.feed(html)
+    parser.close()
+    return parser.article_text or parser.main_text or parser.body_text
+
+
+def cap_article_text(text: str) -> str:
+    """Limit how much article text is sent to the model."""
+    if len(text) <= MAX_ARTICLE_CHARS:
+        return text
+    return text[:MAX_ARTICLE_CHARS].rstrip() + "\n[Article text truncated]"
+
+
+def fetch_html(url: str) -> str:
+    """Download one article page. Isolated so tests can mock it."""
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "AI-Market-Briefing/0.1"},
+    )
+    with urllib.request.urlopen(request, timeout=20) as response:
+        raw = response.read(2_000_000)
+        charset = response.headers.get_content_charset() or "utf-8"
+    return raw.decode(charset, errors="replace")
+
+
+def read_article(url: object) -> tuple[str | None, bool]:
+    """Fetch and extract article text. Failure means the article was not read."""
+    if not isinstance(url, str) or not url.strip():
+        return None, False
+    parsed = urllib.parse.urlparse(url.strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None, False
+    try:
+        text = extract_article_text(fetch_html(url.strip()))
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+        return None, False
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    if len(text) < MIN_ARTICLE_CHARS:
+        return None, False
+    return cap_article_text(text), True
+
+
+def story_prompt(story: dict[str, object], article_text: str | None, article_read: bool) -> str:
+    """Build the user prompt from the article when it was read, otherwise the headline."""
     topics = ", ".join(story.get("topics") or [])
     reason = story.get("selection_reason") or "Not provided."
-    return (
-        f"Headline: {story['headline']}\n"
-        f"Source: {story.get('source', 'Unknown')}\n"
-        f"Topics: {topics or 'none'}\n"
-        f"Selection reason: {reason}\n\n"
-        "Write Why It Matters."
+    lines = [
+        f"Headline: {story['headline']}",
+        f"Source: {story.get('source', 'Unknown')}",
+        f"Topics: {topics or 'none'}",
+        f"Selection reason: {reason}",
+    ]
+    if article_read and article_text:
+        lines.append(
+            "The article text below was fetched from the source page. "
+            "Base the headline and summary on that text."
+        )
+        lines.append(f"Article text:\n{article_text}")
+    else:
+        lines.append(
+            "The article was not read. Use only the headline, source, topics, "
+            "and selection reason. Do not claim the article was analyzed."
+        )
+    lines.append(
+        'Return JSON: {"ai_headline": "short why-it-matters headline", '
+        '"ai_summary": "one or two sentences"}.'
     )
+    return "\n".join(lines)
 
 
 def _post_json(
@@ -93,7 +248,7 @@ def _post_json(
 
 
 def visible_gemini_text(data: dict[str, object]) -> str:
-    """Return user-facing summary text, skipping model thought parts."""
+    """Return user-facing model text, skipping thought parts."""
     try:
         parts = data["candidates"][0]["content"]["parts"]
     except (KeyError, IndexError, TypeError) as error:
@@ -113,10 +268,49 @@ def visible_gemini_text(data: dict[str, object]) -> str:
     return text
 
 
-def summarize_with_gemini(story: dict[str, object], api_key: str) -> str:
-    """Ask Gemini flash for a Why It Matters sentence."""
+def parse_model_fields(text: str) -> tuple[str, str]:
+    """Read ``ai_headline`` and ``ai_summary`` from a model JSON response."""
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start == -1 or end <= start:
+        raise ValueError("Model response did not contain JSON fields.")
+    try:
+        data = json.loads(cleaned[start : end + 1])
+    except json.JSONDecodeError as error:
+        raise ValueError("Model response did not contain JSON fields.") from error
+    headline = data.get("ai_headline") if isinstance(data, dict) else None
+    summary = data.get("ai_summary") if isinstance(data, dict) else None
+    if not isinstance(headline, str) or not headline.strip():
+        raise ValueError("Model response did not contain an AI headline.")
+    if not isinstance(summary, str) or not summary.strip():
+        raise ValueError("Model response did not contain summary text.")
+    return " ".join(headline.split()), summary.strip()
+
+
+def summarize_with_gemini(
+    story: dict[str, object],
+    api_key: str,
+    article_text: str | None,
+    article_read: bool,
+) -> tuple[str, str]:
+    """Ask Gemini flash for a why-it-matters headline and summary."""
     payload = {
-        "contents": [{"parts": [{"text": f"{SYSTEM_PROMPT}\n\n{story_prompt(story)}"}]}],
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "text": (
+                            f"{SYSTEM_PROMPT}\n\n"
+                            f"{story_prompt(story, article_text, article_read)}"
+                        )
+                    }
+                ]
+            }
+        ],
         "generationConfig": {
             "maxOutputTokens": 1024,
             "thinkingConfig": {"thinkingLevel": "low"},
@@ -127,18 +321,23 @@ def summarize_with_gemini(story: dict[str, object], api_key: str) -> str:
         payload,
         {"x-goog-api-key": api_key},
     )
-    return visible_gemini_text(data)
+    return parse_model_fields(visible_gemini_text(data))
 
 
-def summarize_with_openai(story: dict[str, object], api_key: str) -> str:
-    """Ask OpenAI gpt-4o-mini for a Why It Matters sentence."""
+def summarize_with_openai(
+    story: dict[str, object],
+    api_key: str,
+    article_text: str | None,
+    article_read: bool,
+) -> tuple[str, str]:
+    """Ask OpenAI gpt-4o-mini for a why-it-matters headline and summary."""
     payload = {
         "model": OPENAI_MODEL,
         "temperature": 0.2,
-        "max_tokens": 180,
+        "max_tokens": 400,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": story_prompt(story)},
+            {"role": "user", "content": story_prompt(story, article_text, article_read)},
         ],
     }
     data = _post_json(
@@ -150,45 +349,69 @@ def summarize_with_openai(story: dict[str, object], api_key: str) -> str:
         text = data["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as error:
         raise ValueError("OpenAI response did not contain summary text.") from error
-    text = text.strip()
-    if not text:
-        raise ValueError("OpenAI returned an empty summary.")
-    return text
+    if not isinstance(text, str):
+        raise ValueError("OpenAI response did not contain summary text.")
+    return parse_model_fields(text)
 
 
-def summarize_story(story: dict[str, object]) -> tuple[str, str]:
-    """Return ``(summary, provider)`` using Gemini, OpenAI, or the mock."""
+def _mock_copy(headline: str, article_read: bool) -> ModelCopy:
+    return ModelCopy(mock_headline(headline), mock_summary(headline), "mock", article_read)
+
+
+def summarize_story(story: dict[str, object]) -> ModelCopy:
+    """Return model copy using Gemini, OpenAI, or the offline mock."""
+    article_text, article_read = read_article(story.get("link"))
+    headline = story["headline"]
     gemini_key = os.environ.get("GEMINI_API_KEY")
     openai_key = os.environ.get("OPENAI_API_KEY")
 
     if gemini_key:
         try:
-            return summarize_with_gemini(story, gemini_key), "gemini"
+            ai_headline, ai_summary = summarize_with_gemini(
+                story, gemini_key, article_text, article_read
+            )
+            return ModelCopy(ai_headline, ai_summary, "gemini", article_read)
         except (urllib.error.URLError, TimeoutError, ValueError, KeyError):
             if openai_key:
                 try:
-                    return summarize_with_openai(story, openai_key), "openai"
+                    ai_headline, ai_summary = summarize_with_openai(
+                        story, openai_key, article_text, article_read
+                    )
+                    return ModelCopy(ai_headline, ai_summary, "openai", article_read)
                 except (urllib.error.URLError, TimeoutError, ValueError, KeyError):
-                    return mock_summary(story["headline"]), "mock"
-            return mock_summary(story["headline"]), "mock"
+                    return _mock_copy(headline, article_read)
+            return _mock_copy(headline, article_read)
 
     if openai_key:
         try:
-            return summarize_with_openai(story, openai_key), "openai"
+            ai_headline, ai_summary = summarize_with_openai(
+                story, openai_key, article_text, article_read
+            )
+            return ModelCopy(ai_headline, ai_summary, "openai", article_read)
         except (urllib.error.URLError, TimeoutError, ValueError, KeyError):
-            return mock_summary(story["headline"]), "mock"
+            return _mock_copy(headline, article_read)
 
-    return mock_summary(story["headline"]), "mock"
+    return _mock_copy(headline, article_read)
 
 
-def summarize_stories(stories: list[dict[str, object]]) -> tuple[list[dict[str, object]], str]:
-    """Copy each selected story and attach ``ai_summary`` without mutating input."""
+def summarize_stories(
+    stories: list[dict[str, object]],
+) -> tuple[list[dict[str, object]], str]:
+    """Copy each selected story and attach model fields without mutating input."""
     summarized = []
     providers = []
     for story in stories:
-        summary, provider = summarize_story(story)
-        providers.append(provider)
-        summarized.append({**story, "ai_summary": summary})
+        result = summarize_story(story)
+        providers.append(result.provider)
+        copied = {
+            **story,
+            "ai_headline": result.ai_headline,
+            "ai_summary": result.ai_summary,
+            "article_read": result.article_read,
+        }
+        if not result.article_read:
+            copied["article_note"] = ARTICLE_NOT_READ
+        summarized.append(copied)
     if "gemini" in providers:
         used = "gemini"
     elif "openai" in providers:
@@ -216,7 +439,7 @@ def save_summarized_run(selected_run: dict[str, object], input_path: Path) -> Pa
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Add AI Why It Matters summaries to a selected story run."
+        description="Add AI headlines and Why It Matters summaries from article text."
     )
     parser.add_argument(
         "input_file",

@@ -4,7 +4,7 @@ Run from the project folder:
     python3 src/summarize_stories.py
 
 Provider order:
-1. Gemini ``gemini-3.8-flash`` when ``GEMINI_API_KEY`` is set.
+1. Gemini ``gemini-3.6-flash`` when ``GEMINI_API_KEY`` is set.
 2. OpenAI ``gpt-4o-mini`` when Gemini is missing or fails and ``OPENAI_API_KEY`` is set.
 3. Otherwise a mock placeholder: ``[AI Summary Pending: <Headline>]``.
 """
@@ -22,7 +22,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SELECTED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "selected"
 SUMMARIZED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "summarized"
-GEMINI_MODEL = "gemini-3.8-flash"
+GEMINI_MODEL = "gemini-3.6-flash"
 OPENAI_MODEL = "gpt-4o-mini"
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"

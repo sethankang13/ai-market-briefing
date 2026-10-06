@@ -167,7 +167,7 @@ Create AI "Why It Matters" copy from the latest selected run with:
 python3 src/summarize_stories.py
 ```
 
-The program reads `data/selected/YYYY-MM-DD.json` and writes `data/summarized/YYYY-MM-DD.json`, creating `data/summarized/` if it does not exist. It tries Gemini `gemini-3.8-flash` when `GEMINI_API_KEY` is set, falls back to OpenAI `gpt-4o-mini` when `OPENAI_API_KEY` is set, and otherwise stores `[AI Summary Pending: <Headline>]`. Selected files are left unchanged.
+The program reads `data/selected/YYYY-MM-DD.json` and writes `data/summarized/YYYY-MM-DD.json`, creating `data/summarized/` if it does not exist. It tries Gemini `gemini-3.6-flash` when `GEMINI_API_KEY` is set, falls back to OpenAI `gpt-4o-mini` when `OPENAI_API_KEY` is set, and otherwise stores `[AI Summary Pending: <Headline>]`. Selected files are left unchanged.
 
 ## Current writing step
 

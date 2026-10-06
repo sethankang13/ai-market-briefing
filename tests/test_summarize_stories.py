@@ -53,7 +53,7 @@ class SummarizeStoriesTests(unittest.TestCase):
         self.assertEqual(provider, "gemini")
         self.assertEqual(summary, "Oil supply news may move energy prices.")
         self.assertIn("generativelanguage.googleapis.com", post_json.call_args.args[0])
-        self.assertIn("gemini-3.8-flash", post_json.call_args.args[0])
+        self.assertIn("gemini-3.6-flash", post_json.call_args.args[0])
         self.assertEqual(post_json.call_args.args[2]["x-goog-api-key"], "gemini-test")
         self.assertNotIn("key=", post_json.call_args.args[0])
         self.assertEqual(

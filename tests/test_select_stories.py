@@ -44,8 +44,18 @@ class SelectStoriesTests(unittest.TestCase):
         selected = select_stories(stories)
 
         self.assertEqual([item["headline"] for item in selected], [
-            "Policy one", "Policy two", "Policy three", "Policy four", "Policy five"
+            "Policy one",
+            "Policy two",
+            "Policy three",
+            "Policy four",
+            "Policy five",
+            "Interesting aside",
         ])
+        self.assertEqual(selected[-1]["selection_score"], 0)
+        self.assertEqual(
+            selected[-1]["selection_reason"],
+            "Interesting aside; no current market-topic rule matched.",
+        )
 
     def test_misc_fills_one_unused_slot(self):
         selected = select_stories([
@@ -55,6 +65,54 @@ class SelectStoriesTests(unittest.TestCase):
 
         self.assertEqual([item["headline"] for item in selected], ["Policy", "Interesting aside"])
         self.assertEqual(selected[1]["selection_score"], 0)
+
+    def test_each_present_tag_keeps_its_highest_story(self):
+        stories = [
+            story("Oil one", ["oil", "energy"]),
+            story("Oil two", ["oil", "energy"]),
+            story("Oil three", ["oil", "energy"]),
+            story("Oil four", ["oil", "energy"]),
+            story("Oil five", ["oil", "energy"]),
+            story("Oil six", ["oil", "energy"]),
+            story("Rates", ["policy"]),
+            story("Chips", ["technology"]),
+            story("Solar", ["energy"]),
+            story("Aside", ["misc"]),
+            story("Another aside", ["misc"]),
+        ]
+
+        selected = select_stories(stories)
+        headlines = [item["headline"] for item in selected]
+
+        self.assertEqual(
+            headlines,
+            [
+                "Oil one",
+                "Oil two",
+                "Oil three",
+                "Oil four",
+                "Oil five",
+                "Rates",
+                "Chips",
+                "Aside",
+            ],
+        )
+        rates = next(item for item in selected if item["headline"] == "Rates")
+        self.assertEqual(rates["selection_score"], 4)
+        self.assertEqual(rates["selection_reason"], "Matched: policy.")
+        self.assertNotIn("Solar", headlines)
+        self.assertNotIn("Another aside", headlines)
+
+    def test_a_missing_tag_adds_nothing(self):
+        selected = select_stories([
+            story("Rates", ["policy"]),
+            story("Oil rises", ["oil", "energy"]),
+        ])
+
+        self.assertEqual(
+            [item["headline"] for item in selected],
+            ["Oil rises", "Rates"],
+        )
 
 
 if __name__ == "__main__":

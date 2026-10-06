@@ -1,4 +1,4 @@
-"""Select the most consequential stories from an enriched run.
+"""Select consequential stories from an enriched run, with one story per tag.
 
 Run from the project folder:
     python3 src/select_stories.py
@@ -19,6 +19,7 @@ TOPIC_SCORES = {
     "technology": 2,
     "misc": 0,
 }
+TAG_ORDER = ("policy", "oil", "energy", "technology", "misc")
 MAX_STORIES = 5
 
 
@@ -57,30 +58,63 @@ def selection_reason(story: dict[str, object]) -> str:
     return "Matched: " + ", ".join(ranked_topics) + "."
 
 
+def _ranked_indexes(stories: list[dict[str, object]], indexes: list[int]) -> list[int]:
+    """Order indexes by score, keeping the original feed order when scores tie."""
+    return sorted(indexes, key=lambda index: (-score_story(stories[index]), index))
+
+
+def _is_misc(story: dict[str, object]) -> bool:
+    return story["topics"] == ["misc"]
+
+
 def select_stories(
     stories: list[dict[str, object]], maximum: int = MAX_STORIES
 ) -> list[dict[str, object]]:
-    """Select up to ``maximum`` consequential stories without promoting misc items.
+    """Select the top stories by score, plus the best story for each tag present.
 
-    Equal scores keep their original feed order. A misc story is considered only
-    when there are fewer consequential stories than available slots.
+    The top ``maximum`` slots still prefer tagged stories. A misc story fills a
+    leftover slot and can also represent the misc tag, but the whole set keeps
+    at most one misc story. Equal scores keep their original feed order.
     """
-    consequential = [story for story in stories if story["topics"] != ["misc"]]
-    ranked_stories = sorted(consequential, key=score_story, reverse=True)
-    selected = ranked_stories[:maximum]
+    consequential = [
+        index for index, story in enumerate(stories) if not _is_misc(story)
+    ]
+    selected_indexes = _ranked_indexes(stories, consequential)[:maximum]
 
-    if len(selected) < maximum:
-        misc_story = next((story for story in stories if story["topics"] == ["misc"]), None)
-        if misc_story:
-            selected.append(misc_story)
+    if len(selected_indexes) < maximum:
+        misc_index = next(
+            (index for index, story in enumerate(stories) if _is_misc(story)),
+            None,
+        )
+        if misc_index is not None:
+            selected_indexes.append(misc_index)
+
+    selected = set(selected_indexes)
+    for tag in TAG_ORDER:
+        tagged = [
+            index for index, story in enumerate(stories) if tag in story["topics"]
+        ]
+        if not tagged:
+            continue
+        best_index = _ranked_indexes(stories, tagged)[0]
+        if tag == "misc" and any(_is_misc(stories[index]) for index in selected):
+            continue
+        selected.add(best_index)
+
+    misc_indexes = [index for index in selected if _is_misc(stories[index])]
+    if len(misc_indexes) > 1:
+        kept_misc = _ranked_indexes(stories, misc_indexes)[0]
+        selected = {
+            index for index in selected if not _is_misc(stories[index]) or index == kept_misc
+        }
 
     return [
         {
-            **story,
-            "selection_score": score_story(story),
-            "selection_reason": selection_reason(story),
+            **stories[index],
+            "selection_score": score_story(stories[index]),
+            "selection_reason": selection_reason(stories[index]),
         }
-        for story in selected
+        for index in _ranked_indexes(stories, list(selected))
     ]
 
 
@@ -99,7 +133,7 @@ def save_selected_run(enriched_run: dict[str, object], input_path: Path) -> Path
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Select up to five stories from an enriched story run."
+        description="Select top stories plus the best story for each tag present."
     )
     parser.add_argument(
         "input_file",

@@ -139,6 +139,10 @@ ai-market-briefing/
 
 Raw inputs and generated outputs are separate so we can inspect what the program received before trusting what it produced.
 
+## Run the full briefing
+
+From the project folder, run `python3 src/run_briefing.py`. It collects the feeds, enriches tags, selects stories, adds Why It Matters summaries, and writes the Markdown brief, stopping at the first step that fails.
+
 ## Current enrichment step
 
 After collecting a run, create its tagged copy with:
@@ -157,7 +161,7 @@ Create up to five briefing candidates from the latest enriched run with:
 python3 src/select_stories.py
 ```
 
-The initial ranking is deliberately simple and visible: `oil` is worth 5 points, `policy` 4, `energy` 3, and `technology` 2. A story's score is the sum of its tags, and ties retain the original feed order. The selected copy includes both the score and a short rule-based reason. A `misc` story can fill one otherwise unused slot, but cannot displace a tagged story.
+The initial ranking is deliberately simple and visible: `oil` is worth 5 points, `policy` 4, `energy` 3, and `technology` 2. A story's score is the sum of its tags, and ties retain the original feed order. The selected copy includes both the score and a short rule-based reason. The selected set is the top five by that score, plus the highest-scoring story for each tag that appears that day. One story can cover more than one tag, a missing tag is skipped, and the list can be longer than five. A `misc` story still cannot take a top-five slot from a tagged story, and the whole set keeps at most one misc story.
 
 ## Current summarization step (V2)
 

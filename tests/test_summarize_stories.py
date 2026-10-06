@@ -40,6 +40,37 @@ def gemini_body(text: str) -> dict[str, object]:
 
 
 class SummarizeStoriesTests(unittest.TestCase):
+    def setUp(self):
+        self.env_loader = patch.object(summarize_stories, "load_project_env")
+        self.env_loader.start()
+
+    def tearDown(self):
+        self.env_loader.stop()
+
+    def test_load_project_env_fills_missing_names_without_overriding(self):
+        self.env_loader.stop()
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                env_file = Path(temp_dir) / ".env"
+                env_file.write_text(
+                    "\n".join(
+                        [
+                            "# comment",
+                            "GEMINI_API_KEY=from-file",
+                            "OPENAI_API_KEY=from-file",
+                            "export ALREADY_SET=from-file",
+                        ]
+                    ),
+                    encoding="utf-8",
+                )
+                with patch.dict(os.environ, {"ALREADY_SET": "from-shell"}, clear=True):
+                    summarize_stories.load_project_env(env_file)
+                    self.assertEqual(os.environ["GEMINI_API_KEY"], "from-file")
+                    self.assertEqual(os.environ["OPENAI_API_KEY"], "from-file")
+                    self.assertEqual(os.environ["ALREADY_SET"], "from-shell")
+        finally:
+            self.env_loader.start()
+
     def test_mock_summary_uses_headline(self):
         self.assertEqual(
             summarize_stories.mock_summary("Rates rise"),

@@ -358,8 +358,32 @@ def _mock_copy(headline: str, article_read: bool) -> ModelCopy:
     return ModelCopy(mock_headline(headline), mock_summary(headline), "mock", article_read)
 
 
+def load_project_env(env_path: Path | None = None) -> None:
+    """Load the project-root ``.env`` without overriding variables already set."""
+    path = PROJECT_ROOT / ".env" if env_path is None else env_path
+    if not path.is_file():
+        return
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+        if "=" not in line:
+            continue
+        name, value = line.split("=", 1)
+        name = name.strip()
+        if not name or name in os.environ:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        os.environ[name] = value
+
+
 def summarize_story(story: dict[str, object]) -> ModelCopy:
     """Return model copy using Gemini, OpenAI, or the offline mock."""
+    load_project_env()
     article_text, article_read = read_article(story.get("link"))
     headline = story["headline"]
     gemini_key = os.environ.get("GEMINI_API_KEY")

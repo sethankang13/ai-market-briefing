@@ -65,6 +65,7 @@ def _run(step: str, action):
 
 def run_briefing() -> Path:
     """Collect, enrich, select, summarize, and write a brief. Stop on the first failure."""
+    summarize_stories.load_project_env()
     raw_path = _run("collect", collect_step)
     print(f"Collected stories saved to {raw_path}")
     enriched_path = _run("enrich", lambda: enrich_step(raw_path))

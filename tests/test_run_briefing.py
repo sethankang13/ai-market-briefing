@@ -7,11 +7,15 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import run_briefing
+import summarize_stories
 
 
 class RunBriefingTests(unittest.TestCase):
     def test_steps_run_in_order_and_pass_the_previous_file(self):
         order = []
+
+        def load_project_env(env_path=None):
+            order.append("load_env")
 
         def collect_step():
             order.append("collect")
@@ -34,6 +38,7 @@ class RunBriefingTests(unittest.TestCase):
             return Path("briefs/2026-09-20.md")
 
         with (
+            patch.object(summarize_stories, "load_project_env", load_project_env),
             patch.object(run_briefing, "collect_step", collect_step),
             patch.object(run_briefing, "enrich_step", enrich_step),
             patch.object(run_briefing, "select_step", select_step),
@@ -46,6 +51,7 @@ class RunBriefingTests(unittest.TestCase):
         self.assertEqual(
             order,
             [
+                "load_env",
                 "collect",
                 ("enrich", Path("data/raw/2026-09-20.json")),
                 ("select", Path("data/enriched/2026-09-20.json")),
@@ -70,6 +76,7 @@ class RunBriefingTests(unittest.TestCase):
             return Path("data/selected/2026-09-20.json")
 
         with (
+            patch.object(summarize_stories, "load_project_env"),
             patch.object(run_briefing, "collect_step", collect_step),
             patch.object(run_briefing, "enrich_step", enrich_step),
             patch.object(run_briefing, "select_step", select_step),

@@ -117,7 +117,10 @@ def summarize_with_gemini(story: dict[str, object], api_key: str) -> str:
     """Ask Gemini flash for a Why It Matters sentence."""
     payload = {
         "contents": [{"parts": [{"text": f"{SYSTEM_PROMPT}\n\n{story_prompt(story)}"}]}],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1024},
+        "generationConfig": {
+            "maxOutputTokens": 1024,
+            "thinkingConfig": {"thinkingLevel": "low"},
+        },
     }
     data = _post_json(
         GEMINI_URL,

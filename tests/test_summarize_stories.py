@@ -56,6 +56,10 @@ class SummarizeStoriesTests(unittest.TestCase):
         self.assertIn("gemini-3.8-flash", post_json.call_args.args[0])
         self.assertEqual(post_json.call_args.args[2]["x-goog-api-key"], "gemini-test")
         self.assertNotIn("key=", post_json.call_args.args[0])
+        self.assertEqual(
+            post_json.call_args.args[1]["generationConfig"],
+            {"maxOutputTokens": 1024, "thinkingConfig": {"thinkingLevel": "low"}},
+        )
 
     def test_gemini_skips_thought_parts(self):
         story = sample_story()

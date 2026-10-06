@@ -4,7 +4,7 @@ Run from the project folder:
     python3 src/summarize_stories.py
 
 Provider order:
-1. Gemini ``gemini-2.0-flash`` when ``GEMINI_API_KEY`` is set.
+1. Gemini ``gemini-3.8-flash`` when ``GEMINI_API_KEY`` is set.
 2. OpenAI ``gpt-4o-mini`` when Gemini is missing or fails and ``OPENAI_API_KEY`` is set.
 3. Otherwise a mock placeholder: ``[AI Summary Pending: <Headline>]``.
 """
@@ -22,7 +22,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SELECTED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "selected"
 SUMMARIZED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "summarized"
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-3.8-flash"
 OPENAI_MODEL = "gpt-4o-mini"
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
@@ -92,21 +92,39 @@ def _post_json(
         return json.loads(response.read().decode("utf-8"))
 
 
+def visible_gemini_text(data: dict[str, object]) -> str:
+    """Return user-facing summary text, skipping model thought parts."""
+    try:
+        parts = data["candidates"][0]["content"]["parts"]
+    except (KeyError, IndexError, TypeError) as error:
+        raise ValueError("Gemini response did not contain summary text.") from error
+    if not isinstance(parts, list):
+        raise ValueError("Gemini response did not contain summary text.")
+    visible = []
+    for part in parts:
+        if not isinstance(part, dict) or part.get("thought"):
+            continue
+        text = part.get("text")
+        if isinstance(text, str) and text.strip():
+            visible.append(text.strip())
+    text = "\n".join(visible).strip()
+    if not text:
+        raise ValueError("Gemini response did not contain summary text.")
+    return text
+
+
 def summarize_with_gemini(story: dict[str, object], api_key: str) -> str:
     """Ask Gemini flash for a Why It Matters sentence."""
     payload = {
         "contents": [{"parts": [{"text": f"{SYSTEM_PROMPT}\n\n{story_prompt(story)}"}]}],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 180},
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1024},
     }
-    data = _post_json(f"{GEMINI_URL}?key={api_key}", payload, {})
-    try:
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
-    except (KeyError, IndexError, TypeError) as error:
-        raise ValueError("Gemini response did not contain summary text.") from error
-    text = text.strip()
-    if not text:
-        raise ValueError("Gemini returned an empty summary.")
-    return text
+    data = _post_json(
+        GEMINI_URL,
+        payload,
+        {"x-goog-api-key": api_key},
+    )
+    return visible_gemini_text(data)
 
 
 def summarize_with_openai(story: dict[str, object], api_key: str) -> str:

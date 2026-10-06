@@ -53,7 +53,30 @@ class SummarizeStoriesTests(unittest.TestCase):
         self.assertEqual(provider, "gemini")
         self.assertEqual(summary, "Oil supply news may move energy prices.")
         self.assertIn("generativelanguage.googleapis.com", post_json.call_args.args[0])
-        self.assertIn("gemini-2.0-flash", post_json.call_args.args[0])
+        self.assertIn("gemini-3.8-flash", post_json.call_args.args[0])
+        self.assertEqual(post_json.call_args.args[2]["x-goog-api-key"], "gemini-test")
+        self.assertNotIn("key=", post_json.call_args.args[0])
+
+    def test_gemini_skips_thought_parts(self):
+        story = sample_story()
+        gemini_body = {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"thought": True, "text": "internal reasoning"},
+                            {"text": "Oil headlines can shift energy expectations."},
+                        ]
+                    }
+                }
+            ]
+        }
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "gemini-test"}, clear=True):
+            with patch.object(summarize_stories, "_post_json", return_value=gemini_body):
+                summary, provider = summarize_stories.summarize_story(story)
+
+        self.assertEqual(provider, "gemini")
+        self.assertEqual(summary, "Oil headlines can shift energy expectations.")
 
     def test_openai_is_used_when_gemini_key_is_absent(self):
         story = sample_story()

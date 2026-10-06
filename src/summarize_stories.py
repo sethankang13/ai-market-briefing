@@ -389,11 +389,17 @@ def load_project_env(env_path: Path | None = None) -> None:
         os.environ[name] = value
 
 
-def summarize_story(story: dict[str, object]) -> ModelCopy:
-    """Return model copy using Gemini, OpenAI, or the offline mock."""
+def summarize_story(story: dict[str, object], mock: bool = False) -> ModelCopy:
+    """Return model copy using Gemini, OpenAI, or the offline mock.
+
+    ``mock`` forces the pending placeholders and does not call Gemini or OpenAI,
+    even when an API key is already loaded.
+    """
+    headline = story["headline"]
+    if mock:
+        return _mock_copy(str(headline), False)
     load_project_env()
     article_text, article_read = read_article(story.get("link"))
-    headline = story["headline"]
     gemini_key = os.environ.get("GEMINI_API_KEY")
     openai_key = os.environ.get("OPENAI_API_KEY")
 
@@ -428,12 +434,13 @@ def summarize_story(story: dict[str, object]) -> ModelCopy:
 
 def summarize_stories(
     stories: list[dict[str, object]],
+    mock: bool = False,
 ) -> tuple[list[dict[str, object]], str]:
     """Copy each selected story and attach model fields without mutating input."""
     summarized = []
     providers = []
     for story in stories:
-        result = summarize_story(story)
+        result = summarize_story(story, mock=mock)
         providers.append(result.provider)
         copied = {
             **story,
@@ -453,11 +460,13 @@ def summarize_stories(
     return summarized, used
 
 
-def save_summarized_run(selected_run: dict[str, object], input_path: Path) -> Path:
+def save_summarized_run(
+    selected_run: dict[str, object], input_path: Path, mock: bool = False
+) -> Path:
     """Create ``data/summarized`` if needed, then write the dated JSON file."""
     os.makedirs("data/summarized", exist_ok=True)
     SUMMARIZED_DATA_DIRECTORY.mkdir(parents=True, exist_ok=True)
-    stories, provider = summarize_stories(selected_run["stories"])
+    stories, provider = summarize_stories(selected_run["stories"], mock=mock)
     output = {
         "selected_run": input_path.name,
         "failed_sources": selected_run.get("failed_sources", []),
@@ -479,6 +488,11 @@ def parse_arguments() -> argparse.Namespace:
         type=Path,
         help="Selected JSON file to summarize. Defaults to the latest data/selected file.",
     )
+    parser.add_argument(
+        "--mock",
+        action="store_true",
+        help="Write offline pending summaries and do not call Gemini or OpenAI.",
+    )
     return parser.parse_args()
 
 
@@ -486,6 +500,6 @@ if __name__ == "__main__":
     arguments = parse_arguments()
     input_file = arguments.input_file or latest_selected_run()
     selected_run = load_selected_run(input_file)
-    saved_file = save_summarized_run(selected_run, input_file)
+    saved_file = save_summarized_run(selected_run, input_file, mock=arguments.mock)
     print(f"Summarized {len(selected_run['stories'])} stories.")
     print(f"Saved summarized data to {saved_file}")

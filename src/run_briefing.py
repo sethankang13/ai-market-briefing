@@ -2,8 +2,10 @@
 
 Run from the project folder:
     python3 src/run_briefing.py
+    python3 src/run_briefing.py --mock
 """
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -41,10 +43,10 @@ def select_step(enriched_path: Path) -> Path:
     return select_stories.save_selected_run(enriched_run, enriched_path)
 
 
-def summarize_step(selected_path: Path) -> Path:
+def summarize_step(selected_path: Path, mock: bool = False) -> Path:
     """Add Why It Matters text to the selected run this command just wrote."""
     selected_run = summarize_stories.load_selected_run(selected_path)
-    return summarize_stories.save_summarized_run(selected_run, selected_path)
+    return summarize_stories.save_summarized_run(selected_run, selected_path, mock=mock)
 
 
 def write_brief_step(summarized_path: Path) -> Path:
@@ -63,25 +65,41 @@ def _run(step: str, action):
         raise StepFailed(step, error) from error
 
 
-def run_briefing() -> Path:
-    """Collect, enrich, select, summarize, and write a brief. Stop on the first failure."""
-    summarize_stories.load_project_env()
+def run_briefing(mock: bool = False) -> Path:
+    """Collect, enrich, select, summarize, and write a brief. Stop on the first failure.
+
+    ``mock`` still collects the RSS feeds, but writes the offline pending
+    placeholders and does not call Gemini or OpenAI.
+    """
+    if not mock:
+        summarize_stories.load_project_env()
     raw_path = _run("collect", collect_step)
     print(f"Collected stories saved to {raw_path}")
     enriched_path = _run("enrich", lambda: enrich_step(raw_path))
     print(f"Enriched stories saved to {enriched_path}")
     selected_path = _run("select", lambda: select_step(enriched_path))
     print(f"Selected stories saved to {selected_path}")
-    summarized_path = _run("summarize", lambda: summarize_step(selected_path))
+    summarized_path = _run(
+        "summarize", lambda: summarize_step(selected_path, mock=mock)
+    )
     print(f"Summarized stories saved to {summarized_path}")
     brief_path = _run("write_brief", lambda: write_brief_step(summarized_path))
     print(f"Saved briefing to {brief_path}")
     return brief_path
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Collect, tag, select, and write the daily briefing."
+    )
+    parser.add_argument(
+        "--mock",
+        action="store_true",
+        help="Write offline pending summaries and do not call Gemini or OpenAI.",
+    )
+    args = parser.parse_args(argv)
     try:
-        run_briefing()
+        run_briefing(mock=args.mock)
     except StepFailed as error:
         print(error, file=sys.stderr)
         raise SystemExit(1) from error

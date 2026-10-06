@@ -154,6 +154,8 @@ Raw inputs and generated outputs are separate so we can inspect what the program
 
 From the project folder, run `python3 src/run_briefing.py`. It collects the feeds, enriches tags, selects stories, adds Why It Matters summaries, and writes the Markdown brief, stopping at the first step that fails.
 
+For a briefing that does not call a model, run `python3 src/run_briefing.py --mock`. It still collects the RSS feeds, enriches tags, and selects stories. Summaries are the offline placeholders `[AI Headline Pending: …]` and `[AI Summary Pending: …]`, even when `.env` contains an API key. A feed that fails is skipped, and the brief is written from the feeds that succeeded.
+
 ## Current enrichment step
 
 After collecting a run, create its tagged copy with:

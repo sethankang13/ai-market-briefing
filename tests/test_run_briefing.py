@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import sys
@@ -161,6 +162,124 @@ class RunBriefingTests(unittest.TestCase):
             "Mock interpretation of AI bill advances.",
         )
         self.assertNotIn("AI Summary Pending", payload["stories"][0]["ai_summary"])
+
+    def test_completion_banner_includes_path_count_snapshot_and_failed_sources(self):
+        selected = {
+            "stories": [
+                {"headline": "AI bill advances", "link": "https://example.com/ai-bill", "tags": []}
+            ],
+            "failed_sources": ["Politico AI Policy"],
+            "market_snapshot": {
+                "fed_funds": {"status": "ok", "rate": 4.33},
+                "indexes": {
+                    "^GSPC": {
+                        "status": "ok",
+                        "previous_close": 5123.45,
+                        "percent_change": -0.42,
+                    },
+                    "^IXIC": {"status": "fetch failed", "error": "timeout"},
+                    "^DJI": {
+                        "status": "ok",
+                        "previous_close": 42000.0,
+                        "percent_change": 0.1,
+                    },
+                },
+            },
+        }
+        snapshot = selected["market_snapshot"]
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with (
+                patch.object(run_briefing, "collect_step", return_value=Path("raw.json")),
+                patch.object(run_briefing, "enrich_step", return_value=Path("enriched.json")),
+                patch.object(run_briefing, "select_step", return_value=Path("selected.json")),
+                patch.object(
+                    run_briefing, "write_brief_step", return_value=Path("briefs/2026-10-21.md")
+                ),
+                patch.object(run_briefing, "market_step", return_value=snapshot),
+                patch.object(run_briefing, "attach_market", lambda path, snap: selected),
+                patch.object(run_briefing, "persist_step", return_value=Path("data/loop.db")),
+                patch.object(summarize_stories, "load_selected_run", return_value=selected),
+                patch.object(summarize_stories, "load_project_env"),
+                patch.object(
+                    summarize_stories, "SUMMARIZED_DATA_DIRECTORY", Path(temp_dir)
+                ),
+                patch("sys.stdout", stdout),
+            ):
+                brief = run_briefing.run_briefing(mock=True)
+
+        output = stdout.getvalue()
+        self.assertEqual(brief, Path("briefs/2026-10-21.md"))
+        self.assertIn("Loop complete", output)
+        self.assertIn("Output: briefs/2026-10-21.md", output)
+        self.assertIn("Stories selected: 1", output)
+        self.assertIn("Market Snapshot:", output)
+        self.assertIn("Fed Funds: 4.33%", output)
+        self.assertIn("S&P 500: 5,123.45 (-0.42%)", output)
+        self.assertIn("Nasdaq: fetch failed", output)
+        self.assertIn("Dow: 42,000.00 (+0.10%)", output)
+        self.assertIn("failed_sources: Politico AI Policy", output)
+        self.assertNotIn("timeout", output)
+
+    def test_open_flag_uses_mocked_subprocess_on_macos(self):
+        selected = {"stories": [], "failed_sources": [], "market_snapshot": {}}
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with (
+                patch.object(run_briefing, "collect_step", return_value=Path("raw.json")),
+                patch.object(run_briefing, "enrich_step", return_value=Path("enriched.json")),
+                patch.object(run_briefing, "select_step", return_value=Path("selected.json")),
+                patch.object(
+                    run_briefing, "write_brief_step", return_value=Path("briefs/2026-10-21.md")
+                ),
+                patch.object(run_briefing, "market_step", return_value={}),
+                patch.object(run_briefing, "attach_market", lambda path, snap: selected),
+                patch.object(run_briefing, "persist_step", return_value=Path("data/loop.db")),
+                patch.object(summarize_stories, "load_selected_run", return_value=selected),
+                patch.object(summarize_stories, "load_project_env"),
+                patch.object(
+                    summarize_stories, "SUMMARIZED_DATA_DIRECTORY", Path(temp_dir)
+                ),
+                patch.object(run_briefing.sys, "platform", "darwin"),
+                patch.object(run_briefing.subprocess, "run") as subprocess_run,
+            ):
+                run_briefing.run_briefing(mock=True, open_after=True)
+
+        subprocess_run.assert_called_once_with(
+            ["open", "briefs/2026-10-21.md"], check=False
+        )
+
+    def test_open_is_a_noop_off_macos_and_does_not_call_subprocess(self):
+        selected = {"stories": [], "failed_sources": [], "market_snapshot": {}}
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with (
+                patch.object(run_briefing, "collect_step", return_value=Path("raw.json")),
+                patch.object(run_briefing, "enrich_step", return_value=Path("enriched.json")),
+                patch.object(run_briefing, "select_step", return_value=Path("selected.json")),
+                patch.object(
+                    run_briefing, "write_brief_step", return_value=Path("briefs/today.md")
+                ),
+                patch.object(run_briefing, "market_step", return_value={}),
+                patch.object(run_briefing, "attach_market", lambda path, snap: selected),
+                patch.object(run_briefing, "persist_step", return_value=Path("data/loop.db")),
+                patch.object(summarize_stories, "load_selected_run", return_value=selected),
+                patch.object(summarize_stories, "load_project_env"),
+                patch.object(
+                    summarize_stories, "SUMMARIZED_DATA_DIRECTORY", Path(temp_dir)
+                ),
+                patch.object(run_briefing.sys, "platform", "linux"),
+                patch.object(run_briefing.subprocess, "run") as subprocess_run,
+                patch("sys.stdout", stdout),
+            ):
+                run_briefing.run_briefing(mock=True, open_after=True)
+
+        subprocess_run.assert_not_called()
+        self.assertIn("--open is supported on macOS only", stdout.getvalue())
+
+    def test_main_passes_open_and_mock_flags(self):
+        with patch.object(run_briefing, "run_briefing") as run:
+            run_briefing.main(["--mock", "--open"])
+        run.assert_called_once_with(mock=True, open_after=True)
 
 
 if __name__ == "__main__":

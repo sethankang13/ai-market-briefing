@@ -158,9 +158,9 @@ Raw inputs and generated outputs are separate so we can inspect what the program
 
 ## Run the full briefing
 
-From the project folder, run `python3 src/run_briefing.py`. It collects feeds from the last 48 hours, enriches tags, selects stories, fetches a Market Snapshot, adds Why It Matters summaries from article bodies, writes `# Looping... (YYYY-MM-DD)`, and appends the run to `data/loop.db`. It stops at the first step that fails.
+From the project folder, run `python3 src/run_briefing.py`. It collects feeds from the last 48 hours, enriches tags, selects stories, fetches a Market Snapshot, adds Why It Matters summaries from article bodies, writes `# Looping... (YYYY-MM-DD)`, and appends the run to `data/loop.db`. It stops at the first step that fails. Add `--open` to open `briefs/YYYY-MM-DD.md` when the run finishes (`open` on macOS; other platforms print the path and do not launch a viewer). Every run, mock or live, prints a completion banner with the output path, story count, Market Snapshot status, and `failed_sources` when a feed was skipped.
 
-For a briefing that does not call a model, run `python3 src/run_briefing.py --mock`. It still collects the RSS feeds, enriches tags, selects stories, and fetches market quotes. Summaries are offline mock copy, even when `.env` contains an API key. Live runs never write `AI Summary Pending`, `AI Headline Pending`, or `AI Summary goes HERE`. A feed that fails is skipped, and the brief is written from the feeds that succeeded. Failed market quotes are labeled `fetch failed`.
+For a briefing that does not call a model, run `python3 src/run_briefing.py --mock`. It still collects the RSS feeds, enriches tags, selects stories, and fetches market quotes. Summaries are offline mock copy, even when `.env` contains an API key. Live runs never write `AI Summary Pending`, `AI Headline Pending`, or `AI Summary goes HERE`. A feed that fails is skipped, and the brief is written from the feeds that succeeded. Failed market quotes are labeled `fetch failed`. Combine flags as needed, for example `python3 src/run_briefing.py --mock --open`.
 
 ## Current enrichment step
 
@@ -200,7 +200,7 @@ Create a readable Markdown briefing from the latest summarized run (or selected 
 python3 src/write_brief.py
 ```
 
-The briefing title is `# Looping... (YYYY-MM-DD)`. A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) is inserted above the story categories. The briefing then groups stories by the V2.5 tag labels, then Other. Stories with more than one tag appear once, under the first matching label in that order, while displaying every assigned tag. Each story leads with the original headline as a link, then an italic line such as `*Tags: #Legislation-&-Policy #Enterprise-Adoption*`, then **Why It Matters:** from `ai_summary`. Historical reports from `data/loop.db` are titled `# The Loop`.
+The briefing title is `# Looping... (YYYY-MM-DD)`. A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) is inserted above the story categories. Next is **At a Glance**, a jump list of RSS headlines linking to in-file anchors (`<a id="..."></a>` above each story so Cursor, VS Code, and GitHub previews can follow `#slug` links). The briefing then groups stories by the V2.5 tag labels, then Other. Stories with more than one tag appear once, under the first matching label in that order, while displaying every assigned tag. Duplicate RSS headlines (whitespace and case ignored) stay as one story, with later sources listed as `also covered by [Source B]`. Each story leads with the original headline as a link, then an italic line such as `*Tags: #Legislation-&-Policy #Enterprise-Adoption*`, then **Why It Matters:** from `ai_summary`. Historical reports from `data/loop.db` are titled `# The Loop`.
 
 ## Rules for this project
 

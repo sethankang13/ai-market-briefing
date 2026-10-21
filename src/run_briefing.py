@@ -3,10 +3,12 @@
 Run from the project folder:
     python3 src/run_briefing.py
     python3 src/run_briefing.py --mock
+    python3 src/run_briefing.py --mock --open
 """
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -88,7 +90,56 @@ def _run(step: str, action):
         raise StepFailed(step, error) from error
 
 
-def run_briefing(mock: bool = False) -> Path:
+def snapshot_status_line(snapshot: dict | None) -> str:
+    """One-line Market Snapshot status: Fed, S&P, Nasdaq, Dow."""
+    data = snapshot if isinstance(snapshot, dict) else None
+    fed = data.get("fed_funds") if isinstance(data, dict) and isinstance(data.get("fed_funds"), dict) else {}
+    indexes = data.get("indexes") if isinstance(data, dict) and isinstance(data.get("indexes"), dict) else {}
+    parts = [f"Fed Funds: {fetch_market.format_fed_funds(fed)}"]
+    for symbol, label in fetch_market.INDEXES:
+        entry = indexes.get(symbol) if isinstance(indexes.get(symbol), dict) else {}
+        parts.append(f"{label}: {fetch_market.format_index(entry)}")
+    return "Market Snapshot: " + "; ".join(parts)
+
+
+def completion_banner(brief_path: Path, summarized_run: dict | None) -> str:
+    """Deterministic end-of-run summary for mock and live pipelines."""
+    payload = summarized_run if isinstance(summarized_run, dict) else {}
+    stories = payload.get("stories")
+    count = len(stories) if isinstance(stories, list) else 0
+    snapshot = payload.get("market_snapshot")
+    if not isinstance(snapshot, dict):
+        snapshot = None
+    lines = [
+        "Loop complete",
+        f"Output: {brief_path}",
+        f"Stories selected: {count}",
+        snapshot_status_line(snapshot),
+    ]
+    failed = payload.get("failed_sources")
+    if isinstance(failed, list) and failed:
+        lines.append("failed_sources: " + ", ".join(str(source) for source in failed))
+    return "\n".join(lines)
+
+
+def open_briefing_file(brief_path: Path) -> None:
+    """Open the briefing with macOS ``open``. No-op on other platforms.
+
+    ``subprocess.run`` is used instead of ``os.system`` so the path is not
+    interpolated into a shell string.
+    """
+    if sys.platform != "darwin":
+        print(
+            f"--open is supported on macOS only; briefing remains at {brief_path}"
+        )
+        return
+    try:
+        subprocess.run(["open", str(brief_path)], check=False)
+    except OSError as error:
+        print(f"Could not open {brief_path}: {error}")
+
+
+def run_briefing(mock: bool = False, open_after: bool = False) -> Path:
     """Collect, enrich, select, snapshot markets, summarize, write, and store.
 
     ``mock`` still collects the RSS feeds, but writes offline mock copy and
@@ -114,6 +165,9 @@ def run_briefing(mock: bool = False) -> Path:
     brief_path = _run("write_brief", lambda: write_brief_step(summarized_path))
     print(f"Saved briefing to {brief_path}")
     _run("persist", lambda: persist_step(summarized_run, snapshot))
+    print(completion_banner(brief_path, summarized_run))
+    if open_after:
+        open_briefing_file(brief_path)
     return brief_path
 
 
@@ -126,9 +180,15 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="Write offline mock summaries and do not call Gemini or OpenAI.",
     )
+    parser.add_argument(
+        "--open",
+        action="store_true",
+        dest="open_after",
+        help="After writing, open briefs/YYYY-MM-DD.md (macOS `open`; no-op elsewhere).",
+    )
     args = parser.parse_args(argv)
     try:
-        run_briefing(mock=args.mock)
+        run_briefing(mock=args.mock, open_after=args.open_after)
     except StepFailed as error:
         print(error, file=sys.stderr)
         raise SystemExit(1) from error

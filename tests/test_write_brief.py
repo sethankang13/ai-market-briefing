@@ -6,7 +6,13 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from write_brief import latest_briefing_source, render_brief, section_for_story
+from write_brief import (
+    latest_briefing_source,
+    normalize_headline,
+    render_brief,
+    section_for_story,
+    slugify,
+)
 
 
 def story(
@@ -64,6 +70,9 @@ class WriteBriefTests(unittest.TestCase):
             briefing.index("## Legislation-&-Policy"),
             briefing.index("## Foundation-Models"),
         )
+        glance_at = briefing.index("## At a Glance")
+        self.assertLess(snapshot_at, glance_at)
+        self.assertLess(glance_at, policy_at)
         self.assertIn("[Bill advances](https://example.com/story)", briefing)
         self.assertIn("*Tags: #Foundation-Models*", briefing)
         self.assertIn("Why It Matters: The bill can change compliance.", briefing)
@@ -151,6 +160,53 @@ class WriteBriefTests(unittest.TestCase):
                 latest_briefing_source(summarized, selected),
                 summarized_file,
             )
+
+    def test_at_a_glance_links_to_explicit_story_anchors(self):
+        briefing = render_brief(
+            {
+                "stories": [
+                    story("Bill advances", ["Legislation-&-Policy"], "Policy copy."),
+                    story("Model release", ["Foundation-Models"], "Model copy."),
+                ]
+            },
+            "2026-10-21",
+        )
+        glance_at = briefing.index("## At a Glance")
+        snapshot_at = briefing.index("## Market Snapshot")
+        policy_at = briefing.index("## Legislation-&-Policy")
+        self.assertLess(snapshot_at, glance_at)
+        self.assertLess(glance_at, policy_at)
+        self.assertIn("- [Bill advances](#bill-advances)", briefing)
+        self.assertIn("- [Model release](#model-release)", briefing)
+        self.assertIn('<a id="bill-advances"></a>', briefing)
+        self.assertIn('<a id="model-release"></a>', briefing)
+        self.assertLess(
+            briefing.index("- [Bill advances](#bill-advances)"),
+            briefing.index('<a id="bill-advances"></a>'),
+        )
+        self.assertLess(
+            briefing.index('<a id="bill-advances"></a>'),
+            briefing.index("[Bill advances](https://example.com/story)"),
+        )
+        self.assertEqual(slugify("Bill advances!"), "bill-advances")
+
+    def test_duplicate_headlines_are_grouped_as_also_covered_by(self):
+        first = story("Rates rise", ["Market-Valuations"], "Primary copy.")
+        first["source"] = "Reuters"
+        second = story("  RATES   rise ", ["Market-Valuations"], "Duplicate copy.")
+        second["source"] = "CNBC"
+        third = story("Rates rise", ["Market-Valuations"], "Same source again.")
+        third["source"] = "Reuters"
+        briefing = render_brief({"stories": [first, second, third]}, "2026-10-21")
+
+        self.assertEqual(normalize_headline("  RATES   rise "), "rates rise")
+        self.assertEqual(briefing.count("- [Rates rise](#rates-rise)"), 1)
+        self.assertEqual(briefing.count('<a id="rates-rise"></a>'), 1)
+        self.assertIn("also covered by [CNBC]", briefing)
+        self.assertNotIn("also covered by [CNBC, Reuters]", briefing)
+        self.assertNotIn("Duplicate copy.", briefing)
+        self.assertIn("Why It Matters: Primary copy.", briefing)
+        self.assertEqual(briefing.count("[Rates rise](https://example.com/story)"), 1)
 
 
 if __name__ == "__main__":

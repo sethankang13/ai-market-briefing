@@ -9,6 +9,7 @@ Run from the project folder:
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 import fetch_market
@@ -89,22 +90,91 @@ def why_it_matters(story: dict[str, object]) -> str | None:
     return None
 
 
-def render_story(story: dict[str, object]) -> str:
+def normalize_headline(headline: object) -> str:
+    """Collapse whitespace and lowercase so exact headlines group together."""
+    return " ".join(str(headline or "").lower().split())
+
+
+def slugify(headline: object) -> str:
+    """Turn an RSS headline into a stable Markdown fragment id."""
+    lowered = str(headline or "").lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", lowered).strip("-")
+    return slug or "story"
+
+
+def unique_slug(headline: object, used: set[str]) -> str:
+    """Return a slug that has not already been assigned in this brief."""
+    base = slugify(headline)
+    slug = base
+    suffix = 2
+    while slug in used:
+        slug = f"{base}-{suffix}"
+        suffix += 1
+    used.add(slug)
+    return slug
+
+
+def group_stories_by_headline(
+    stories: list[dict[str, object]],
+) -> list[tuple[dict[str, object], list[str]]]:
+    """Keep the first story; later exact-headline matches add unique sources."""
+    groups: list[tuple[dict[str, object], list[str]]] = []
+    index: dict[str, int] = {}
+    for story in stories:
+        key = normalize_headline(story.get("headline"))
+        if key in index:
+            primary, extra_sources = groups[index[key]]
+            source = story.get("source")
+            primary_source = primary.get("source")
+            if (
+                isinstance(source, str)
+                and source
+                and source != primary_source
+                and source not in extra_sources
+            ):
+                extra_sources.append(source)
+            continue
+        index[key] = len(groups)
+        groups.append((story, []))
+    return groups
+
+
+def render_story(
+    story: dict[str, object],
+    extra_sources: list[str] | None = None,
+    slug: str | None = None,
+) -> str:
     """Lead with the original headline and link, then tags and why it matters."""
     source_link = f"[{story['headline']}]({story['link']})"
     summary = why_it_matters(story)
-    lines = [f"- {source_link}  ", tags_line(story)]
+    lines = []
+    if slug:
+        lines.append(f'<a id="{slug}"></a>')
+    lines.extend([f"- {source_link}  ", tags_line(story)])
+    if extra_sources:
+        lines.append(f"  also covered by [{', '.join(extra_sources)}]")
     if summary:
         lines.append(f"  Why It Matters: {summary}")
     return "\n".join(lines)
 
 
-def render_brief(selected_run: dict[str, object], date_stem: str) -> str:
-    """Render the selected stories as a concise, topic-organized Markdown brief."""
+def grouped_sections(
+    selected_run: dict[str, object],
+) -> list[tuple[str, list[tuple[dict[str, object], list[str]]]]]:
+    """Group stories by section, then collapse exact RSS headlines."""
     sections = {section: [] for section in SECTION_ORDER}
     for story in selected_run["stories"]:
         sections[section_for_story(story)].append(story)
+    grouped = []
+    for section in SECTION_ORDER:
+        items = group_stories_by_headline(sections[section])
+        if items:
+            grouped.append((section, items))
+    return grouped
 
+
+def render_brief(selected_run: dict[str, object], date_stem: str) -> str:
+    """Render the selected stories as a concise, topic-organized Markdown brief."""
     snapshot = selected_run.get("market_snapshot")
     lines = [
         f"# Looping... ({date_stem})",
@@ -112,12 +182,26 @@ def render_brief(selected_run: dict[str, object], date_stem: str) -> str:
         "Loop: AI Market Briefing. Selected public reporting, organized by topic. Links lead to the original source.",
         "",
         fetch_market.render_market_block(snapshot if isinstance(snapshot, dict) else None),
+        "",
+        "## At a Glance",
+        "",
     ]
-    for section in SECTION_ORDER:
-        if sections[section]:
-            lines.extend(["", f"## {section}", ""])
-            lines.extend(render_story(story) for story in sections[section])
 
+    used_slugs: set[str] = set()
+    glance: list[tuple[str, str]] = []
+    detail_blocks: list[str] = []
+    for section, items in grouped_sections(selected_run):
+        assigned = []
+        for story, extra_sources in items:
+            slug = unique_slug(story.get("headline"), used_slugs)
+            glance.append((str(story["headline"]), slug))
+            assigned.append(render_story(story, extra_sources, slug))
+        detail_blocks.extend(["", f"## {section}", "", *assigned])
+
+    for headline, slug in glance:
+        lines.append(f"- [{headline}](#{slug})")
+
+    lines.extend(detail_blocks)
     return "\n".join(lines) + "\n"
 
 

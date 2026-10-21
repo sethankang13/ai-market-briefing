@@ -40,13 +40,30 @@ class RunBriefingTests(unittest.TestCase):
             order.append(("write_brief", summarized_path))
             return Path("briefs/2026-09-20.md")
 
+        snapshot = {"fed_funds": {"status": "fetch failed"}}
+
+        def market_step():
+            order.append("market")
+            return snapshot
+
+        def attach_market(summarized_path, market):
+            order.append(("market_attach", summarized_path, market is snapshot))
+            return {"stories": [], "market_snapshot": market}
+
+        def persist_step(summarized_run, market):
+            order.append(("persist", market is snapshot))
+            return Path("data/loop.db")
+
         with (
             patch.object(summarize_stories, "load_project_env", load_project_env),
             patch.object(run_briefing, "collect_step", collect_step),
             patch.object(run_briefing, "enrich_step", enrich_step),
             patch.object(run_briefing, "select_step", select_step),
             patch.object(run_briefing, "summarize_step", summarize_step),
+            patch.object(run_briefing, "market_step", market_step),
+            patch.object(run_briefing, "attach_market", attach_market),
             patch.object(run_briefing, "write_brief_step", write_brief_step),
+            patch.object(run_briefing, "persist_step", persist_step),
         ):
             brief = run_briefing.run_briefing()
 
@@ -58,8 +75,11 @@ class RunBriefingTests(unittest.TestCase):
                 "collect",
                 ("enrich", Path("data/raw/2026-09-20.json")),
                 ("select", Path("data/enriched/2026-09-20.json")),
+                "market",
                 ("summarize", Path("data/selected/2026-09-20.json"), False),
+                ("market_attach", Path("data/summarized/2026-09-20.json"), True),
                 ("write_brief", Path("data/summarized/2026-09-20.json")),
+                ("persist", True),
             ],
         )
 
@@ -83,6 +103,8 @@ class RunBriefingTests(unittest.TestCase):
             patch.object(run_briefing, "collect_step", collect_step),
             patch.object(run_briefing, "enrich_step", enrich_step),
             patch.object(run_briefing, "select_step", select_step),
+            patch.object(run_briefing, "market_step", lambda: {"fed_funds": {}}),
+            patch.object(run_briefing, "persist_step", lambda *args, **kwargs: Path("data/loop.db")),
         ):
             with self.assertRaises(run_briefing.StepFailed) as caught:
                 run_briefing.run_briefing()
@@ -110,6 +132,9 @@ class RunBriefingTests(unittest.TestCase):
                 patch.object(
                     run_briefing, "write_brief_step", return_value=Path("briefs/today.md")
                 ),
+                patch.object(run_briefing, "market_step", return_value={"fed_funds": {}}),
+                patch.object(run_briefing, "attach_market", lambda path, snap: selected),
+                patch.object(run_briefing, "persist_step", return_value=Path("data/loop.db")),
                 patch.object(summarize_stories, "load_selected_run", return_value=selected),
                 patch.object(summarize_stories, "load_project_env") as load_env,
                 patch.object(
@@ -132,12 +157,13 @@ class RunBriefingTests(unittest.TestCase):
         self.assertEqual(payload["summarizer"], "mock")
         self.assertEqual(
             payload["stories"][0]["ai_headline"],
-            "[AI Headline Pending: AI bill advances]",
+            "Mock significance headline — AI bill advances",
         )
         self.assertEqual(
             payload["stories"][0]["ai_summary"],
-            "[AI Summary Pending: AI bill advances]",
+            "Mock interpretation of AI bill advances.",
         )
+        self.assertNotIn("AI Summary Pending", payload["stories"][0]["ai_summary"])
 
 
 if __name__ == "__main__":

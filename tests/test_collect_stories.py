@@ -1,5 +1,6 @@
 import base64
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -72,6 +73,7 @@ class CollectStoriesTests(unittest.TestCase):
           <link>{google_article_link(publisher)}</link>
           <pubDate>Mon, 05 Oct 2026 12:00:00 GMT</pubDate>
           <description>&lt;p&gt;Stock valuation rose.&lt;/p&gt;</description>
+          <content:encoded xmlns:content="http://purl.org/rss/1.0/modules/content/">&lt;p&gt;Full earnings body with valuation details for the model.&lt;/p&gt;</content:encoded>
         </item></channel></rss>
         """.encode("utf-8")
 
@@ -85,15 +87,72 @@ class CollectStoriesTests(unittest.TestCase):
             def __exit__(self, *args):
                 return False
 
-        with patch.object(collect_stories, "urlopen", return_value=Response()):
-            stories = collect_stories.fetch_feed(
-                {"source": "Reuters AI", "url": "https://news.google.com/rss/search?q=ai"}
-            )
+        now = datetime(2026, 10, 5, 13, 0, tzinfo=timezone.utc)
+        with patch.object(collect_stories, "feedparser_module", None):
+            with patch.object(collect_stories, "urlopen", return_value=Response()):
+                stories = collect_stories.fetch_feed(
+                    {"source": "Reuters AI", "url": "https://news.google.com/rss/search?q=ai"},
+                    now=now,
+                )
 
         self.assertEqual(stories[0]["headline"], "AI earnings beat")
         self.assertEqual(stories[0]["description"], "Stock valuation rose.")
+        self.assertEqual(
+            stories[0]["full_text"],
+            "Full earnings body with valuation details for the model.",
+        )
         self.assertEqual(stories[0]["link"], publisher)
         self.assertEqual(stories[0]["source"], "Reuters AI")
+
+    def test_fetch_feed_drops_items_older_than_48_hours(self):
+        rss = b"""<?xml version="1.0"?>
+        <rss><channel>
+          <item>
+            <title>Fresh story</title>
+            <link>https://example.com/fresh</link>
+            <pubDate>Tue, 06 Oct 2026 10:00:00 GMT</pubDate>
+            <description>New</description>
+          </item>
+          <item>
+            <title>Stale story</title>
+            <link>https://example.com/stale</link>
+            <pubDate>Sun, 04 Oct 2026 09:00:00 GMT</pubDate>
+            <description>Old</description>
+          </item>
+        </channel></rss>
+        """
+
+        class Response:
+            def read(self):
+                return rss
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+        with patch.object(collect_stories, "feedparser_module", None):
+            with patch.object(collect_stories, "urlopen", return_value=Response()):
+                stories = collect_stories.fetch_feed(
+                    {"source": "Reuters AI", "url": "https://example.com/rss"},
+                    now=now,
+                )
+
+        headlines = [story["headline"] for story in stories]
+        self.assertEqual(headlines, ["Fresh story"])
+
+    def test_published_parsed_tuple_is_used_for_recency(self):
+        now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+        fresh = collect_stories.story_published_at(
+            "ignored", published_parsed=(2026, 10, 5, 12, 0, 0, 0, 0, 0)
+        )
+        stale = collect_stories.story_published_at(
+            "ignored", updated_parsed=(2026, 10, 3, 12, 0, 0, 0, 0, 0)
+        )
+        self.assertTrue(collect_stories.is_recent(fresh, now))
+        self.assertFalse(collect_stories.is_recent(stale, now))
 
 
 if __name__ == "__main__":

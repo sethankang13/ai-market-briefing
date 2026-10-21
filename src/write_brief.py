@@ -1,4 +1,7 @@
-"""Render a readable local briefing from a summarized or selected story run.
+"""Render a readable local Loop briefing from a summarized or selected story run.
+
+Daily files use ``# Looping... (YYYY-MM-DD)``. Historical reports are rendered
+separately by ``write_the_loop.py`` as ``# The Loop``.
 
 Run from the project folder:
     python3 src/write_brief.py
@@ -6,10 +9,9 @@ Run from the project folder:
 
 import argparse
 import json
-from datetime import datetime
 from pathlib import Path
 
-
+import fetch_market
 from tag_stories import TAG_LABELS
 
 
@@ -79,28 +81,27 @@ def tags_line(story: dict[str, object]) -> str:
     return "  *Tags:*  "
 
 
-def display_date(date_stem: str) -> str:
-    """Turn a date-based filename into a friendly briefing date."""
-    return datetime.strptime(date_stem, "%Y-%m-%d").strftime("%B %-d, %Y")
-
-
-def why_it_matters(story: dict[str, object]) -> str:
-    """Use the stored AI summary, or a pending placeholder."""
+def why_it_matters(story: dict[str, object]) -> str | None:
+    """Use the stored AI summary. Never emit pending placeholders."""
     summary = story.get("ai_summary")
     if isinstance(summary, str) and summary.strip():
         return summary.strip()
-    return f"[AI Summary Pending: {story['headline']}]"
+    return None
 
 
 def render_story(story: dict[str, object]) -> str:
-    """Lead with the AI headline, then the source headline, tags, and why it matters."""
+    """Lead with the AI headline, then the original headline, tags, and why it matters."""
     source_link = f"[{story['headline']}]({story['link']})"
-    why = f"  Why It Matters: {why_it_matters(story)}"
-    body = f"  {source_link}  \n{tags_line(story)}\n{why}"
+    summary = why_it_matters(story)
+    why = f"  Why It Matters: {summary}" if summary else None
+    body_lines = [f"  {source_link}  ", tags_line(story)]
+    if why:
+        body_lines.append(why)
+    body = "\n".join(body_lines)
     ai_headline = story.get("ai_headline")
     if isinstance(ai_headline, str) and ai_headline.strip():
         return f"- {ai_headline.strip()}  \n{body}"
-    return f"- {source_link}  \n{tags_line(story)}\n{why}"
+    return f"- {source_link}  \n" + "\n".join(body_lines[1:])
 
 
 def render_brief(selected_run: dict[str, object], date_stem: str) -> str:
@@ -109,10 +110,13 @@ def render_brief(selected_run: dict[str, object], date_stem: str) -> str:
     for story in selected_run["stories"]:
         sections[section_for_story(story)].append(story)
 
+    snapshot = selected_run.get("market_snapshot")
     lines = [
-        f"# AI Market Briefing — {display_date(date_stem)}",
+        f"# Looping... ({date_stem})",
         "",
-        "Selected public reporting, organized by topic. Links lead to the original source.",
+        "Loop: AI Market Briefing. Selected public reporting, organized by topic. Links lead to the original source.",
+        "",
+        fetch_market.render_market_block(snapshot if isinstance(snapshot, dict) else None),
     ]
     for section in SECTION_ORDER:
         if sections[section]:
@@ -134,7 +138,7 @@ def save_brief(selected_run: dict[str, object], input_path: Path) -> Path:
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Write a topic-organized local market briefing."
+        description="Write a topic-organized Loop: AI Market Briefing."
     )
     parser.add_argument(
         "input_file",
@@ -150,5 +154,5 @@ if __name__ == "__main__":
     input_file = arguments.input_file or latest_briefing_source()
     selected_run = load_selected_run(input_file)
     saved_file = save_brief(selected_run, input_file)
-    print(f"Wrote {len(selected_run['stories'])} stories.")
+    print(f"Loop: wrote {len(selected_run['stories'])} stories.")
     print(f"Saved briefing to {saved_file}")

@@ -2,15 +2,21 @@
 
 Run from the project folder:
     python3 src/summarize_stories.py
+    python3 src/summarize_stories.py --mock
 
 Provider order:
-1. Gemini ``gemini-3.6-flash`` when ``GEMINI_API_KEY`` is set.
-2. OpenAI ``gpt-4o-mini`` when Gemini is missing or fails and ``OPENAI_API_KEY`` is set.
-3. Otherwise pending placeholders for the headline and summary.
+1. Gemini cascade ``gemini-3.8-flash`` → ``gemini-3.7-flash`` →
+   ``gemini-3.6-flash`` → ``gemini-2.5-flash`` when ``GEMINI_API_KEY`` is set.
+2. OpenAI ``gpt-4o-mini`` when Gemini is missing or the cascade fails and
+   ``OPENAI_API_KEY`` is set.
+3. Otherwise raise. Live output never stores pending placeholders.
 
-Each story's ``link`` is fetched with the standard library. Readable article text
-is capped before it is sent. If the fetch or extract fails, the model sees only
-the headline fields and the story records that the article was not read.
+``--mock`` writes offline mock copy and does not call a model.
+
+Each story prefers RSS ``full_text``. Otherwise the page is fetched and the
+body is extracted with trafilatura, BeautifulSoup, or the stdlib HTML parser.
+Original headlines are kept. Gemini writes ``ai_headline`` plus a dense
+1–2 sentence ``ai_summary``.
 """
 
 from __future__ import annotations
@@ -30,25 +36,42 @@ from typing import NamedTuple
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SELECTED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "selected"
 SUMMARIZED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "summarized"
-GEMINI_MODEL = "gemini-3.6-flash"
+GEMINI_MODELS = (
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-2.5-flash",
+)
+GEMINI_MODEL = GEMINI_MODELS[0]
 OPENAI_MODEL = "gpt-4o-mini"
-GEMINI_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    f"{GEMINI_MODEL}:generateContent"
+GEMINI_URL_TEMPLATE = (
+    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 MAX_ARTICLE_CHARS = 12000
 MIN_ARTICLE_CHARS = 80
 ARTICLE_NOT_READ = "Article was not read."
 SKIP_TAGS = {"script", "style", "noscript", "svg", "iframe", "nav", "header", "footer", "form"}
+PENDING_MARKERS = (
+    "AI Summary Pending",
+    "AI Headline Pending",
+    "AI Summary goes HERE",
+)
 SYSTEM_PROMPT = (
-    "You write a short why-it-matters headline and one or two sentences for a personal "
-    "market briefing. Use only the supplied article text when it is present. "
-    "If the article was not read, use only the headline, source, tags, and selection "
-    "reason, and do not pretend the page was analyzed. Do not invent facts. "
-    "Label market-impact or causal language as interpretation, not established fact. "
+    "You write a short why-it-matters headline and one or two dense sentences "
+    "for Loop: AI Market Briefing. Keep the original publisher headline out of "
+    "the JSON fields except as source material. Use the supplied article body "
+    "when it is present; do not summarize from the headline alone if body text "
+    "is provided. If the article was not read, use only the headline, source, "
+    "tags, and selection reason, and do not pretend the page was analyzed. "
+    "Do not invent facts. Label market-impact or causal language as "
+    "interpretation, not established fact. "
     'Return JSON only: {"ai_headline": "...", "ai_summary": "..."}.'
 )
+
+
+class SummarizationError(Exception):
+    """Every live model attempt failed. Do not write pending placeholders."""
 
 
 class ModelCopy(NamedTuple):
@@ -152,21 +175,45 @@ def load_selected_run(input_path: Path) -> dict[str, object]:
 
 
 def mock_headline(headline: str) -> str:
-    """Return a visible headline placeholder when no model copy is available."""
-    return f"[AI Headline Pending: {headline}]"
+    """Return offline mock copy used only with ``--mock``."""
+    return f"Mock significance headline — {headline}"
 
 
 def mock_summary(headline: str) -> str:
-    """Return a visible summary placeholder when no model copy is available."""
-    return f"[AI Summary Pending: {headline}]"
+    """Return offline mock copy used only with ``--mock``."""
+    return f"Mock interpretation of {headline}."
 
 
-def extract_article_text(html: str) -> str:
-    """Return readable text from HTML, preferring the article element."""
+def _stdlib_extract(html: str) -> str:
     parser = ArticleTextParser()
     parser.feed(html)
     parser.close()
     return parser.article_text or parser.main_text or parser.body_text
+
+
+def extract_article_text(html: str) -> str:
+    """Return readable text from HTML: trafilatura, then BeautifulSoup, then stdlib."""
+    try:
+        import trafilatura
+
+        extracted = trafilatura.extract(html)
+        if isinstance(extracted, str) and extracted.strip():
+            return extracted.strip()
+    except Exception:
+        pass
+    try:
+        from bs4 import BeautifulSoup
+
+        soup = BeautifulSoup(html, "lxml")
+        for tag in soup(["script", "style", "noscript", "svg", "iframe"]):
+            tag.decompose()
+        node = soup.find("article") or soup.find("main") or soup.body or soup
+        text = node.get_text("\n", strip=True)
+        if text:
+            return text
+    except Exception:
+        pass
+    return _stdlib_extract(html)
 
 
 def cap_article_text(text: str) -> str:
@@ -180,12 +227,21 @@ def fetch_html(url: str) -> str:
     """Download one article page. Isolated so tests can mock it."""
     request = urllib.request.Request(
         url,
-        headers={"User-Agent": "AI-Market-Briefing/0.1"},
+        headers={"User-Agent": "Loop-AI-Market-Briefing/0.1"},
     )
     with urllib.request.urlopen(request, timeout=20) as response:
         raw = response.read(2_000_000)
         charset = response.headers.get_content_charset() or "utf-8"
     return raw.decode(charset, errors="replace")
+
+
+def usable_body(text: object) -> str | None:
+    if not isinstance(text, str):
+        return None
+    cleaned = re.sub(r"\n{3,}", "\n\n", text).strip()
+    if len(cleaned) < MIN_ARTICLE_CHARS:
+        return None
+    return cap_article_text(cleaned)
 
 
 def read_article(url: object) -> tuple[str | None, bool]:
@@ -204,10 +260,18 @@ def read_article(url: object) -> tuple[str | None, bool]:
         text = extract_article_text(fetch_html(article_url))
     except (urllib.error.URLError, TimeoutError, OSError, ValueError):
         return None, False
-    text = re.sub(r"\n{3,}", "\n\n", text).strip()
-    if len(text) < MIN_ARTICLE_CHARS:
+    body = usable_body(text)
+    if body is None:
         return None, False
-    return cap_article_text(text), True
+    return body, True
+
+
+def story_body(story: dict[str, object]) -> tuple[str | None, bool]:
+    """Prefer RSS full_text; otherwise fetch and extract the article page."""
+    rss_body = usable_body(story.get("full_text"))
+    if rss_body is not None:
+        return rss_body, True
+    return read_article(story.get("link"))
 
 
 def story_prompt(story: dict[str, object], article_text: str | None, article_read: bool) -> str:
@@ -218,15 +282,16 @@ def story_prompt(story: dict[str, object], article_text: str | None, article_rea
     tags = ", ".join(label for label in labels if isinstance(label, str))
     reason = story.get("selection_reason") or "Not provided."
     lines = [
-        f"Headline: {story['headline']}",
+        f"Original headline: {story['headline']}",
         f"Source: {story.get('source', 'Unknown')}",
         f"Tags: {tags or 'none'}",
         f"Selection reason: {reason}",
+        "Keep the original headline unchanged in the briefing; write a new ai_headline.",
     ]
     if article_read and article_text:
         lines.append(
-            "The article text below was fetched from the source page. "
-            "Base the headline and summary on that text."
+            "The article body below is available. Base ai_headline and ai_summary "
+            "on that body, not on the headline alone."
         )
         lines.append(f"Article text:\n{article_text}")
     else:
@@ -236,7 +301,7 @@ def story_prompt(story: dict[str, object], article_text: str | None, article_rea
         )
     lines.append(
         'Return JSON: {"ai_headline": "short why-it-matters headline", '
-        '"ai_summary": "one or two sentences"}.'
+        '"ai_summary": "one or two dense sentences"}.'
     )
     return "\n".join(lines)
 
@@ -296,7 +361,16 @@ def parse_model_fields(text: str) -> tuple[str, str]:
         raise ValueError("Model response did not contain an AI headline.")
     if not isinstance(summary, str) or not summary.strip():
         raise ValueError("Model response did not contain summary text.")
-    return " ".join(headline.split()), summary.strip()
+    headline = " ".join(headline.split())
+    summary = summary.strip()
+    for marker in PENDING_MARKERS:
+        if marker in headline or marker in summary:
+            raise ValueError("Model response used a pending placeholder.")
+    return headline, summary
+
+
+def gemini_url(model: str) -> str:
+    return GEMINI_URL_TEMPLATE.format(model=model)
 
 
 def summarize_with_gemini(
@@ -304,8 +378,9 @@ def summarize_with_gemini(
     api_key: str,
     article_text: str | None,
     article_read: bool,
+    model: str = GEMINI_MODEL,
 ) -> tuple[str, str]:
-    """Ask Gemini flash for a why-it-matters headline and summary."""
+    """Ask one Gemini flash model for a why-it-matters headline and summary."""
     payload = {
         "contents": [
             {
@@ -325,11 +400,54 @@ def summarize_with_gemini(
         },
     }
     data = _post_json(
-        GEMINI_URL,
+        gemini_url(model),
         payload,
         {"x-goog-api-key": api_key},
     )
     return parse_model_fields(visible_gemini_text(data))
+
+
+def _retryable_http_error(error: urllib.error.HTTPError) -> bool:
+    return error.code in {404, 408, 429, 500, 502, 503, 504}
+
+
+def summarize_with_gemini_cascade(
+    story: dict[str, object],
+    api_key: str,
+    article_text: str | None,
+    article_read: bool,
+    models: tuple[str, ...] = GEMINI_MODELS,
+) -> tuple[str, str, str]:
+    """Try Gemini models in order. 429/connection/404 errors continue the cascade."""
+    last_error: Exception | None = None
+    for model in models:
+        try:
+            headline, summary = summarize_with_gemini(
+                story, api_key, article_text, article_read, model=model
+            )
+            return headline, summary, model
+        except urllib.error.HTTPError as error:
+            last_error = error
+            try:
+                error.close()
+            except Exception:
+                pass
+            if _retryable_http_error(error):
+                continue
+            continue
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            ConnectionError,
+            OSError,
+            ValueError,
+            KeyError,
+        ) as error:
+            last_error = error
+            continue
+    raise SummarizationError(
+        "All Gemini models failed: " + ", ".join(models)
+    ) from last_error
 
 
 def summarize_with_openai(
@@ -390,35 +508,30 @@ def load_project_env(env_path: Path | None = None) -> None:
 
 
 def summarize_story(story: dict[str, object], mock: bool = False) -> ModelCopy:
-    """Return model copy using Gemini, OpenAI, or the offline mock.
+    """Return model copy using the Gemini cascade, OpenAI, or ``--mock``.
 
-    ``mock`` forces the pending placeholders and does not call Gemini or OpenAI,
-    even when an API key is already loaded.
+    ``mock`` writes mock copy and does not call Gemini or OpenAI, even when an
+    API key is already loaded. Live runs raise ``SummarizationError`` instead of
+    writing pending placeholders.
     """
-    headline = story["headline"]
+    headline = str(story["headline"])
     if mock:
-        return _mock_copy(str(headline), False)
+        rss_body = usable_body(story.get("full_text"))
+        return _mock_copy(headline, rss_body is not None)
     load_project_env()
-    article_text, article_read = read_article(story.get("link"))
+    article_text, article_read = story_body(story)
     gemini_key = os.environ.get("GEMINI_API_KEY")
     openai_key = os.environ.get("OPENAI_API_KEY")
 
     if gemini_key:
         try:
-            ai_headline, ai_summary = summarize_with_gemini(
+            ai_headline, ai_summary, _model = summarize_with_gemini_cascade(
                 story, gemini_key, article_text, article_read
             )
             return ModelCopy(ai_headline, ai_summary, "gemini", article_read)
-        except (urllib.error.URLError, TimeoutError, ValueError, KeyError):
-            if openai_key:
-                try:
-                    ai_headline, ai_summary = summarize_with_openai(
-                        story, openai_key, article_text, article_read
-                    )
-                    return ModelCopy(ai_headline, ai_summary, "openai", article_read)
-                except (urllib.error.URLError, TimeoutError, ValueError, KeyError):
-                    return _mock_copy(headline, article_read)
-            return _mock_copy(headline, article_read)
+        except SummarizationError:
+            if not openai_key:
+                raise
 
     if openai_key:
         try:
@@ -426,10 +539,12 @@ def summarize_story(story: dict[str, object], mock: bool = False) -> ModelCopy:
                 story, openai_key, article_text, article_read
             )
             return ModelCopy(ai_headline, ai_summary, "openai", article_read)
-        except (urllib.error.URLError, TimeoutError, ValueError, KeyError):
-            return _mock_copy(headline, article_read)
+        except (urllib.error.URLError, TimeoutError, ValueError, KeyError, OSError) as error:
+            raise SummarizationError("OpenAI summarization failed.") from error
 
-    return _mock_copy(headline, article_read)
+    raise SummarizationError(
+        "No Gemini or OpenAI API key is set. Pass --mock for offline copy."
+    )
 
 
 def summarize_stories(
@@ -471,6 +586,7 @@ def save_summarized_run(
         "selected_run": input_path.name,
         "failed_sources": selected_run.get("failed_sources", []),
         "summarizer": provider,
+        "market_snapshot": selected_run.get("market_snapshot"),
         "stories": stories,
     }
     output_path = SUMMARIZED_DATA_DIRECTORY / input_path.name
@@ -491,7 +607,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--mock",
         action="store_true",
-        help="Write offline pending summaries and do not call Gemini or OpenAI.",
+        help="Write offline mock summaries and do not call Gemini or OpenAI.",
     )
     return parser.parse_args()
 
@@ -501,5 +617,5 @@ if __name__ == "__main__":
     input_file = arguments.input_file or latest_selected_run()
     selected_run = load_selected_run(input_file)
     saved_file = save_summarized_run(selected_run, input_file, mock=arguments.mock)
-    print(f"Summarized {len(selected_run['stories'])} stories.")
+    print(f"Loop: summarized {len(selected_run['stories'])} stories.")
     print(f"Saved summarized data to {saved_file}")

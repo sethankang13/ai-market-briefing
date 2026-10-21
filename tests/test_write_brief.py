@@ -51,7 +51,15 @@ class WriteBriefTests(unittest.TestCase):
             "2026-09-20",
         )
 
-        self.assertIn("# AI Market Briefing — September 20, 2026", briefing)
+        self.assertIn("# Looping... (2026-09-20)", briefing)
+        self.assertIn("## Market Snapshot", briefing)
+        snapshot_at = briefing.index("## Market Snapshot")
+        policy_at = briefing.index("## Legislation-&-Policy")
+        self.assertLess(snapshot_at, policy_at)
+        self.assertIn("- Fed Funds:", briefing)
+        self.assertIn("- S&P 500:", briefing)
+        self.assertIn("- Nasdaq:", briefing)
+        self.assertIn("- Dow:", briefing)
         self.assertLess(
             briefing.index("## Legislation-&-Policy"),
             briefing.index("## Foundation-Models"),
@@ -87,12 +95,45 @@ class WriteBriefTests(unittest.TestCase):
         self.assertLess(source_at, tags_at)
         self.assertLess(tags_at, why_at)
 
-    def test_missing_ai_summary_uses_pending_placeholder(self):
+    def test_missing_ai_summary_does_not_write_pending_placeholder(self):
         briefing = render_brief(
             {"stories": [story("Bill advances", ["Legislation-&-Policy"])]},
             "2026-09-20",
         )
-        self.assertIn("Why It Matters: [AI Summary Pending: Bill advances]", briefing)
+        self.assertNotIn("AI Summary Pending", briefing)
+        self.assertNotIn("AI Headline Pending", briefing)
+        self.assertNotIn("AI Summary goes HERE", briefing)
+        self.assertIn("[Bill advances](https://example.com/story)", briefing)
+
+    def test_market_snapshot_uses_explicit_failure_not_fake_numbers(self):
+        briefing = render_brief(
+            {
+                "stories": [story("Bill advances", ["Legislation-&-Policy"], "Policy copy.")],
+                "market_snapshot": {
+                    "fed_funds": {"status": "ok", "rate": 4.33},
+                    "indexes": {
+                        "^GSPC": {
+                            "status": "ok",
+                            "previous_close": 5123.45,
+                            "percent_change": -0.42,
+                        },
+                        "^IXIC": {"status": "fetch failed", "error": "timeout"},
+                        "^DJI": {
+                            "status": "ok",
+                            "previous_close": 42000.0,
+                            "percent_change": 0.1,
+                        },
+                    },
+                },
+            },
+            "2026-10-21",
+        )
+        self.assertIn("# Looping... (2026-10-21)", briefing)
+        self.assertIn("- Fed Funds: 4.33%", briefing)
+        self.assertIn("- S&P 500: 5,123.45 (-0.42%)", briefing)
+        self.assertIn("- Nasdaq: fetch failed", briefing)
+        self.assertIn("- Dow: 42,000.00 (+0.10%)", briefing)
+        self.assertNotIn("timeout", briefing)
 
     def test_latest_briefing_source_prefers_summarized_over_selected(self):
         with tempfile.TemporaryDirectory() as temp_dir:

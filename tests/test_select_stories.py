@@ -1,11 +1,21 @@
+import io
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from select_stories import score_story, select_stories
+from select_stories import (
+    LOOP_TAGS,
+    print_selection_diagnostics,
+    recency_score,
+    score_story,
+    select_stories,
+)
+from tag_stories import TAG_LABELS
 
 
 def story(headline: str, tags: list[str]) -> dict[str, object]:
@@ -13,6 +23,23 @@ def story(headline: str, tags: list[str]) -> dict[str, object]:
 
 
 class SelectStoriesTests(unittest.TestCase):
+    def test_selection_uses_the_nine_loop_tags(self):
+        self.assertEqual(LOOP_TAGS, TAG_LABELS)
+        self.assertEqual(
+            list(LOOP_TAGS),
+            [
+                "Market-Valuations",
+                "Venture-&-M&A",
+                "Legislation-&-Policy",
+                "Antitrust-&-Compliance",
+                "Copyright-&-IP",
+                "Geopolitics-&-Trade",
+                "Labor-&-Economy",
+                "Enterprise-Adoption",
+                "Foundation-Models",
+            ],
+        )
+
     def test_stories_rank_by_the_number_of_tags(self):
         broad = story("Valuation and funding", ["Market-Valuations", "Venture-&-M&A"])
         narrow = story("A new bill", ["Legislation-&-Policy"])
@@ -102,6 +129,31 @@ class SelectStoriesTests(unittest.TestCase):
             [item["headline"] for item in selected],
             ["Funding", "Bill"],
         )
+
+    def test_diagnostics_print_evaluated_density_and_recency(self):
+        now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+        stories = [
+            {
+                "headline": "Fresh policy",
+                "tags": ["Legislation-&-Policy"],
+                "published_at": "Tue, 06 Oct 2026 10:00:00 GMT",
+            },
+            {
+                "headline": "Older market",
+                "tags": ["Market-Valuations", "Venture-&-M&A"],
+                "published_at": "Mon, 05 Oct 2026 12:00:00 GMT",
+            },
+        ]
+        buffer = io.StringIO()
+        with patch("sys.stdout", buffer):
+            diagnostics = print_selection_diagnostics(stories, now=now)
+        text = buffer.getvalue()
+        self.assertIn("Stories evaluated: 2", text)
+        self.assertIn("Tag density:", text)
+        self.assertIn("Recency score:", text)
+        self.assertEqual(diagnostics["stories_evaluated"], 2)
+        self.assertEqual(diagnostics["tag_density"]["per_tag"]["Legislation-&-Policy"], 1)
+        self.assertGreater(recency_score(stories[0], now=now), recency_score(stories[1], now=now))
 
 
 if __name__ == "__main__":

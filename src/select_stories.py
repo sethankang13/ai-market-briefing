@@ -1,14 +1,23 @@
 """Select consequential stories from an enriched run, with one story per tag.
 
+Audited against the nine Loop tags: Market-Valuations, Venture-&-M&A,
+Legislation-&-Policy, Antitrust-&-Compliance, Copyright-&-IP,
+Geopolitics-&-Trade, Labor-&-Economy, Enterprise-Adoption, Foundation-Models.
+
 Run from the project folder:
     python3 src/select_stories.py
 """
 
 import argparse
 import json
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from tag_stories import TAG_LABELS
+
+LOOP_TAGS = TAG_LABELS
+RECENCY_WINDOW = timedelta(hours=48)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -117,14 +126,106 @@ def select_stories(
     ]
 
 
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def parse_published_at(value: object) -> datetime | None:
+    """Parse RSS pubDate / ISO timestamps for recency scoring."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip()
+    try:
+        return _as_utc(parsedate_to_datetime(text))
+    except (TypeError, ValueError, IndexError):
+        pass
+    iso = text[:-1] + "+00:00" if text.endswith("Z") else text
+    try:
+        return _as_utc(datetime.fromisoformat(iso))
+    except ValueError:
+        return None
+
+
+def recency_score(story: dict[str, object], now: datetime | None = None) -> float:
+    """Score 1.0 at publish time down to 0.0 at 48 hours. Undated stories score 0.5."""
+    published = parse_published_at(story.get("published_at"))
+    if published is None:
+        return 0.5
+    run_at = _as_utc(now) if now is not None else datetime.now(timezone.utc)
+    age = run_at - published
+    if age <= timedelta(0):
+        return 1.0
+    if age >= RECENCY_WINDOW:
+        return 0.0
+    remaining = RECENCY_WINDOW - age
+    return remaining / RECENCY_WINDOW
+
+
+def tag_density(stories: list[dict[str, object]]) -> dict[str, object]:
+    """Count how often each of the nine Loop tags appears."""
+    counts = {label: 0 for label in LOOP_TAGS}
+    tagged_stories = 0
+    total_tags = 0
+    for story in stories:
+        matched = [tag for tag in story_tags(story) if tag in counts]
+        if matched:
+            tagged_stories += 1
+        for tag in matched:
+            counts[tag] += 1
+            total_tags += 1
+    average = (total_tags / len(stories)) if stories else 0.0
+    return {
+        "per_tag": counts,
+        "tagged_stories": tagged_stories,
+        "average_tags_per_story": average,
+    }
+
+
+def selection_diagnostics(
+    stories: list[dict[str, object]], now: datetime | None = None
+) -> dict[str, object]:
+    """Summarize evaluation size, tag density, and mean recency score."""
+    density = tag_density(stories)
+    scores = [recency_score(story, now=now) for story in stories]
+    mean_recency = sum(scores) / len(scores) if scores else 0.0
+    return {
+        "stories_evaluated": len(stories),
+        "tag_density": density,
+        "recency_score": mean_recency,
+    }
+
+
+def print_selection_diagnostics(
+    stories: list[dict[str, object]], now: datetime | None = None
+) -> dict[str, object]:
+    """Print stories evaluated, tag density, and recency score."""
+    diagnostics = selection_diagnostics(stories, now=now)
+    density = diagnostics["tag_density"]
+    per_tag = ", ".join(
+        f"{label}={count}" for label, count in density["per_tag"].items()
+    )
+    print(f"Stories evaluated: {diagnostics['stories_evaluated']}")
+    print(
+        "Tag density: "
+        f"{density['average_tags_per_story']:.2f} tags/story "
+        f"({density['tagged_stories']} tagged); {per_tag}"
+    )
+    print(f"Recency score: {diagnostics['recency_score']:.2f}")
+    return diagnostics
+
+
 def save_selected_run(enriched_run: dict[str, object], input_path: Path) -> Path:
     """Save selected copies separately from the enriched collection."""
     SELECTED_DATA_DIRECTORY.mkdir(parents=True, exist_ok=True)
+    stories = enriched_run["stories"]
+    print_selection_diagnostics(stories)
     output_path = SELECTED_DATA_DIRECTORY / input_path.name
     output = {
         "enriched_run": input_path.name,
         "failed_sources": enriched_run.get("failed_sources", []),
-        "stories": select_stories(enriched_run["stories"]),
+        "stories": select_stories(stories),
     }
     output_path.write_text(json.dumps(output, indent=2), encoding="utf-8")
     return output_path
@@ -148,5 +249,5 @@ if __name__ == "__main__":
     input_file = arguments.input_file or latest_enriched_run()
     enriched_run = load_enriched_run(input_file)
     saved_file = save_selected_run(enriched_run, input_file)
-    print(f"Selected {len(select_stories(enriched_run['stories']))} stories.")
+    print(f"Loop: selected {len(select_stories(enriched_run['stories']))} stories.")
     print(f"Saved selected data to {saved_file}")

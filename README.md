@@ -1,4 +1,4 @@
-# AI Market Briefing
+# Loop: AI Market Briefing
 
 ## Purpose
 
@@ -32,6 +32,9 @@ No paid news API, database, website, or automated email yet.
 
 | Date | Decision | Why |
 | --- | --- | --- |
+| 2026-10-21 | Rebrand to Loop: AI Market Briefing; daily files use `# Looping... (YYYY-MM-DD)`; historical reports use `# The Loop` | One product name for the daily habit and a separate title for the archive. |
+| 2026-10-21 | Put a Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow) above story sections; failed quotes say fetch failed | The brief should open with observable market context, never invented numbers. |
+| 2026-10-21 | Drop RSS items older than 48 hours; summarize from full article body; Gemini cascade; append each run to gitignored `data/loop.db` | Recency, body-grounded copy, and a durable history without storing secrets. |
 | 2026-09-19 | Begin with a manually run, free V1 | It keeps costs and moving parts near zero while making every step observable. |
 | 2026-09-19 | Rank stories by immediate market impact, long-term outlook, economic policy, global relations/cost of living, and conversation relevance; include an occasional fun or interesting story | The brief should be useful for investing and economic understanding, but engaging enough to become a daily habit. |
 | 2026-09-19 | Keep the V1 story record to headline, source, link, and publication time | A small, observable data shape makes collection easy to understand and debug. |
@@ -144,6 +147,7 @@ ai-market-briefing/
 ├── data/enriched/       # saved copies with derived tags
 ├── data/selected/       # saved top-story candidates and their score explanation
 ├── data/summarized/     # selected stories plus AI Why It Matters text
+├── data/loop.db         # gitignored SQLite history for The Loop
 └── briefs/              # generated readable daily briefings
 ```
 
@@ -151,9 +155,9 @@ Raw inputs and generated outputs are separate so we can inspect what the program
 
 ## Run the full briefing
 
-From the project folder, run `python3 src/run_briefing.py`. It collects the feeds, enriches tags, selects stories, adds Why It Matters summaries, and writes the Markdown brief, stopping at the first step that fails.
+From the project folder, run `python3 src/run_briefing.py`. It collects feeds from the last 48 hours, enriches tags, selects stories, fetches a Market Snapshot, adds Why It Matters summaries from article bodies, writes `# Looping... (YYYY-MM-DD)`, and appends the run to `data/loop.db`. It stops at the first step that fails.
 
-For a briefing that does not call a model, run `python3 src/run_briefing.py --mock`. It still collects the RSS feeds, enriches tags, and selects stories. Summaries are the offline placeholders `[AI Headline Pending: …]` and `[AI Summary Pending: …]`, even when `.env` contains an API key. A feed that fails is skipped, and the brief is written from the feeds that succeeded.
+For a briefing that does not call a model, run `python3 src/run_briefing.py --mock`. It still collects the RSS feeds, enriches tags, selects stories, and fetches market quotes. Summaries are offline mock copy, even when `.env` contains an API key. Live runs never write `AI Summary Pending`, `AI Headline Pending`, or `AI Summary goes HERE`. A feed that fails is skipped, and the brief is written from the feeds that succeeded. Failed market quotes are labeled `fetch failed`.
 
 ## Current enrichment step
 
@@ -173,7 +177,7 @@ Create up to five briefing candidates from the latest enriched run with:
 python3 src/select_stories.py
 ```
 
-Each assigned tag is worth one point, and a story's score is the count of its tags. Ties retain the original feed order. The selected copy includes both the score and a short rule-based reason. The selected set is the top five by that score, plus the highest-scoring story for each tag that appears that day. One story can cover more than one tag, a missing tag is skipped, and the list can be longer than five. An untagged story still cannot take a top-five slot from a tagged story, and the whole set keeps at most one untagged story.
+Each assigned tag is worth one point, and a story's score is the count of its tags. Ties retain the original feed order. The selected copy includes both the score and a short rule-based reason. The selected set is the top five by that score, plus the highest-scoring story for each of the nine Loop tags that appears that day. One story can cover more than one tag, a missing tag is skipped, and the list can be longer than five. An untagged story still cannot take a top-five slot from a tagged story, and the whole set keeps at most one untagged story. The step prints how many stories were evaluated, tag density across the nine labels, and a recency score.
 
 ## Current summarization step (V2)
 
@@ -183,7 +187,7 @@ Create AI "Why It Matters" copy from the latest selected run with:
 python3 src/summarize_stories.py
 ```
 
-The program reads `data/selected/YYYY-MM-DD.json` and writes `data/summarized/YYYY-MM-DD.json`, creating `data/summarized/` if it does not exist. For each story it fetches `link` with the standard library, extracts readable article text, and sends a capped excerpt to the model. If the fetch or extract fails, the model sees only the headline, source, tags, and selection reason, and the story records `article_read: false` with `Article was not read.` Gemini `gemini-3.6-flash` is used when `GEMINI_API_KEY` is set. A plain `python3 src/run_briefing.py` or `python3 src/summarize_stories.py` loads a gitignored `.env` in the project root first, and does not replace a value already set in the shell. It returns `ai_headline` (a short line that states why the story matters) and `ai_summary` (one or two sentences) from the article text. Market-impact language is labeled as interpretation. OpenAI `gpt-4o-mini` is the fallback. With no usable key, the story stores `[AI Headline Pending: <Headline>]` and `[AI Summary Pending: <Headline>]`. Selected files are left unchanged.
+The program reads `data/selected/YYYY-MM-DD.json` and writes `data/summarized/YYYY-MM-DD.json`, creating `data/summarized/` if it does not exist. For each story it uses RSS `full_text` when present, otherwise it fetches `link` and extracts readable article text with trafilatura, BeautifulSoup, or the standard library parser, then sends a capped excerpt to the model. If the body cannot be read, the model sees only the headline, source, tags, and selection reason, and the story records `article_read: false` with `Article was not read.` Original headlines are kept. Gemini writes `ai_headline` and a dense 1–2 sentence `ai_summary`. When `GEMINI_API_KEY` is set, models are tried in order: `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, then `gemini-2.5-flash`. HTTP 429 and connection errors move to the next model. A plain `python3 src/run_briefing.py` or `python3 src/summarize_stories.py` loads a gitignored `.env` in the project root first, and does not replace a value already set in the shell. Market-impact language is labeled as interpretation. OpenAI `gpt-4o-mini` is the fallback after the Gemini cascade. If every live attempt fails, the step raises instead of writing pending placeholders. Selected files are left unchanged.
 
 ## Current writing step
 
@@ -193,7 +197,7 @@ Create a readable Markdown briefing from the latest summarized run (or selected 
 python3 src/write_brief.py
 ```
 
-The briefing groups stories by the V2.5 tag labels, then Other. Stories with more than one tag appear once, under the first matching label in that order, while displaying every assigned tag. When `ai_headline` is present, that line leads, followed by the original headline and link, then an italic line such as `*Tags: #Legislation-&-Policy #Enterprise-Adoption*`, then **Why It Matters:** from `ai_summary`. Stories without `ai_headline` keep the original headline as the first line.
+The briefing title is `# Looping... (YYYY-MM-DD)`. A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) is inserted above the story categories. The briefing then groups stories by the V2.5 tag labels, then Other. Stories with more than one tag appear once, under the first matching label in that order, while displaying every assigned tag. When `ai_headline` is present, that line leads, followed by the original headline and link, then an italic line such as `*Tags: #Legislation-&-Policy #Enterprise-Adoption*`, then **Why It Matters:** from `ai_summary`. Stories without `ai_headline` keep the original headline as the first line. Historical reports from `data/loop.db` are titled `# The Loop`.
 
 ## Rules for this project
 

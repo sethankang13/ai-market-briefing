@@ -1,3 +1,5 @@
 .DS_Store
 .env
 .env.*
+data/loop.db
+*.db-journal

@@ -32,6 +32,8 @@ No paid news API, database, website, or automated email yet.
 
 | Date | Decision | Why |
 | --- | --- | --- |
+| 2026-10-21 | Keep the RSS/original `headline` as the only story title; Gemini writes `ai_summary` only | Headline rewriting spent tokens without improving the brief. |
+| 2026-10-21 | Use eight public feeds, including Bloomberg, Reuters markets, Politico, and a narrower AP policy search | Broader AI market and policy coverage from still-free RSS. |
 | 2026-10-21 | Rebrand to Loop: AI Market Briefing; daily files use `# Looping... (YYYY-MM-DD)`; historical reports use `# The Loop` | One product name for the daily habit and a separate title for the archive. |
 | 2026-10-21 | Put a Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow) above story sections; failed quotes say fetch failed | The brief should open with observable market context, never invented numbers. |
 | 2026-10-21 | Drop RSS items older than 48 hours; summarize from full article body; Gemini cascade; append each run to gitignored `data/loop.db` | Recency, body-grounded copy, and a durable history without storing secrets. |
@@ -78,14 +80,15 @@ Use one free public RSS feed from each category:
 
 We will choose the specific feeds after deciding how V1 should handle the same event appearing across multiple sources.
 
-### Selected V2.5 feeds
+### Selected feeds
 
 | Source | Feed |
 | --- | --- |
-| Reuters AI | [Google News search](https://news.google.com/rss/search?q=site:reuters.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en) |
+| FT, WSJ & Bloomberg Proxy | [Google News search](https://news.google.com/rss/search?q=(site:ft.com+OR+site:wsj.com+OR+site:bloomberg.com)+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en) |
+| Reuters Business & Markets | [Google News search](https://news.google.com/rss/search?q=site:reuters.com+(AI+OR+%22artificial+intelligence%22)+market&hl=en-US&gl=US&ceid=US:en) |
 | CNBC Tech & Markets | [Google News search](https://news.google.com/rss/search?q=site:cnbc.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en) |
-| AP News Policy | [Google News search](https://news.google.com/rss/search?q=site:apnews.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en) |
-| FT & WSJ Proxy | [Google News search](https://news.google.com/rss/search?q=(site:ft.com+OR+site:wsj.com)+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en) |
+| Politico AI Policy | [Google News search](https://news.google.com/rss/search?q=site:politico.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en) |
+| AP News Policy | [Google News search](https://news.google.com/rss/search?q=site:apnews.com+(AI+OR+%22artificial+intelligence%22)+(policy+OR+government+OR+law)&hl=en-US&gl=US&ceid=US:en) |
 | TechCrunch AI | [Category feed](https://techcrunch.com/category/artificial-intelligence/feed/) |
 | OpenAI News | [RSS](https://openai.com/news/rss.xml) |
 | Google AI Blog | [RSS](https://blog.google/technology/ai/rss/) |
@@ -187,7 +190,7 @@ Create AI "Why It Matters" copy from the latest selected run with:
 python3 src/summarize_stories.py
 ```
 
-The program reads `data/selected/YYYY-MM-DD.json` and writes `data/summarized/YYYY-MM-DD.json`, creating `data/summarized/` if it does not exist. For each story it uses RSS `full_text` when present, otherwise it fetches `link` and extracts readable article text with trafilatura, BeautifulSoup, or the standard library parser, then sends a capped excerpt to the model. If the body cannot be read, the model sees only the headline, source, tags, and selection reason, and the story records `article_read: false` with `Article was not read.` Original headlines are kept. Gemini writes `ai_headline` and a dense 1–2 sentence `ai_summary`. When `GEMINI_API_KEY` is set, models are tried in order: `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, then `gemini-2.5-flash`. HTTP 429 and connection errors move to the next model. A plain `python3 src/run_briefing.py` or `python3 src/summarize_stories.py` loads a gitignored `.env` in the project root first, and does not replace a value already set in the shell. Market-impact language is labeled as interpretation. OpenAI `gpt-4o-mini` is the fallback after the Gemini cascade. If every live attempt fails, the step raises instead of writing pending placeholders. Selected files are left unchanged.
+The program reads `data/selected/YYYY-MM-DD.json` and writes `data/summarized/YYYY-MM-DD.json`, creating `data/summarized/` if it does not exist. For each story it uses RSS `full_text` when present, otherwise it fetches `link` and extracts readable article text with trafilatura, BeautifulSoup, or the standard library parser, then sends a capped excerpt to the model. If the body cannot be read, the model sees only the headline, source, tags, and selection reason, and the story records `article_read: false` with `Article was not read.` The RSS/original `headline` is kept as the story title. Gemini writes a dense 1–2 sentence `ai_summary` and does not rewrite headlines. When `GEMINI_API_KEY` is set, models are tried in order: `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, then `gemini-2.5-flash`. HTTP 429 and connection errors move to the next model. A plain `python3 src/run_briefing.py` or `python3 src/summarize_stories.py` loads a gitignored `.env` in the project root first, and does not replace a value already set in the shell. Market-impact language is labeled as interpretation. OpenAI `gpt-4o-mini` is the fallback after the Gemini cascade. If every live attempt fails, the step raises instead of writing pending placeholders. Selected files are left unchanged.
 
 ## Current writing step
 
@@ -197,7 +200,7 @@ Create a readable Markdown briefing from the latest summarized run (or selected 
 python3 src/write_brief.py
 ```
 
-The briefing title is `# Looping... (YYYY-MM-DD)`. A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) is inserted above the story categories. The briefing then groups stories by the V2.5 tag labels, then Other. Stories with more than one tag appear once, under the first matching label in that order, while displaying every assigned tag. When `ai_headline` is present, that line leads, followed by the original headline and link, then an italic line such as `*Tags: #Legislation-&-Policy #Enterprise-Adoption*`, then **Why It Matters:** from `ai_summary`. Stories without `ai_headline` keep the original headline as the first line. Historical reports from `data/loop.db` are titled `# The Loop`.
+The briefing title is `# Looping... (YYYY-MM-DD)`. A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) is inserted above the story categories. The briefing then groups stories by the V2.5 tag labels, then Other. Stories with more than one tag appear once, under the first matching label in that order, while displaying every assigned tag. Each story leads with the original headline as a link, then an italic line such as `*Tags: #Legislation-&-Policy #Enterprise-Adoption*`, then **Why It Matters:** from `ai_summary`. Historical reports from `data/loop.db` are titled `# The Loop`.
 
 ## Rules for this project
 

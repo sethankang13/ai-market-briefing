@@ -32,8 +32,8 @@ def sample_story(headline: str = "Oil prices jump") -> dict[str, object]:
     }
 
 
-def model_json(headline: str, summary: str) -> str:
-    return json.dumps({"ai_headline": headline, "ai_summary": summary})
+def model_json(summary: str) -> str:
+    return json.dumps({"ai_summary": summary})
 
 
 def gemini_body(text: str) -> dict[str, object]:
@@ -77,12 +77,8 @@ class SummarizeStoriesTests(unittest.TestCase):
             summarize_stories.mock_summary("Rates rise"),
             "Mock interpretation of Rates rise.",
         )
-        self.assertEqual(
-            summarize_stories.mock_headline("Rates rise"),
-            "Mock significance headline — Rates rise",
-        )
         self.assertNotIn("AI Summary Pending", summarize_stories.mock_summary("Rates rise"))
-        self.assertNotIn("AI Headline Pending", summarize_stories.mock_headline("Rates rise"))
+        self.assertFalse(hasattr(summarize_stories, "mock_headline"))
 
     def test_extract_article_text_prefers_the_article_element(self):
         html = """
@@ -136,7 +132,7 @@ class SummarizeStoriesTests(unittest.TestCase):
     def test_gemini_receives_article_text(self):
         story = sample_story()
         gemini_response = gemini_body(
-            model_json("Oil supply is harder to price", "Oil supply news may move energy prices.")
+            model_json("Oil supply news may move energy prices.")
         )
         with patch.dict(os.environ, {"GEMINI_API_KEY": "gemini-test", "OPENAI_API_KEY": "openai-test"}):
             with patch.object(summarize_stories, "story_body", return_value=(ARTICLE, True)):
@@ -144,8 +140,8 @@ class SummarizeStoriesTests(unittest.TestCase):
                     result = summarize_stories.summarize_story(story)
 
         self.assertEqual(result.provider, "gemini")
-        self.assertEqual(result.ai_headline, "Oil supply is harder to price")
         self.assertEqual(result.ai_summary, "Oil supply news may move energy prices.")
+        self.assertFalse(hasattr(result, "ai_headline"))
         self.assertTrue(result.article_read)
         prompt = post_json.call_args.args[1]["contents"][0]["parts"][0]["text"]
         self.assertIn("Article text:", prompt)
@@ -164,7 +160,7 @@ class SummarizeStoriesTests(unittest.TestCase):
     def test_unread_article_is_labeled_and_not_invented(self):
         story = sample_story()
         gemini_response = gemini_body(
-            model_json("Headline only", "This uses the headline because the page was unavailable.")
+            model_json("This uses the headline because the page was unavailable.")
         )
         with patch.dict(os.environ, {"GEMINI_API_KEY": "gemini-test"}, clear=True):
             with patch.object(summarize_stories, "story_body", return_value=(None, False)):
@@ -187,7 +183,6 @@ class SummarizeStoriesTests(unittest.TestCase):
                             {"thought": True, "text": "internal reasoning"},
                             {
                                 "text": model_json(
-                                    "Oil expectations shifted",
                                     "Oil headlines can shift energy expectations.",
                                 )
                             },
@@ -212,7 +207,6 @@ class SummarizeStoriesTests(unittest.TestCase):
                 {
                     "message": {
                         "content": model_json(
-                            "Inventories are the watch item",
                             "Traders may watch crude inventories.",
                         )
                     }
@@ -225,7 +219,6 @@ class SummarizeStoriesTests(unittest.TestCase):
                     result = summarize_stories.summarize_story(story)
 
         self.assertEqual(result.provider, "openai")
-        self.assertEqual(result.ai_headline, "Inventories are the watch item")
         self.assertEqual(result.ai_summary, "Traders may watch crude inventories.")
         self.assertEqual(post_json.call_args.args[0], summarize_stories.OPENAI_URL)
         self.assertEqual(post_json.call_args.args[1]["model"], "gpt-4o-mini")
@@ -238,7 +231,6 @@ class SummarizeStoriesTests(unittest.TestCase):
                 {
                     "message": {
                         "content": model_json(
-                            "Fallback headline",
                             "Fallback interpretation of the oil headline.",
                         )
                     }
@@ -271,7 +263,7 @@ class SummarizeStoriesTests(unittest.TestCase):
     def test_gemini_cascade_skips_429_then_uses_next_model(self):
         story = sample_story()
         gemini_response = gemini_body(
-            model_json("Supply tightened", "A tighter crude market may reprice energy.")
+            model_json("A tighter crude market may reprice energy.")
         )
         calls = []
 
@@ -289,7 +281,7 @@ class SummarizeStoriesTests(unittest.TestCase):
                     result = summarize_stories.summarize_story(story)
 
         self.assertEqual(result.provider, "gemini")
-        self.assertEqual(result.ai_headline, "Supply tightened")
+        self.assertEqual(result.ai_summary, "A tighter crude market may reprice energy.")
         self.assertIn("gemini-3.8-flash", calls[0])
         self.assertIn("gemini-3.7-flash", calls[1])
 
@@ -297,7 +289,7 @@ class SummarizeStoriesTests(unittest.TestCase):
         story = sample_story()
         story["full_text"] = ARTICLE
         gemini_response = gemini_body(
-            model_json("Body-based headline", "The inventory report is the watch item.")
+            model_json("The inventory report is the watch item.")
         )
         with patch.dict(os.environ, {"GEMINI_API_KEY": "gemini-test"}, clear=True):
             with patch.object(summarize_stories, "read_article") as read_article:
@@ -334,16 +326,12 @@ class SummarizeStoriesTests(unittest.TestCase):
             saved = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertEqual(saved["selected_run"], "2026-10-04.json")
             self.assertEqual(saved["summarizer"], "mock")
-            self.assertEqual(
-                saved["stories"][0]["ai_headline"],
-                "Mock significance headline — Oil prices jump",
-            )
+            self.assertNotIn("ai_headline", saved["stories"][0])
             self.assertEqual(
                 saved["stories"][0]["ai_summary"],
                 "Mock interpretation of Oil prices jump.",
             )
             self.assertNotIn("AI Summary Pending", saved["stories"][0]["ai_summary"])
-            self.assertNotIn("AI Headline Pending", saved["stories"][0]["ai_headline"])
             self.assertFalse(saved["stories"][0]["article_read"])
             self.assertEqual(saved["stories"][0]["article_note"], "Article was not read.")
             self.assertEqual(saved["stories"][0]["headline"], "Oil prices jump")

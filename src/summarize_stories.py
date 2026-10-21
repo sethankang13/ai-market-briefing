@@ -1,4 +1,4 @@
-"""Add AI headlines and Why It Matters summaries from article text.
+"""Add Why It Matters summaries from article text.
 
 Run from the project folder:
     python3 src/summarize_stories.py
@@ -15,8 +15,8 @@ Provider order:
 
 Each story prefers RSS ``full_text``. Otherwise the page is fetched and the
 body is extracted with trafilatura, BeautifulSoup, or the stdlib HTML parser.
-Original headlines are kept. Gemini writes ``ai_headline`` plus a dense
-1–2 sentence ``ai_summary``.
+The RSS/original ``headline`` is the story title. Gemini writes a dense
+1–2 sentence ``ai_summary`` only.
 """
 
 from __future__ import annotations
@@ -58,15 +58,14 @@ PENDING_MARKERS = (
     "AI Summary goes HERE",
 )
 SYSTEM_PROMPT = (
-    "You write a short why-it-matters headline and one or two dense sentences "
-    "for Loop: AI Market Briefing. Keep the original publisher headline out of "
-    "the JSON fields except as source material. Use the supplied article body "
-    "when it is present; do not summarize from the headline alone if body text "
-    "is provided. If the article was not read, use only the headline, source, "
-    "tags, and selection reason, and do not pretend the page was analyzed. "
-    "Do not invent facts. Label market-impact or causal language as "
+    "You write one or two dense Why It Matters sentences for Loop: AI Market "
+    "Briefing. Do not rewrite the publisher headline. Use the supplied article "
+    "body when it is present; do not summarize from the headline alone if body "
+    "text is provided. If the article was not read, use only the headline, "
+    "source, tags, and selection reason, and do not pretend the page was "
+    "analyzed. Do not invent facts. Label market-impact or causal language as "
     "interpretation, not established fact. "
-    'Return JSON only: {"ai_headline": "...", "ai_summary": "..."}.'
+    'Return JSON only: {"ai_summary": "..."}.'
 )
 
 
@@ -75,9 +74,8 @@ class SummarizationError(Exception):
 
 
 class ModelCopy(NamedTuple):
-    """Headline, summary, provider, and whether the article text was read."""
+    """Summary, provider, and whether the article text was read."""
 
-    ai_headline: str
     ai_summary: str
     provider: str
     article_read: bool
@@ -174,11 +172,6 @@ def load_selected_run(input_path: Path) -> dict[str, object]:
     return selected_run
 
 
-def mock_headline(headline: str) -> str:
-    """Return offline mock copy used only with ``--mock``."""
-    return f"Mock significance headline — {headline}"
-
-
 def mock_summary(headline: str) -> str:
     """Return offline mock copy used only with ``--mock``."""
     return f"Mock interpretation of {headline}."
@@ -192,7 +185,12 @@ def _stdlib_extract(html: str) -> str:
 
 
 def extract_article_text(html: str) -> str:
-    """Return readable text from HTML: trafilatura, then BeautifulSoup, then stdlib."""
+    """Prefer ``article``/``main``, then trafilatura, then BeautifulSoup, then body."""
+    parser = ArticleTextParser()
+    parser.feed(html or "")
+    parser.close()
+    if parser.article_text or parser.main_text:
+        return parser.article_text or parser.main_text
     try:
         import trafilatura
 
@@ -213,7 +211,7 @@ def extract_article_text(html: str) -> str:
             return text
     except Exception:
         pass
-    return _stdlib_extract(html)
+    return parser.body_text
 
 
 def cap_article_text(text: str) -> str:
@@ -286,11 +284,11 @@ def story_prompt(story: dict[str, object], article_text: str | None, article_rea
         f"Source: {story.get('source', 'Unknown')}",
         f"Tags: {tags or 'none'}",
         f"Selection reason: {reason}",
-        "Keep the original headline unchanged in the briefing; write a new ai_headline.",
+        "Keep the original headline unchanged. Do not write a replacement headline.",
     ]
     if article_read and article_text:
         lines.append(
-            "The article body below is available. Base ai_headline and ai_summary "
+            "The article body below is available. Base ai_summary "
             "on that body, not on the headline alone."
         )
         lines.append(f"Article text:\n{article_text}")
@@ -300,8 +298,7 @@ def story_prompt(story: dict[str, object], article_text: str | None, article_rea
             "and selection reason. Do not claim the article was analyzed."
         )
     lines.append(
-        'Return JSON: {"ai_headline": "short why-it-matters headline", '
-        '"ai_summary": "one or two dense sentences"}.'
+        'Return JSON: {"ai_summary": "one or two dense sentences"}.'
     )
     return "\n".join(lines)
 
@@ -341,8 +338,8 @@ def visible_gemini_text(data: dict[str, object]) -> str:
     return text
 
 
-def parse_model_fields(text: str) -> tuple[str, str]:
-    """Read ``ai_headline`` and ``ai_summary`` from a model JSON response."""
+def parse_model_fields(text: str) -> str:
+    """Read ``ai_summary`` from a model JSON response."""
     cleaned = text.strip()
     if cleaned.startswith("```"):
         cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
@@ -355,18 +352,14 @@ def parse_model_fields(text: str) -> tuple[str, str]:
         data = json.loads(cleaned[start : end + 1])
     except json.JSONDecodeError as error:
         raise ValueError("Model response did not contain JSON fields.") from error
-    headline = data.get("ai_headline") if isinstance(data, dict) else None
     summary = data.get("ai_summary") if isinstance(data, dict) else None
-    if not isinstance(headline, str) or not headline.strip():
-        raise ValueError("Model response did not contain an AI headline.")
     if not isinstance(summary, str) or not summary.strip():
         raise ValueError("Model response did not contain summary text.")
-    headline = " ".join(headline.split())
     summary = summary.strip()
     for marker in PENDING_MARKERS:
-        if marker in headline or marker in summary:
+        if marker in summary:
             raise ValueError("Model response used a pending placeholder.")
-    return headline, summary
+    return summary
 
 
 def gemini_url(model: str) -> str:
@@ -379,8 +372,8 @@ def summarize_with_gemini(
     article_text: str | None,
     article_read: bool,
     model: str = GEMINI_MODEL,
-) -> tuple[str, str]:
-    """Ask one Gemini flash model for a why-it-matters headline and summary."""
+) -> str:
+    """Ask one Gemini flash model for a Why It Matters summary."""
     payload = {
         "contents": [
             {
@@ -417,15 +410,15 @@ def summarize_with_gemini_cascade(
     article_text: str | None,
     article_read: bool,
     models: tuple[str, ...] = GEMINI_MODELS,
-) -> tuple[str, str, str]:
+) -> tuple[str, str]:
     """Try Gemini models in order. 429/connection/404 errors continue the cascade."""
     last_error: Exception | None = None
     for model in models:
         try:
-            headline, summary = summarize_with_gemini(
+            summary = summarize_with_gemini(
                 story, api_key, article_text, article_read, model=model
             )
-            return headline, summary, model
+            return summary, model
         except urllib.error.HTTPError as error:
             last_error = error
             try:
@@ -455,8 +448,8 @@ def summarize_with_openai(
     api_key: str,
     article_text: str | None,
     article_read: bool,
-) -> tuple[str, str]:
-    """Ask OpenAI gpt-4o-mini for a why-it-matters headline and summary."""
+) -> str:
+    """Ask OpenAI gpt-4o-mini for a Why It Matters summary."""
     payload = {
         "model": OPENAI_MODEL,
         "temperature": 0.2,
@@ -481,7 +474,7 @@ def summarize_with_openai(
 
 
 def _mock_copy(headline: str, article_read: bool) -> ModelCopy:
-    return ModelCopy(mock_headline(headline), mock_summary(headline), "mock", article_read)
+    return ModelCopy(mock_summary(headline), "mock", article_read)
 
 
 def load_project_env(env_path: Path | None = None) -> None:
@@ -525,20 +518,20 @@ def summarize_story(story: dict[str, object], mock: bool = False) -> ModelCopy:
 
     if gemini_key:
         try:
-            ai_headline, ai_summary, _model = summarize_with_gemini_cascade(
+            ai_summary, _model = summarize_with_gemini_cascade(
                 story, gemini_key, article_text, article_read
             )
-            return ModelCopy(ai_headline, ai_summary, "gemini", article_read)
+            return ModelCopy(ai_summary, "gemini", article_read)
         except SummarizationError:
             if not openai_key:
                 raise
 
     if openai_key:
         try:
-            ai_headline, ai_summary = summarize_with_openai(
+            ai_summary = summarize_with_openai(
                 story, openai_key, article_text, article_read
             )
-            return ModelCopy(ai_headline, ai_summary, "openai", article_read)
+            return ModelCopy(ai_summary, "openai", article_read)
         except (urllib.error.URLError, TimeoutError, ValueError, KeyError, OSError) as error:
             raise SummarizationError("OpenAI summarization failed.") from error
 
@@ -559,7 +552,6 @@ def summarize_stories(
         providers.append(result.provider)
         copied = {
             **story,
-            "ai_headline": result.ai_headline,
             "ai_summary": result.ai_summary,
             "article_read": result.article_read,
         }
@@ -596,7 +588,7 @@ def save_summarized_run(
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Add AI headlines and Why It Matters summaries from article text."
+        description="Add Why It Matters summaries from article text."
     )
     parser.add_argument(
         "input_file",

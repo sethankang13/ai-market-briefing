@@ -90,18 +90,13 @@ def why_it_matters(story: dict[str, object]) -> str | None:
 
 
 def render_story(story: dict[str, object]) -> str:
-    """Lead with the AI headline, then the original headline, tags, and why it matters."""
+    """Lead with the original headline and link, then tags and why it matters."""
     source_link = f"[{story['headline']}]({story['link']})"
     summary = why_it_matters(story)
-    why = f"  Why It Matters: {summary}" if summary else None
-    body_lines = [f"  {source_link}  ", tags_line(story)]
-    if why:
-        body_lines.append(why)
-    body = "\n".join(body_lines)
-    ai_headline = story.get("ai_headline")
-    if isinstance(ai_headline, str) and ai_headline.strip():
-        return f"- {ai_headline.strip()}  \n{body}"
-    return f"- {source_link}  \n" + "\n".join(body_lines[1:])
+    lines = [f"- {source_link}  ", tags_line(story)]
+    if summary:
+        lines.append(f"  Why It Matters: {summary}")
+    return "\n".join(lines)
 
 
 def render_brief(selected_run: dict[str, object], date_stem: str) -> str:

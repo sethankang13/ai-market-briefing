@@ -18,23 +18,35 @@ def google_article_link(publisher_url: str) -> str:
 
 
 class CollectStoriesTests(unittest.TestCase):
-    def test_sources_are_the_seven_v25_feeds(self):
-        names = [feed["source"] for feed in collect_stories.SOURCES]
+    def test_sources_are_the_eight_feeds(self):
         self.assertEqual(
-            names,
+            list(collect_stories.SOURCES),
             [
-                "Reuters AI",
+                "FT, WSJ & Bloomberg Proxy",
+                "Reuters Business & Markets",
                 "CNBC Tech & Markets",
+                "Politico AI Policy",
                 "AP News Policy",
-                "FT & WSJ Proxy",
                 "TechCrunch AI",
                 "OpenAI News",
                 "Google AI Blog",
             ],
         )
-        self.assertIn("site:reuters.com", collect_stories.SOURCES[0]["url"])
+        self.assertIn(
+            "site:bloomberg.com",
+            collect_stories.SOURCES["FT, WSJ & Bloomberg Proxy"],
+        )
+        self.assertIn(
+            "site:reuters.com",
+            collect_stories.SOURCES["Reuters Business & Markets"],
+        )
+        self.assertIn(
+            "site:politico.com",
+            collect_stories.SOURCES["Politico AI Policy"],
+        )
+        self.assertIn("policy+OR+government+OR+law", collect_stories.SOURCES["AP News Policy"])
         self.assertEqual(
-            collect_stories.SOURCES[4]["url"],
+            collect_stories.SOURCES["TechCrunch AI"],
             "https://techcrunch.com/category/artificial-intelligence/feed/",
         )
 

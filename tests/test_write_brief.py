@@ -72,7 +72,7 @@ class WriteBriefTests(unittest.TestCase):
         bill_line = next(line for line in briefing.splitlines() if "Bill advances" in line)
         self.assertTrue(bill_line.startswith("- [Bill advances]("))
 
-    def test_ai_headline_leads_then_source_then_tags(self):
+    def test_original_headline_leads_even_when_ai_headline_is_present(self):
         briefing = render_brief(
             {
                 "stories": [
@@ -87,11 +87,12 @@ class WriteBriefTests(unittest.TestCase):
             "2026-09-20",
         )
 
-        ai_at = briefing.index("A policy shift for enterprise AI")
+        title_line = next(line for line in briefing.splitlines() if "Bill advances" in line)
+        self.assertTrue(title_line.startswith("- [Bill advances]("))
+        self.assertNotIn("A policy shift for enterprise AI", briefing)
         source_at = briefing.index("[Bill advances](https://example.com/story)")
         tags_at = briefing.index("*Tags: #Legislation-&-Policy #Enterprise-Adoption*")
         why_at = briefing.index("Why It Matters: The bill can change compliance.")
-        self.assertLess(ai_at, source_at)
         self.assertLess(source_at, tags_at)
         self.assertLess(tags_at, why_at)
 

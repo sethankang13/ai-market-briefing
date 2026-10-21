@@ -19,36 +19,16 @@ from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
 
 
-SOURCES = [
-    {
-        "source": "Reuters AI",
-        "url": "https://news.google.com/rss/search?q=site:reuters.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en",
-    },
-    {
-        "source": "CNBC Tech & Markets",
-        "url": "https://news.google.com/rss/search?q=site:cnbc.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en",
-    },
-    {
-        "source": "AP News Policy",
-        "url": "https://news.google.com/rss/search?q=site:apnews.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en",
-    },
-    {
-        "source": "FT & WSJ Proxy",
-        "url": "https://news.google.com/rss/search?q=(site:ft.com+OR+site:wsj.com)+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en",
-    },
-    {
-        "source": "TechCrunch AI",
-        "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
-    },
-    {
-        "source": "OpenAI News",
-        "url": "https://openai.com/news/rss.xml",
-    },
-    {
-        "source": "Google AI Blog",
-        "url": "https://blog.google/technology/ai/rss/",
-    },
-]
+SOURCES = {
+    "FT, WSJ & Bloomberg Proxy": "https://news.google.com/rss/search?q=(site:ft.com+OR+site:wsj.com+OR+site:bloomberg.com)+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en",
+    "Reuters Business & Markets": "https://news.google.com/rss/search?q=site:reuters.com+(AI+OR+%22artificial+intelligence%22)+market&hl=en-US&gl=US&ceid=US:en",
+    "CNBC Tech & Markets": "https://news.google.com/rss/search?q=site:cnbc.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en",
+    "Politico AI Policy": "https://news.google.com/rss/search?q=site:politico.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en",
+    "AP News Policy": "https://news.google.com/rss/search?q=site:apnews.com+(AI+OR+%22artificial+intelligence%22)+(policy+OR+government+OR+law)&hl=en-US&gl=US&ceid=US:en",
+    "TechCrunch AI": "https://techcrunch.com/category/artificial-intelligence/feed/",
+    "OpenAI News": "https://openai.com/news/rss.xml",
+    "Google AI Blog": "https://blog.google/technology/ai/rss/",
+}
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RAW_DATA_DIRECTORY = PROJECT_ROOT / "data" / "raw"
@@ -288,11 +268,11 @@ def collect_stories(now: datetime | None = None) -> tuple[list[dict[str, str]], 
     stories = []
     failed_sources = []
 
-    for feed in SOURCES:
+    for source, url in SOURCES.items():
         try:
-            stories.extend(fetch_feed(feed, now=run_at))
+            stories.extend(fetch_feed({"source": source, "url": url}, now=run_at))
         except Exception:
-            failed_sources.append(feed["source"])
+            failed_sources.append(source)
 
     return stories, failed_sources
 

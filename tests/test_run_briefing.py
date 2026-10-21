@@ -155,10 +155,7 @@ class RunBriefingTests(unittest.TestCase):
             payload = json.loads(saved[0].read_text(encoding="utf-8"))
 
         self.assertEqual(payload["summarizer"], "mock")
-        self.assertEqual(
-            payload["stories"][0]["ai_headline"],
-            "Mock significance headline — AI bill advances",
-        )
+        self.assertNotIn("ai_headline", payload["stories"][0])
         self.assertEqual(
             payload["stories"][0]["ai_summary"],
             "Mock interpretation of AI bill advances.",

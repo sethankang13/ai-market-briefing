@@ -1,5 +1,7 @@
 # Loop: AI Market Briefing
 
+**Active version: v3.5: Local Automation & Passive Ingestion.** Weekday LaunchAgent runs the existing briefing pipeline at 8:00 AM with no extra model calls. Live runs still need a gitignored `.env` in the project root.
+
 ## Purpose
 
 Build a personal, daily briefing that turns reliable public news into a short explanation of the market, economic, and policy developments that matter.
@@ -147,6 +149,8 @@ ai-market-briefing/
 ├── README.md            # roadmap and decisions
 ├── config/config.yaml   # feeds, recency, models, taxonomy, output paths
 ├── src/                 # the small programs we build together
+├── scripts/             # launchd wrapper, plist template, installer
+├── logs/                # gitignored launchd and pipeline logs
 ├── data/raw/            # saved incoming story data, if we choose to retain it
 ├── data/enriched/       # saved copies with derived tags
 ├── data/selected/       # saved top-story candidates and their score explanation
@@ -156,6 +160,32 @@ ai-market-briefing/
 ```
 
 Raw inputs and generated outputs are separate so we can inspect what the program received before trusting what it produced.
+
+## v3.5: Local Automation & Passive Ingestion
+
+A user LaunchAgent runs `python3 src/run_briefing.py` at **8:00 AM Monday–Friday**. There are no new LLM calls; the job is the same live pipeline as a manual run. The Mac must be on (and logged in) at 8:00 AM on weekdays, or that day's interval is skipped. A gitignored `.env` with `GEMINI_API_KEY` (and any OpenAI fallback) must exist in the project root for live runs. Do not put API keys in the plist or shell scripts.
+
+Install (or reinstall) the job:
+
+```bash
+bash scripts/install_automation.sh
+```
+
+The installer `chmod +x`s `scripts/run_daily.sh`, copies `scripts/com.loop.dailybriefing.plist` to `~/Library/LaunchAgents/com.loop.dailybriefing.plist`, unloads any previous copy, and loads the job. It does not start a briefing.
+
+| Path | Role |
+| --- | --- |
+| `logs/launchd.log` | Combined stdout/stderr from `run_briefing.py` (`>>` / `2>&1` in `run_daily.sh`) |
+| `logs/launchd_stdout.log` | launchd `StandardOutPath` for the bash wrapper |
+| `logs/launchd_stderr.log` | launchd `StandardErrorPath` for the bash wrapper |
+
+Run once without waiting for 8 AM:
+
+```bash
+launchctl start com.loop.dailybriefing
+```
+
+That starts a **live** briefing (Gemini if `.env` is present). Use `python3 src/run_briefing.py --mock` when you want an offline pipeline instead.
 
 ## Run the full briefing
 

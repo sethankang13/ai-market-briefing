@@ -2,3 +2,4 @@ feedparser
 trafilatura
 beautifulsoup4
 lxml
+pyyaml

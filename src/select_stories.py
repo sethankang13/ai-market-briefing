@@ -14,16 +14,18 @@ from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
+from config_loader import load_config
 from tag_stories import TAG_LABELS
 
+_CONFIG = load_config()
 LOOP_TAGS = TAG_LABELS
-RECENCY_WINDOW = timedelta(hours=48)
+RECENCY_WINDOW = timedelta(hours=int(_CONFIG["pipeline"]["recency_cutoff_hours"]))
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENRICHED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "enriched"
 SELECTED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "selected"
-MAX_STORIES = 5
+MAX_STORIES = int(_CONFIG["pipeline"]["top_selected_stories"])
 
 
 def latest_enriched_run(enriched_data_directory: Path = ENRICHED_DATA_DIRECTORY) -> Path:

@@ -32,18 +32,16 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import NamedTuple
 
+from config_loader import load_config
 
+
+_CONFIG = load_config()
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SELECTED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "selected"
 SUMMARIZED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "summarized"
-GEMINI_MODELS = (
-    "gemini-3.8-flash",
-    "gemini-3.7-flash",
-    "gemini-3.6-flash",
-    "gemini-2.5-flash",
-)
+GEMINI_MODELS = tuple(_CONFIG["models"]["gemini"])
 GEMINI_MODEL = GEMINI_MODELS[0]
-OPENAI_MODEL = "gpt-4o-mini"
+OPENAI_MODEL = str(_CONFIG["models"]["openai_fallback"])
 GEMINI_URL_TEMPLATE = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )

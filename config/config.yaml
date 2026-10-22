@@ -1,0 +1,79 @@
+pipeline:
+  recency_cutoff_hours: 48
+  top_selected_stories: 5
+  output_dir: briefs
+  db_path: data/loop.db
+
+feeds:
+  FT, WSJ & Bloomberg Proxy: "https://news.google.com/rss/search?q=(site:ft.com+OR+site:wsj.com+OR+site:bloomberg.com)+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en"
+  Reuters Business & Markets: "https://news.google.com/rss/search?q=site:reuters.com+(AI+OR+%22artificial+intelligence%22)+market&hl=en-US&gl=US&ceid=US:en"
+  CNBC Tech & Markets: "https://news.google.com/rss/search?q=site:cnbc.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en"
+  Politico AI Policy: "https://news.google.com/rss/search?q=site:politico.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en"
+  AP News Policy: "https://news.google.com/rss/search?q=site:apnews.com+(AI+OR+%22artificial+intelligence%22)+(policy+OR+government+OR+law)&hl=en-US&gl=US&ceid=US:en"
+  TechCrunch AI: "https://techcrunch.com/category/artificial-intelligence/feed/"
+  OpenAI News: "https://openai.com/news/rss.xml"
+  Google AI Blog: "https://blog.google/technology/ai/rss/"
+
+models:
+  gemini:
+    - gemini-3.8-flash
+    - gemini-3.7-flash
+    - gemini-3.6-flash
+    - gemini-2.5-flash
+  openai_fallback: gpt-4o-mini
+
+taxonomy:
+  Market-Valuations:
+    - earnings
+    - stock
+    - market cap
+    - valuation
+  Venture-&-M&A:
+    - funding
+    - venture
+    - acquisition
+    - seed
+    - valuation
+  Legislation-&-Policy:
+    - bill
+    - law
+    - government
+    - executive order
+    - policy
+  Antitrust-&-Compliance:
+    - FTC
+    - regulation
+    - EU AI Act
+    - probe
+    - investigation
+  Copyright-&-IP:
+    - copyright
+    - lawsuit
+    - licensing
+    - data scraping
+    - IP
+  Geopolitics-&-Trade:
+    - export controls
+    - chips
+    - sanctions
+    - China
+    - national security
+  Labor-&-Economy:
+    - jobs
+    - workforce
+    - productivity
+    - economy
+    - lay-offs
+  Enterprise-Adoption:
+    - enterprise
+    - ROI
+    - corporate
+    - B2B
+    - SaaS
+  Foundation-Models:
+    - LLM
+    - GPT
+    - Claude
+    - Gemini
+    - weights
+    - benchmark

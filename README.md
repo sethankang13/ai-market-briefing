@@ -145,6 +145,7 @@ For a cluster of reports about the same event, an AI-generated summary may use o
 ```text
 ai-market-briefing/
 ├── README.md            # roadmap and decisions
+├── config/config.yaml   # feeds, recency, models, taxonomy, output paths
 ├── src/                 # the small programs we build together
 ├── data/raw/            # saved incoming story data, if we choose to retain it
 ├── data/enriched/       # saved copies with derived tags
@@ -200,7 +201,44 @@ Create a readable Markdown briefing from the latest summarized run (or selected 
 python3 src/write_brief.py
 ```
 
-The briefing title is `# Looping... (YYYY-MM-DD)`. A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) is inserted above the story categories. Next is **At a Glance**, a jump list of RSS headlines linking to in-file anchors (`<a id="..."></a>` above each story so Cursor, VS Code, and GitHub previews can follow `#slug` links). The briefing then groups stories by the V2.5 tag labels, then Other. Stories with more than one tag appear once, under the first matching label in that order, while displaying every assigned tag. Duplicate RSS headlines (whitespace and case ignored) stay as one story, with later sources listed as `also covered by [Source B]`. Each story leads with the original headline as a link, then an italic line such as `*Tags: #Legislation-&-Policy #Enterprise-Adoption*`, then **Why It Matters:** from `ai_summary`. Historical reports from `data/loop.db` are titled `# The Loop`.
+The briefing title is `# Looping... (YYYY-MM-DD)`. A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) is inserted above the story categories. Next is **At a Glance**, a jump list of RSS headlines linking to in-file anchors (`<a id="..."></a>` above each story so Cursor, VS Code, and GitHub previews can follow `#slug` links). The briefing then groups stories by the V2.5 tag labels, then Other. Stories with more than one tag appear once, under the first matching label in that order, while displaying every assigned tag. Duplicate RSS headlines (whitespace and case ignored) stay as one story, with later sources listed as `also covered by [Source B]`. Each story leads with the original headline as a link, then an italic line such as `*Tags: #Legislation-&-Policy #Enterprise-Adoption*`, then **Why It Matters:** from `ai_summary`. Historical reports from `data/loop.db` are titled `# The Loop: Macro Summary (Last N Days)`.
+
+## Config (`config/config.yaml`)
+
+Shared settings live in YAML and are loaded with `src/config_loader.py` (`yaml.safe_load`). Collect, tag, select, summarize, write, and SQLite history all read this file. If the file is missing, the loader returns the same internal defaults so mocked unit tests still run.
+
+| Key | What it controls |
+| --- | --- |
+| `pipeline.recency_cutoff_hours` | Drop RSS items older than this many hours (48). |
+| `pipeline.top_selected_stories` | Top tagged slots in selection (5). |
+| `pipeline.output_dir` | Daily briefs and `THE_LOOP.md` (default `briefs`). |
+| `pipeline.db_path` | SQLite history file (default `data/loop.db`). |
+| `feeds` | The eight public RSS names and URLs. |
+| `models.gemini` | Cascade order (`gemini-3.8-flash` down through `gemini-2.5-flash`). |
+| `models.openai_fallback` | OpenAI model after Gemini (`gpt-4o-mini`). |
+| `taxonomy` | The nine Loop tags and their keyword lists. |
+
+Changing a feed, tag keyword, cutoff, or model name here is enough; the Python modules do not keep a second copy of those values as the source of truth.
+
+## Historical Loop (`src/write_the_loop.py`)
+
+Write a windowed archive from `data/loop.db` (no new model calls):
+
+```bash
+python3 src/write_the_loop.py
+python3 src/write_the_loop.py --days 14 --tag Copyright-&-IP --limit 15
+python3 src/write_the_loop.py --out briefs/THE_LOOP.md --open
+```
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--days N` | 7 | `WHERE published_date >= date('now', '-N days')` (N is a bound parameter). |
+| `--tag TAG` | none | Keep rows whose stored tags contain this label. |
+| `--limit N` | 15 | Maximum stories. |
+| `--out FILEPATH` | `briefs/THE_LOOP.md` | Markdown output path. |
+| `--open` | off | macOS `open` via `subprocess.run`; other platforms print the path. |
+
+The report opens with **At a Glance**, then market-snapshot *trends from stored runs* (or an explicit note that those numbers are missing), then the same topic groups / exact-headline / `also covered by` rules as the daily brief.
 
 ## Rules for this project
 

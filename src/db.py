@@ -14,9 +14,11 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Iterable
 
+from config_loader import load_config, project_path
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "loop.db"
+DEFAULT_DB_PATH = project_path(load_config()["pipeline"]["db_path"])
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS stories (

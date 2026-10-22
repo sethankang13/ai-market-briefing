@@ -5,35 +5,13 @@ This module does not change the raw stories. It returns a new enriched copy.
 
 import re
 
+from config_loader import load_config
 
-TAG_LABELS = (
-    "Market-Valuations",
-    "Venture-&-M&A",
-    "Legislation-&-Policy",
-    "Antitrust-&-Compliance",
-    "Copyright-&-IP",
-    "Geopolitics-&-Trade",
-    "Labor-&-Economy",
-    "Enterprise-Adoption",
-    "Foundation-Models",
-)
 
+_TAXONOMY = load_config()["taxonomy"]
+TAG_LABELS = tuple(_TAXONOMY)
 TAG_KEYWORDS = {
-    "Market-Valuations": ("earnings", "stock", "market cap", "valuation"),
-    "Venture-&-M&A": ("funding", "venture", "acquisition", "seed", "valuation"),
-    "Legislation-&-Policy": ("bill", "law", "government", "executive order", "policy"),
-    "Antitrust-&-Compliance": ("FTC", "regulation", "EU AI Act", "probe", "investigation"),
-    "Copyright-&-IP": ("copyright", "lawsuit", "licensing", "data scraping", "IP"),
-    "Geopolitics-&-Trade": (
-        "export controls",
-        "chips",
-        "sanctions",
-        "China",
-        "national security",
-    ),
-    "Labor-&-Economy": ("jobs", "workforce", "productivity", "economy", "lay-offs"),
-    "Enterprise-Adoption": ("enterprise", "ROI", "corporate", "B2B", "SaaS"),
-    "Foundation-Models": ("LLM", "GPT", "Claude", "Gemini", "weights", "benchmark"),
+    label: tuple(keywords) for label, keywords in _TAXONOMY.items()
 }
 
 

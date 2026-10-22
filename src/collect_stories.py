@@ -18,21 +18,16 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
 
+from config_loader import load_config
 
-SOURCES = {
-    "FT, WSJ & Bloomberg Proxy": "https://news.google.com/rss/search?q=(site:ft.com+OR+site:wsj.com+OR+site:bloomberg.com)+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en",
-    "Reuters Business & Markets": "https://news.google.com/rss/search?q=site:reuters.com+(AI+OR+%22artificial+intelligence%22)+market&hl=en-US&gl=US&ceid=US:en",
-    "CNBC Tech & Markets": "https://news.google.com/rss/search?q=site:cnbc.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en",
-    "Politico AI Policy": "https://news.google.com/rss/search?q=site:politico.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en",
-    "AP News Policy": "https://news.google.com/rss/search?q=site:apnews.com+(AI+OR+%22artificial+intelligence%22)+(policy+OR+government+OR+law)&hl=en-US&gl=US&ceid=US:en",
-    "TechCrunch AI": "https://techcrunch.com/category/artificial-intelligence/feed/",
-    "OpenAI News": "https://openai.com/news/rss.xml",
-    "Google AI Blog": "https://blog.google/technology/ai/rss/",
-}
+
+_CONFIG = load_config()
+SOURCES = dict(_CONFIG["feeds"])
+RECENCY_CUTOFF_HOURS = int(_CONFIG["pipeline"]["recency_cutoff_hours"])
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RAW_DATA_DIRECTORY = PROJECT_ROOT / "data" / "raw"
-MAX_AGE = timedelta(hours=48)
+MAX_AGE = timedelta(hours=RECENCY_CUTOFF_HOURS)
 USER_AGENT = "Loop-AI-Market-Briefing/0.1"
 
 try:
@@ -289,5 +284,8 @@ def save_run(stories: list[dict[str, str]], failed_sources: list[str]) -> Path:
 if __name__ == "__main__":
     stories, failed_sources = collect_stories()
     saved_file = save_run(stories, failed_sources)
-    print(f"Loop: collected {len(stories)} stories from the last 48 hours.")
+    print(
+        f"Loop: collected {len(stories)} stories from the last "
+        f"{RECENCY_CUTOFF_HOURS} hours."
+    )
     print(f"Saved raw data to {saved_file}")

@@ -13,13 +13,15 @@ import re
 from pathlib import Path
 
 import fetch_market
+from config_loader import load_config, project_path
 from tag_stories import TAG_LABELS
 
 
+_CONFIG = load_config()
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SUMMARIZED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "summarized"
 SELECTED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "selected"
-BRIEFS_DIRECTORY = PROJECT_ROOT / "briefs"
+BRIEFS_DIRECTORY = project_path(_CONFIG["pipeline"]["output_dir"])
 SECTION_ORDER = TAG_LABELS + ("Other",)
 
 

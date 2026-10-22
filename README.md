@@ -1,6 +1,6 @@
 # Loop: AI Market Briefing
 
-**Active version: v3.5: Local Automation & Passive Ingestion.** Weekday LaunchAgent runs the existing briefing pipeline at 8:00 AM with no extra model calls. Live runs still need a gitignored `.env` in the project root.
+**Active version: v4.0: Local web UI (Phase 1).** A Streamlit app reads existing daily briefs and `data/loop.db` in the browser. It does not call Gemini or OpenAI. Weekday LaunchAgent automation from v3.5 is unchanged. Live pipeline runs still need a gitignored `.env` in the project root.
 
 ## Purpose
 
@@ -149,6 +149,7 @@ ai-market-briefing/
 ├── README.md            # roadmap and decisions
 ├── config/config.yaml   # feeds, recency, models, taxonomy, output paths
 ├── src/                 # the small programs we build together
+├── src/app.py           # Phase 1 Streamlit UI (briefs + Loop explorer)
 ├── scripts/             # launchd wrapper, plist template, installer
 ├── logs/                # gitignored launchd and pipeline logs
 ├── data/raw/            # saved incoming story data, if we choose to retain it
@@ -160,6 +161,24 @@ ai-market-briefing/
 ```
 
 Raw inputs and generated outputs are separate so we can inspect what the program received before trusting what it produced.
+
+## v4.0: Local web UI (Phase 1)
+
+Browse generated briefs and stored Loop history without running the pipeline or calling a model.
+
+```bash
+pip3 install -r requirements.txt
+streamlit run src/app.py
+```
+
+The app resolves the project root from `src/app.py`, so `config/`, `briefs/`, and `data/` are found even when Streamlit's working directory is `src/`. The sidebar shows stored article count (`data/loop.db`, or zero if the file is missing), the newest `briefs/YYYY-MM-DD.md` date, and the active feed count from `config/config.yaml`.
+
+| Tab | What it shows |
+| --- | --- |
+| Daily Briefings | Date selector (newest first) and the Markdown file, including At a Glance HTML anchors |
+| The Loop Explorer | SQLite filters: taxonomy tag, source, and headline/summary search. Results are expander cards. |
+
+Phase 1 only: no generate-brief button, no new Gemini calls, no writes to the database from the UI.
 
 ## v3.5: Local Automation & Passive Ingestion
 

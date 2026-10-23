@@ -157,11 +157,11 @@ class RunBriefingTests(unittest.TestCase):
 
         self.assertEqual(payload["summarizer"], "mock")
         self.assertNotIn("ai_headline", payload["stories"][0])
-        self.assertEqual(
-            payload["stories"][0]["ai_summary"],
-            "Mock interpretation of AI bill advances.",
-        )
-        self.assertNotIn("AI Summary Pending", payload["stories"][0]["ai_summary"])
+        self.assertNotIn("ai_summary", payload["stories"][0])
+        self.assertIn("# The Loop: Macro Landscape", payload["macro_report"])
+        self.assertIn("## Pattern Analysis & Signal Drift", payload["macro_report"])
+        self.assertIn("## Research Radar", payload["macro_report"])
+        self.assertNotIn("AI Summary Pending", payload["macro_report"])
 
     def test_completion_banner_includes_path_count_snapshot_and_failed_sources(self):
         selected = {

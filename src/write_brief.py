@@ -213,6 +213,10 @@ def render_brief(selected_run: dict[str, object], date_stem: str) -> str:
     for headline, slug, link in glance:
         lines.append(glance_markdown(headline, link, slug))
 
+    macro = selected_run.get("macro_report")
+    if isinstance(macro, str) and macro.strip():
+        lines.extend(["", macro.strip()])
+
     lines.extend(detail_blocks)
     return "\n".join(lines) + "\n"
 

@@ -38,6 +38,7 @@ No paid news API, database, website, or automated email yet.
 | 2026-10-21 | Use eight public feeds, including Bloomberg, Reuters markets, Politico, and a narrower AP policy search | Broader AI market and policy coverage from still-free RSS. |
 | 2026-10-21 | Rebrand to Loop: AI Market Briefing; daily files use `# Looping... (YYYY-MM-DD)`; historical reports use `# The Loop` | One product name for the daily habit and a separate title for the archive. |
 | 2026-10-21 | Put a Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow) above story sections; failed quotes say fetch failed | The brief should open with observable market context, never invented numbers. |
+| 2026-10-23 | Infer the daily macro report from RSS headlines and snippets plus 14 days of `loop.db`; archive per-article HTML extraction | Publisher pages 403 / paywall; headlines plus stored context are enough for clusters, drift, and a research radar. |
 | 2026-10-21 | Drop RSS items older than 48 hours; summarize from full article body; Gemini cascade; append each run to gitignored `data/loop.db` | Recency, body-grounded copy, and a durable history without storing secrets. |
 | 2026-09-19 | Begin with a manually run, free V1 | It keeps costs and moving parts near zero while making every step observable. |
 | 2026-09-19 | Rank stories by immediate market impact, long-term outlook, economic policy, global relations/cost of living, and conversation relevance; include an occasional fun or interesting story | The brief should be useful for investing and economic understanding, but engaging enough to become a daily habit. |
@@ -95,7 +96,7 @@ We will choose the specific feeds after deciding how V1 should handle the same e
 | OpenAI News | [RSS](https://openai.com/news/rss.xml) |
 | Google AI Blog | [RSS](https://blog.google/technology/ai/rss/) |
 
-These are public RSS feeds, so the briefing needs no account or paid subscription. Each saved story keeps its headline, source, link, publication time, and RSS description. A Google News redirect is resolved to the publisher URL when the story is collected, and again before an article is fetched if the stored link is still a Google News URL. The raw JSON file is not edited after it is written.
+These are public RSS feeds, so the briefing needs no account or paid subscription. Each saved story keeps its headline, source, link, publication time, and native RSS description/snippet. A Google News redirect is resolved to the publisher URL when the story is collected. The live pipeline does not fetch publisher article HTML. The raw JSON file is not edited after it is written.
 
 ### Availability behavior
 
@@ -155,7 +156,7 @@ ai-market-briefing/
 ├── data/raw/            # saved incoming story data, if we choose to retain it
 ├── data/enriched/       # saved copies with derived tags
 ├── data/selected/       # saved top-story candidates and their score explanation
-├── data/summarized/     # selected stories plus AI Why It Matters text
+├── data/summarized/     # selected stories plus the run-level macro report
 ├── data/loop.db         # gitignored SQLite history for The Loop
 └── briefs/              # generated readable daily briefings
 ```
@@ -171,7 +172,7 @@ pip3 install -r requirements.txt
 bash scripts/start_app.sh
 ```
 
-Stop it with `bash scripts/stop_app.sh`. Install a double-clickable macOS app with `bash scripts/install_app_launcher.sh`, then open `~/Applications/Loop.app` (drag that to the Dock or Desktop if you want). `start_app.sh` puts Homebrew on `PATH` so Finder/`osascript` can find `streamlit`, writes `logs/streamlit.pid`, and opens http://localhost:8501. You can still run `streamlit run src/app.py` from the project folder.
+Stop it with `bash scripts/stop_app.sh`. Install a double-clickable macOS app with `bash scripts/install_app_launcher.sh`, then open `~/Applications/Loop.app` (drag that to the Dock or Desktop if you want). `osacompile` writes an applet whose `Contents/MacOS` executable runs `scripts/start_app.sh`. `start_app.sh` puts Homebrew on `PATH` so Finder/`osascript` can find `streamlit`, uses `lsof` on port 8501 to avoid a second copy, `nohup`s Streamlit, writes `logs/streamlit.pid`, and opens http://localhost:8501. You can still run `streamlit run src/app.py` from the project folder. Re-run the installer only if the start script path changes.
 
 The app resolves the project root from `src/app.py`, so `config/`, `briefs/`, and `data/` are found even when Streamlit's working directory is `src/`. The sidebar shows stored article count (`data/loop.db`, or zero if the file is missing), the newest `briefs/YYYY-MM-DD.md` date, and the active feed count from `config/config.yaml`. Headlines are Markdown links to the RSS story (`target=_blank` in the explorer). Clustered coverage uses a `🔗 Sources (N)` popover. The UI never prints a raw URL as standalone text.
 
@@ -210,9 +211,9 @@ That starts a **live** briefing (Gemini if `.env` is present). Use `python3 src/
 
 ## Run the full briefing
 
-From the project folder, run `python3 src/run_briefing.py`. It collects feeds from the last 48 hours, enriches tags, selects stories, fetches a Market Snapshot, adds Why It Matters summaries from article bodies, writes `# Looping... (YYYY-MM-DD)`, and appends the run to `data/loop.db`. It stops at the first step that fails. Add `--open` to open `briefs/YYYY-MM-DD.md` when the run finishes (`open` on macOS; other platforms print the path and do not launch a viewer). Every run, mock or live, prints a completion banner with the output path, story count, Market Snapshot status, and `failed_sources` when a feed was skipped.
+From the project folder, run `python3 src/run_briefing.py`. It collects feeds from the last 48 hours, enriches tags, selects stories, fetches a Market Snapshot, writes one headline-based macro report, writes `# Looping... (YYYY-MM-DD)`, and appends the selected stories plus macro text to `data/loop.db`. It stops at the first step that fails. Add `--open` to open `briefs/YYYY-MM-DD.md` when the run finishes (`open` on macOS; other platforms print the path and do not launch a viewer). Every run, mock or live, prints a completion banner with the output path, story count, Market Snapshot status, and `failed_sources` when a feed was skipped.
 
-For a briefing that does not call a model, run `python3 src/run_briefing.py --mock`. It still collects the RSS feeds, enriches tags, selects stories, and fetches market quotes. Summaries are offline mock copy, even when `.env` contains an API key. Live runs never write `AI Summary Pending`, `AI Headline Pending`, or `AI Summary goes HERE`. A feed that fails is skipped, and the brief is written from the feeds that succeeded. Failed market quotes are labeled `fetch failed`. Combine flags as needed, for example `python3 src/run_briefing.py --mock --open`.
+For a briefing that does not call a model, run `python3 src/run_briefing.py --mock`. It still collects the RSS feeds, enriches tags, selects stories, and fetches market quotes. The macro report is offline mock sections, even when `.env` contains an API key, and it never talks to Gemini. Live runs never write `AI Summary Pending`, `AI Headline Pending`, or `AI Summary goes HERE`. A feed that fails is skipped, and the brief is written from the feeds that succeeded. Failed market quotes are labeled `fetch failed`. Combine flags as needed, for example `python3 src/run_briefing.py --mock --open`.
 
 ## Current enrichment step
 
@@ -234,15 +235,17 @@ python3 src/select_stories.py
 
 Each assigned tag is worth one point, and a story's score is the count of its tags. Ties retain the original feed order. The selected copy includes both the score and a short rule-based reason. The selected set is the top five by that score, plus the highest-scoring story for each of the nine Loop tags that appears that day. One story can cover more than one tag, a missing tag is skipped, and the list can be longer than five. An untagged story still cannot take a top-five slot from a tagged story, and the whole set keeps at most one untagged story. The step prints how many stories were evaluated, tag density across the nine labels, and a recency score.
 
-## Current summarization step (V2)
+## Current summarization step (headline-based macro inference)
 
-Create AI "Why It Matters" copy from the latest selected run with:
+Create one run-level macro report from the latest selected run with:
 
 ```bash
 python3 src/summarize_stories.py
 ```
 
-The program reads `data/selected/YYYY-MM-DD.json` and writes `data/summarized/YYYY-MM-DD.json`, creating `data/summarized/` if it does not exist. For each story it uses RSS `full_text` when present, otherwise it fetches `link` and extracts readable article text with trafilatura, BeautifulSoup, or the standard library parser, then sends a capped excerpt to the model. If the body cannot be read, the model sees only the headline, source, tags, and selection reason, and the story records `article_read: false` with `Article was not read.` The RSS/original `headline` is kept as the story title. Gemini writes a dense 1–2 sentence `ai_summary` and does not rewrite headlines. When `GEMINI_API_KEY` is set, models are tried in order: `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, then `gemini-2.5-flash`. HTTP 429 and connection errors move to the next model. A plain `python3 src/run_briefing.py` or `python3 src/summarize_stories.py` loads a gitignored `.env` in the project root first, and does not replace a value already set in the shell. Market-impact language is labeled as interpretation. OpenAI `gpt-4o-mini` is the fallback after the Gemini cascade. If every live attempt fails, the step raises instead of writing pending placeholders. Selected files are left unchanged.
+The program reads `data/selected/YYYY-MM-DD.json` and the last 14 days of stored briefing records from `data/loop.db` (`WHERE published_date >= date('now', '-14 days')`). It writes `data/summarized/YYYY-MM-DD.json`, creating `data/summarized/` if it does not exist. Input is RSS headlines plus native snippets, not fetched article bodies. There is **one** Gemini Flash completion per run. When `GEMINI_API_KEY` is set, models are tried in order: `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, then `gemini-2.5-flash`. HTTP 429 and connection errors move to the next model; that is still one successful completion, not one call per story. The model returns Markdown with `# The Loop: Macro Landscape`, `## Pattern Analysis & Signal Drift`, and `## Research Radar` (3–5 follow-up topics). A plain `python3 src/run_briefing.py` or `python3 src/summarize_stories.py` loads a gitignored `.env` in the project root first, and does not replace a value already set in the shell. Market-impact language is labeled as interpretation. OpenAI `gpt-4o-mini` is the fallback after the Gemini cascade. If every live attempt fails, the step raises instead of writing pending placeholders. `--mock` writes deterministic placeholder sections and does not use the network. Selected files are left unchanged.
+
+Per-article HTML extraction (trafilatura / BeautifulSoup) and per-story Gemini summaries live in `src/archived_article_summarizer.py`. That module is reserved for a future paywall or subscription-authenticated scrape. The live pipeline does not import or call it.
 
 ## Current writing step
 
@@ -252,7 +255,7 @@ Create a readable Markdown briefing from the latest summarized run (or selected 
 python3 src/write_brief.py
 ```
 
-The briefing title is `# Looping... (YYYY-MM-DD)`. A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) is inserted above the story categories. Next is **At a Glance**, a list of RSS headlines linked to the original story URL, with `<a id="..."></a>` still placed above each story for in-file anchors. The briefing then groups stories by the V2.5 tag labels, then Other. Stories with more than one tag appear once, under the first matching label in that order, while displaying every assigned tag. Duplicate RSS headlines (whitespace and case ignored) stay as one story, with later sources listed as `also covered by [Source B]`. Each story leads with the original headline as a link, then an italic line such as `*Tags: #Legislation-&-Policy #Enterprise-Adoption*`, then **Why It Matters:** from `ai_summary`. Historical reports from `data/loop.db` are titled `# The Loop: Macro Summary (Last N Days)`.
+The briefing title is `# Looping... (YYYY-MM-DD)`. A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) is inserted above the story categories. Next is **At a Glance**, a list of RSS headlines linked to the original story URL, with `<a id="..."></a>` still placed above each story for in-file anchors. The run-level macro report follows At a Glance. The briefing then groups stories by the V2.5 tag labels, then Other. Stories with more than one tag appear once, under the first matching label in that order, while displaying every assigned tag. Duplicate RSS headlines (whitespace and case ignored) stay as one story, with later sources listed as `also covered by [Source B]`. Each story leads with the original headline as a link, then an italic tag line. Gemini is not required to write a per-story `ai_summary`. Historical reports from `data/loop.db` are titled `# The Loop: Macro Summary (Last N Days)`.
 
 ## Config (`config/config.yaml`)
 

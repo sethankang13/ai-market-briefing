@@ -54,7 +54,7 @@ def market_step() -> dict:
 
 
 def summarize_step(selected_path: Path, mock: bool = False) -> Path:
-    """Add Why It Matters text to the selected run this command just wrote."""
+    """Write one headline-based macro report for the selected run."""
     selected_run = summarize_stories.load_selected_run(selected_path)
     return summarize_stories.save_summarized_run(selected_run, selected_path, mock=mock)
 
@@ -74,8 +74,13 @@ def write_brief_step(summarized_path: Path) -> Path:
 
 
 def persist_step(summarized_run: dict, snapshot: dict) -> Path:
-    """Append this run's stories to the gitignored Loop history database."""
-    inserted = db.append_stories(summarized_run.get("stories") or [], snapshot)
+    """Append this run's selected stories and macro text to loop.db."""
+    macro = summarized_run.get("macro_report")
+    inserted = db.append_stories(
+        summarized_run.get("stories") or [],
+        snapshot,
+        macro_report=macro if isinstance(macro, str) else None,
+    )
     print(f"Appended {inserted} stories to {db.DEFAULT_DB_PATH}")
     return db.DEFAULT_DB_PATH
 
@@ -142,8 +147,8 @@ def open_briefing_file(brief_path: Path) -> None:
 def run_briefing(mock: bool = False, open_after: bool = False) -> Path:
     """Collect, enrich, select, snapshot markets, summarize, write, and store.
 
-    ``mock`` still collects the RSS feeds, but writes offline mock copy and
-    does not call Gemini or OpenAI.
+    ``mock`` still collects the RSS feeds, but writes offline mock macro
+    sections and does not call Gemini or OpenAI.
     """
     if not mock:
         summarize_stories.load_project_env()
@@ -178,7 +183,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--mock",
         action="store_true",
-        help="Write offline mock summaries and do not call Gemini or OpenAI.",
+        help="Write offline mock macro sections and do not call Gemini or OpenAI.",
     )
     parser.add_argument(
         "--open",

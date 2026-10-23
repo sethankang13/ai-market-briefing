@@ -1,7 +1,8 @@
-"""Collect the latest items from the V2.5 public RSS feeds.
+"""Collect the latest items from the public RSS feeds.
 
 Items older than 48 hours relative to the run timestamp are dropped.
-When a feed includes RSS content/encoded, that HTML is stored as full_text.
+Each story stores RSS title, published date, source, URL, and the native
+RSS description/snippet only. Publisher article HTML is not fetched.
 
 Run from the project folder:
     python3 src/collect_stories.py
@@ -85,25 +86,13 @@ def resolve_publisher_url(url: str) -> str:
 
 
 def item_description(item: ET.Element) -> str:
-    """Read the RSS description, including encoded content when that is all a feed offers."""
+    """Read the native RSS description/snippet, not content:encoded article HTML."""
     text = item.findtext("description") or ""
     if not text.strip():
-        for child in item:
-            if child.tag.endswith("encoded") and child.text:
-                text = child.text
-                break
+        summary = item.find("{http://www.w3.org/2005/Atom}summary")
+        if summary is not None and summary.text:
+            text = summary.text
     return plain_text(text)
-
-
-def item_full_text(item: ET.Element) -> str:
-    """Return RSS content/encoded as plain text when the feed includes a body."""
-    for child in item:
-        if child.tag.endswith("encoded") and child.text and child.text.strip():
-            return plain_text(child.text)
-    content = item.find("content")
-    if content is not None and content.text and content.text.strip():
-        return plain_text(content.text)
-    return ""
 
 
 def as_utc(value: datetime) -> datetime:
@@ -193,24 +182,15 @@ def stories_from_feedparser(parsed, source: str, now: datetime) -> list[dict[str
         if not is_recent(published, now):
             continue
         link = str(entry.get("link") or "").strip()
-        full_text = ""
-        for block in entry.get("content") or []:
-            value = block.get("value") if isinstance(block, dict) else ""
-            if value:
-                full_text = plain_text(str(value))
-                break
-        if not full_text:
-            encoded = entry.get("content_encoded") or ""
-            if encoded:
-                full_text = plain_text(str(encoded))
         stories.append(
             {
                 "headline": str(entry.get("title") or "").strip(),
                 "source": source,
                 "link": resolve_publisher_url(link),
                 "published_at": pub_date.strip(),
-                "description": plain_text(str(entry.get("summary") or entry.get("description") or "")),
-                "full_text": full_text,
+                "description": plain_text(
+                    str(entry.get("summary") or entry.get("description") or "")
+                ),
             }
         )
     return stories
@@ -234,7 +214,6 @@ def stories_from_rss_tree(rss: ET.Element, source: str, now: datetime) -> list[d
                 "link": resolve_publisher_url(link),
                 "published_at": pub_date,
                 "description": item_description(item),
-                "full_text": item_full_text(item),
             }
         )
     return stories

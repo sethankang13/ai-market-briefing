@@ -145,6 +145,34 @@ class WriteBriefTests(unittest.TestCase):
         self.assertIn("- Dow: 42,000.00 (+0.10%)", briefing)
         self.assertNotIn("timeout", briefing)
 
+    def test_macro_report_follows_at_a_glance_and_does_not_need_ai_summary(self):
+        briefing = render_brief(
+            {
+                "stories": [story("Bill advances", ["Legislation-&-Policy"])],
+                "macro_report": (
+                    "# The Loop: Macro Landscape\n\n"
+                    "Policy cluster from RSS headlines.\n\n"
+                    "## Pattern Analysis & Signal Drift\n\n"
+                    "Today continues stored briefing records.\n\n"
+                    "## Research Radar\n\n"
+                    "1. Follow the bill markup.\n"
+                ),
+            },
+            "2026-10-23",
+        )
+        snapshot_at = briefing.index("## Market Snapshot")
+        glance_at = briefing.index("## At a Glance")
+        macro_at = briefing.index("# The Loop: Macro Landscape")
+        policy_at = briefing.index("## Legislation-&-Policy")
+        self.assertLess(snapshot_at, glance_at)
+        self.assertLess(glance_at, macro_at)
+        self.assertLess(macro_at, policy_at)
+        self.assertIn("- [Bill advances](https://example.com/story)", briefing)
+        self.assertIn("## Pattern Analysis & Signal Drift", briefing)
+        self.assertIn("## Research Radar", briefing)
+        self.assertNotIn("Why It Matters:", briefing)
+        self.assertNotIn("AI Summary Pending", briefing)
+
     def test_latest_briefing_source_prefers_summarized_over_selected(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

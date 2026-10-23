@@ -47,13 +47,16 @@ class LoopDatabaseTests(unittest.TestCase):
                 "ai_summary",
                 "tags",
                 "market_snapshot_json",
+                "macro_report",
             },
         )
         self.assertEqual(row["headline"], "Policy bill advances")
         self.assertEqual(row["url"], "https://example.com/bill")
+        self.assertEqual(row["published_date"], "2026-10-06")
         self.assertEqual(row["full_text"], "The full article body.")
         self.assertEqual(json.loads(row["tags"]), ["Legislation-&-Policy"])
         self.assertEqual(json.loads(row["market_snapshot_json"])["fed_funds"]["rate"], 4.33)
+        self.assertIsNone(row["macro_report"])
 
     def test_the_loop_report_uses_historical_title(self):
         report = render_the_loop(
@@ -72,3 +75,48 @@ class LoopDatabaseTests(unittest.TestCase):
         self.assertIn("[Policy bill advances](https://example.com/bill)", report)
         self.assertIn("## At a Glance", report)
         self.assertNotIn("# Looping...", report)
+
+    def test_load_recent_stories_uses_parameterized_fourteen_day_sql(self):
+        source = Path(db.__file__).read_text(encoding="utf-8")
+        self.assertIn("WHERE published_date >= date('now', '-14 days')", source)
+        self.assertEqual(
+            db.RECENT_STORIES_SQL.count("date('now', '-14 days')"),
+            1,
+        )
+        snapshot = {"fed_funds": {"status": "ok", "rate": 4.33}}
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "loop.db"
+            db.append_stories(
+                [
+                    {
+                        "published_at": "2026-10-20",
+                        "headline": "Recent bill",
+                        "link": "https://example.com/recent",
+                        "source": "Example News",
+                        "description": "Snippet only.",
+                        "tags": ["Legislation-&-Policy"],
+                    }
+                ],
+                snapshot,
+                db_path=path,
+                macro_report="# The Loop: Macro Landscape\n",
+            )
+            db.append_stories(
+                [
+                    {
+                        "published_at": "2026-01-01",
+                        "headline": "Old bill",
+                        "link": "https://example.com/old",
+                        "source": "Example News",
+                        "tags": ["Legislation-&-Policy"],
+                    }
+                ],
+                snapshot,
+                db_path=path,
+            )
+            recent = db.load_recent_stories(path)
+        headlines = [row["headline"] for row in recent]
+        self.assertIn("Recent bill", headlines)
+        self.assertNotIn("Old bill", headlines)
+        self.assertEqual(recent[0]["full_text"], "Snippet only.")
+        self.assertIn("# The Loop: Macro Landscape", recent[0]["macro_report"] or "")

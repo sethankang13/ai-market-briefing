@@ -109,9 +109,10 @@ class CollectStoriesTests(unittest.TestCase):
 
         self.assertEqual(stories[0]["headline"], "AI earnings beat")
         self.assertEqual(stories[0]["description"], "Stock valuation rose.")
-        self.assertEqual(
-            stories[0]["full_text"],
+        self.assertNotIn("full_text", stories[0])
+        self.assertNotIn(
             "Full earnings body with valuation details for the model.",
+            stories[0]["description"],
         )
         self.assertEqual(stories[0]["link"], publisher)
         self.assertEqual(stories[0]["source"], "Reuters AI")
@@ -165,6 +166,13 @@ class CollectStoriesTests(unittest.TestCase):
         )
         self.assertTrue(collect_stories.is_recent(fresh, now))
         self.assertFalse(collect_stories.is_recent(stale, now))
+
+    def test_collector_does_not_fetch_article_html(self):
+        source = Path(collect_stories.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("trafilatura", source)
+        self.assertNotIn("archived_article_summarizer", source)
+        self.assertNotIn("item_full_text", source)
+        self.assertIn("RSS description/snippet only", collect_stories.__doc__)
 
 
 if __name__ == "__main__":

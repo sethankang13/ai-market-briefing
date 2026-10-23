@@ -40,14 +40,13 @@ def sample_history() -> list[dict[str, object]]:
 
 def sample_macro() -> str:
     return (
-        "# The Loop: Macro Landscape\n\n"
-        "Energy and trade headlines cluster around supply constraints.\n\n"
-        "## Pattern Analysis & Signal Drift\n\n"
-        "Today continues last week's export-control coverage.\n\n"
-        "## Research Radar\n\n"
-        "1. Crude inventories.\n"
-        "2. Chip export licenses.\n"
-        "3. Policy follow-through.\n"
+        "{\n"
+        '  "tag_notes": {\n'
+        '    "Market-Valuations": "Energy headlines cluster around supply constraints."\n'
+        "  },\n"
+        '  "daily_summary": "Energy and trade headlines cluster around supply constraints.",\n'
+        '  "research_radar": ["Crude inventories.", "Chip export licenses.", "Policy follow-through."]\n'
+        "}\n"
     )
 
 
@@ -89,13 +88,33 @@ class SummarizeStoriesTests(unittest.TestCase):
 
     def test_mock_macro_writes_required_sections_without_pending_copy(self):
         report = summarize_stories.mock_macro_report([sample_story()], [])
-        self.assertIn("# The Loop: Macro Landscape", report)
-        self.assertIn("## Pattern Analysis & Signal Drift", report)
-        self.assertIn("## Research Radar", report)
-        self.assertIn("Oil prices jump", report)
+        notes, daily, radar = summarize_stories.parse_briefing_copy(report)
+        self.assertIn("Market-Valuations", notes)
+        self.assertIn("Oil prices jump", notes["Market-Valuations"])
+        self.assertIn("Oil prices jump", daily)
+        self.assertGreaterEqual(len(radar), 3)
         self.assertNotIn("AI Summary Pending", report)
         self.assertNotIn("AI Headline Pending", report)
+        self.assertNotIn("AI headline pending", report)
         self.assertNotIn("AI Summary goes HERE", report)
+        self.assertNotIn("Why It Matters", report)
+
+    def test_parse_briefing_copy_rejects_pending_and_accepts_delimited_sections(self):
+        with self.assertRaises(ValueError):
+            summarize_stories.parse_briefing_copy(
+                '{"daily_summary": "AI Summary Pending", "tag_notes": {}, "research_radar": []}'
+            )
+        notes, daily, radar = summarize_stories.parse_briefing_copy(
+            "## Legislation-&-Policy\n\n"
+            "Policy pattern from today's bill.\n\n"
+            "## Daily Summary\n\n"
+            "What happened today across the selected headlines.\n\n"
+            "## Research Radar\n\n"
+            "1. Follow the bill markup.\n"
+        )
+        self.assertEqual(notes["Legislation-&-Policy"], "Policy pattern from today's bill.")
+        self.assertIn("What happened today", daily)
+        self.assertEqual(radar, ["Follow the bill markup."])
 
     def test_live_modules_do_not_scrape_or_import_archived_summarizer(self):
         source = Path(summarize_stories.__file__).read_text(encoding="utf-8")
@@ -128,7 +147,8 @@ class SummarizeStoriesTests(unittest.TestCase):
                 )
 
         self.assertEqual(result.provider, "gemini")
-        self.assertIn("# The Loop: Macro Landscape", result.macro_report)
+        self.assertIn("daily_summary", result.macro_report)
+        self.assertIn("tag_notes", result.macro_report)
         self.assertEqual(post_json.call_count, 1)
         prompt = post_json.call_args.args[1]["contents"][0]["parts"][0]["text"]
         self.assertIn("Oil prices jump", prompt)
@@ -137,7 +157,10 @@ class SummarizeStoriesTests(unittest.TestCase):
         self.assertIn("Chip export rules tighten", prompt)
         self.assertIn("Trade controls affect supply", prompt)
         self.assertIn("LAST 14 DAYS", prompt)
+        self.assertIn("[Market-Valuations]", prompt)
+        self.assertIn("[Geopolitics-&-Trade]", prompt)
         self.assertNotIn("Article text:", prompt)
+        self.assertNotIn("one call per story", prompt.lower())
         self.assertIn("generativelanguage.googleapis.com", post_json.call_args.args[0])
         self.assertIn("gemini-3.8-flash", post_json.call_args.args[0])
         self.assertEqual(post_json.call_args.args[2]["x-goog-api-key"], "gemini-test")
@@ -167,7 +190,8 @@ class SummarizeStoriesTests(unittest.TestCase):
                 )
 
         self.assertEqual(result.provider, "gemini")
-        self.assertIn("## Research Radar", result.macro_report)
+        self.assertIn("research_radar", result.macro_report)
+        self.assertIn("Crude inventories.", result.macro_report)
         self.assertNotIn("internal reasoning", result.macro_report)
 
     def test_openai_is_used_when_gemini_key_is_absent(self):
@@ -181,7 +205,7 @@ class SummarizeStoriesTests(unittest.TestCase):
                 )
 
         self.assertEqual(result.provider, "openai")
-        self.assertIn("# The Loop: Macro Landscape", result.macro_report)
+        self.assertIn("daily_summary", result.macro_report)
         self.assertEqual(post_json.call_count, 1)
         self.assertEqual(post_json.call_args.args[0], summarize_stories.OPENAI_URL)
         self.assertEqual(post_json.call_args.args[1]["model"], "gpt-4o-mini")
@@ -205,7 +229,7 @@ class SummarizeStoriesTests(unittest.TestCase):
                 )
 
         self.assertEqual(result.provider, "openai")
-        self.assertIn("## Pattern Analysis & Signal Drift", result.macro_report)
+        self.assertIn("daily_summary", result.macro_report)
 
     def test_both_providers_failing_raises(self):
         with patch.dict(
@@ -237,7 +261,7 @@ class SummarizeStoriesTests(unittest.TestCase):
                 )
 
         self.assertEqual(result.provider, "gemini")
-        self.assertIn("# The Loop: Macro Landscape", result.macro_report)
+        self.assertIn("tag_notes", result.macro_report)
         self.assertEqual(len(calls), 2)
         self.assertIn("gemini-3.8-flash", calls[0])
         self.assertIn("gemini-3.7-flash", calls[1])
@@ -259,8 +283,10 @@ class SummarizeStoriesTests(unittest.TestCase):
         self.assertNotIn("macro_report", stories[0])
         self.assertEqual(copied[0]["headline"], "Oil prices jump")
         self.assertNotIn("ai_summary", copied[0])
-        self.assertIn("# The Loop: Macro Landscape", report)
+        self.assertIn("tag_notes", report)
+        self.assertIn("daily_summary", report)
         self.assertNotIn("AI Summary Pending", report)
+        self.assertNotIn("Why It Matters", report)
 
     def test_save_creates_summarized_directory_and_macro_report(self):
         selected_run = {"failed_sources": [], "stories": [sample_story()]}
@@ -288,10 +314,12 @@ class SummarizeStoriesTests(unittest.TestCase):
             self.assertEqual(saved["summarizer"], "mock")
             self.assertNotIn("ai_headline", saved["stories"][0])
             self.assertNotIn("ai_summary", saved["stories"][0])
-            self.assertIn("# The Loop: Macro Landscape", saved["macro_report"])
-            self.assertIn("## Pattern Analysis & Signal Drift", saved["macro_report"])
-            self.assertIn("## Research Radar", saved["macro_report"])
+            self.assertIn("Market-Valuations", saved["tag_notes"])
+            self.assertIn("Oil prices jump", saved["daily_summary"])
+            self.assertGreaterEqual(len(saved["research_radar"]), 3)
+            self.assertIn("tag_notes", saved["macro_report"])
             self.assertNotIn("AI Summary Pending", saved["macro_report"])
+            self.assertNotIn("Why It Matters", saved["macro_report"])
             self.assertEqual(saved["stories"][0]["headline"], "Oil prices jump")
 
     def test_summarize_stories_does_not_mutate_input(self):
@@ -307,7 +335,7 @@ class SummarizeStoriesTests(unittest.TestCase):
         self.assertIn("description", stories[0])
         self.assertEqual(summarized[0]["headline"], stories[0]["headline"])
         self.assertIsNot(summarized[0], stories[0])
-        self.assertIn("## Research Radar", report)
+        self.assertIn("research_radar", report)
 
 
 if __name__ == "__main__":

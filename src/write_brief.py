@@ -7,10 +7,14 @@ Run from the project folder:
     python3 src/write_brief.py
 """
 
+from __future__ import annotations
+
 import argparse
+import html
 import json
 import re
 from pathlib import Path
+from urllib.parse import urlencode
 
 import fetch_market
 from config_loader import load_config, project_path
@@ -23,6 +27,25 @@ SUMMARIZED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "summarized"
 SELECTED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "selected"
 BRIEFS_DIRECTORY = project_path(_CONFIG["pipeline"]["output_dir"])
 SECTION_ORDER = TAG_LABELS + ("Other",)
+TAG_ARCHIVE_BASE = "http://127.0.0.1:8501/"
+# Distinct colors with contrast on a light Streamlit/Markdown background.
+TAG_COLORS = {
+    "Market-Valuations": "#0B5CAB",
+    "Venture-&-M&A": "#1B7F5A",
+    "Legislation-&-Policy": "#6B2FA0",
+    "Antitrust-&-Compliance": "#B45309",
+    "Copyright-&-IP": "#9D174D",
+    "Geopolitics-&-Trade": "#B42318",
+    "Labor-&-Economy": "#0F6C75",
+    "Enterprise-Adoption": "#1D4ED8",
+    "Foundation-Models": "#C2410C",
+}
+PENDING_MARKERS = (
+    "AI Summary Pending",
+    "AI Headline Pending",
+    "AI headline pending",
+    "AI Summary goes HERE",
+)
 
 
 def latest_summarized_run(summarized_data_directory=None):
@@ -60,11 +83,14 @@ def load_selected_run(input_path: Path) -> dict[str, object]:
 
 
 def story_tags(story: dict[str, object]) -> list[str]:
-    """Return assigned tags, ignoring a missing or non-list value."""
+    """Return assigned tags in taxonomy order, ignoring a missing or non-list value."""
     tags = story.get("tags")
     if not isinstance(tags, list):
         return []
-    return [tag for tag in tags if isinstance(tag, str) and tag]
+    assigned = {tag for tag in tags if isinstance(tag, str) and tag}
+    ordered = [tag for tag in TAG_LABELS if tag in assigned]
+    extras = [tag for tag in tags if isinstance(tag, str) and tag and tag not in TAG_LABELS]
+    return ordered + extras
 
 
 def section_for_story(story: dict[str, object]) -> str:
@@ -76,8 +102,31 @@ def section_for_story(story: dict[str, object]) -> str:
     return "Other"
 
 
+def tag_archive_url(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:
+    """Local Streamlit archive URL for one taxonomy tag (query-parameterized)."""
+    root = base if base.endswith("/") else f"{base}/"
+    return f"{root}?{urlencode({'tag': tag})}"
+
+
+def tag_hashtag_html(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:
+    """Color-coded, clickable ``#Tag-Name`` pointing at the local tag archive."""
+    color = TAG_COLORS.get(tag, "#334155")
+    href = html.escape(tag_archive_url(tag, base), quote=True)
+    label = html.escape(f"#{tag}")
+    return (
+        f'<a href="{href}" style="color:{color};font-weight:700;text-decoration:none">'
+        f"{label}</a>"
+    )
+
+
+def tag_heading_markdown(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:
+    if tag in TAG_COLORS:
+        return f"## {tag_hashtag_html(tag, base)}"
+    return f"## {tag}"
+
+
 def tags_line(story: dict[str, object]) -> str:
-    """Render the italic tag line under the story title."""
+    """Unused in the daily brief; kept so older callers do not import-break."""
     hashes = " ".join(f"#{tag}" for tag in story_tags(story))
     if hashes:
         return f"  *Tags: {hashes}*  "
@@ -85,10 +134,7 @@ def tags_line(story: dict[str, object]) -> str:
 
 
 def why_it_matters(story: dict[str, object]) -> str | None:
-    """Use the stored AI summary. Never emit pending placeholders."""
-    summary = story.get("ai_summary")
-    if isinstance(summary, str) and summary.strip():
-        return summary.strip()
+    """Per-story Why It Matters is not written into briefs."""
     return None
 
 
@@ -150,32 +196,48 @@ def group_stories_by_headline(
     return groups
 
 
+def render_headline_item(
+    story: dict[str, object],
+    extra_sources: list[str] | None = None,
+) -> str:
+    """RSS headline link plus optional also-covered-by. No tags or Why It Matters."""
+    headline = str(story.get("headline") or "").strip() or "(untitled)"
+    link = str(story.get("link") or story.get("url") or "").strip()
+    if link:
+        source_link = f"[{headline}]({link})"
+    else:
+        source_link = f"**{headline}**"
+    lines = [f"- {source_link}"]
+    if extra_sources:
+        lines.append(f"  also covered by [{', '.join(extra_sources)}]")
+    return "\n".join(lines)
+
+
 def render_story(
     story: dict[str, object],
     extra_sources: list[str] | None = None,
     slug: str | None = None,
 ) -> str:
-    """Lead with the original headline and link, then tags and why it matters."""
-    source_link = f"[{story['headline']}]({story['link']})"
-    summary = why_it_matters(story)
-    lines = []
-    if slug:
-        lines.append(f'<a id="{slug}"></a>')
-    lines.extend([f"- {source_link}  ", tags_line(story)])
-    if extra_sources:
-        lines.append(f"  also covered by [{', '.join(extra_sources)}]")
-    if summary:
-        lines.append(f"  Why It Matters: {summary}")
-    return "\n".join(lines)
+    """Headline-only story line. ``slug`` is ignored (At a Glance uses RSS URLs)."""
+    del slug
+    return render_headline_item(story, extra_sources)
 
 
 def grouped_sections(
     selected_run: dict[str, object],
 ) -> list[tuple[str, list[tuple[dict[str, object], list[str]]]]]:
-    """Group stories by section, then collapse exact RSS headlines."""
+    """Group stories under every assigned taxonomy tag (config order)."""
     sections = {section: [] for section in SECTION_ORDER}
     for story in selected_run["stories"]:
-        sections[section_for_story(story)].append(story)
+        tags = story_tags(story)
+        if tags:
+            for tag in tags:
+                if tag in sections:
+                    sections[tag].append(story)
+                else:
+                    sections["Other"].append(story)
+        else:
+            sections["Other"].append(story)
     grouped = []
     for section in SECTION_ORDER:
         items = group_stories_by_headline(sections[section])
@@ -184,8 +246,67 @@ def grouped_sections(
     return grouped
 
 
+def copy_from_run(selected_run: dict[str, object]) -> tuple[dict[str, str], str, list[str]]:
+    """Read structured briefing copy, or JSON stored in ``macro_report``."""
+    notes = selected_run.get("tag_notes")
+    summary = selected_run.get("daily_summary")
+    radar = selected_run.get("research_radar")
+    if isinstance(notes, dict) and isinstance(summary, str) and summary.strip():
+        cleaned_notes = {
+            str(tag): text.strip()
+            for tag, text in notes.items()
+            if isinstance(tag, str) and isinstance(text, str) and text.strip()
+        }
+        radar_items = (
+            [item.strip() for item in radar if isinstance(item, str) and item.strip()]
+            if isinstance(radar, list)
+            else []
+        )
+        return cleaned_notes, summary.strip(), radar_items
+
+    macro = selected_run.get("macro_report")
+    if isinstance(macro, str) and macro.strip():
+        try:
+            from summarize_stories import parse_briefing_copy
+
+            return parse_briefing_copy(macro)
+        except Exception:
+            if not any(marker.lower() in macro.lower() for marker in PENDING_MARKERS):
+                return {}, macro.strip(), []
+    return {}, "", []
+
+
+def render_tag_section(
+    tag: str,
+    items: list[tuple[dict[str, object], list[str]]],
+    note: str | None,
+) -> list[str]:
+    lines = ["", tag_heading_markdown(tag), ""]
+    for story, extra_sources in items:
+        lines.append(render_headline_item(story, extra_sources))
+    if note and note.strip():
+        lines.extend(["", f"Why it might matter / pattern: {note.strip()}"])
+    return lines
+
+
+def render_daily_summary(summary: str, radar: list[str]) -> list[str]:
+    if not summary and not radar:
+        return []
+    lines = ["", "## Daily Summary", ""]
+    if summary:
+        lines.append(summary)
+    if radar:
+        if summary:
+            lines.append("")
+        lines.append("Research topics to look into more")
+        lines.append("")
+        for index, topic in enumerate(radar, start=1):
+            lines.append(f"{index}. {topic}")
+    return lines
+
+
 def render_brief(selected_run: dict[str, object], date_stem: str) -> str:
-    """Render the selected stories as a concise, topic-organized Markdown brief."""
+    """Render title, snapshot, glance, per-tag sections, then Daily Summary."""
     snapshot = selected_run.get("market_snapshot")
     lines = [
         f"# Looping... ({date_stem})",
@@ -199,26 +320,31 @@ def render_brief(selected_run: dict[str, object], date_stem: str) -> str:
     ]
 
     used_slugs: set[str] = set()
-    glance: list[tuple[str, str, str]] = []
-    detail_blocks: list[str] = []
+    glance_seen: set[str] = set()
+    for story, _extra in group_stories_by_headline(list(selected_run["stories"])):
+        key = normalize_headline(story.get("headline"))
+        if key in glance_seen:
+            continue
+        glance_seen.add(key)
+        slug = unique_slug(story.get("headline"), used_slugs)
+        link = str(story.get("link") or story.get("url") or "").strip()
+        lines.append(glance_markdown(story.get("headline"), link, slug))
+
+    notes, daily_summary, radar = copy_from_run(selected_run)
     for section, items in grouped_sections(selected_run):
-        assigned = []
-        for story, extra_sources in items:
-            slug = unique_slug(story.get("headline"), used_slugs)
-            link = str(story.get("link") or story.get("url") or "").strip()
-            glance.append((str(story["headline"]), slug, link))
-            assigned.append(render_story(story, extra_sources, slug))
-        detail_blocks.extend(["", f"## {section}", "", *assigned])
+        note = notes.get(section) if section != "Other" else None
+        lines.extend(render_tag_section(section, items, note))
 
-    for headline, slug, link in glance:
-        lines.append(glance_markdown(headline, link, slug))
-
-    macro = selected_run.get("macro_report")
-    if isinstance(macro, str) and macro.strip():
-        lines.extend(["", macro.strip()])
-
-    lines.extend(detail_blocks)
-    return "\n".join(lines) + "\n"
+    lines.extend(render_daily_summary(daily_summary, radar))
+    briefing = "\n".join(lines) + "\n"
+    for marker in PENDING_MARKERS:
+        if marker.lower() in briefing.lower():
+            briefing = re.sub(re.escape(marker), "", briefing, flags=re.I)
+    if "Why It Matters:" in briefing:
+        briefing = "\n".join(
+            line for line in briefing.splitlines() if "Why It Matters:" not in line
+        ) + "\n"
+    return briefing
 
 
 def save_brief(selected_run: dict[str, object], input_path: Path) -> Path:

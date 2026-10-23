@@ -1,20 +1,21 @@
-"""Write one headline-based macro report per briefing run.
+"""Write one run-level briefing copy: per-tag notes, daily summary, research radar.
 
 Run from the project folder:
     python3 src/summarize_stories.py
     python3 src/summarize_stories.py --mock
 
-Live input is today's selected RSS headlines and snippets plus the last 14
-days of stored briefing records from ``data/loop.db``. There is one Gemini
-Flash completion per run. The existing model cascade is used only when the
-first model returns HTTP 429 (or another retryable error): still one
-successful completion, not one call per story.
+Live input is today's selected RSS headlines and snippets, grouped by
+taxonomy tag, plus the last 14 days of stored briefing records from
+``data/loop.db``. There is one Gemini Flash completion per run. The
+existing model cascade is used only when the first model returns HTTP 429
+(or another retryable error): still one successful completion, not one
+call per story.
 
 Article HTML extraction lives in ``archived_article_summarizer.py`` and is
 not used here.
 
-``--mock`` writes deterministic placeholder sections and does not call a
-model or the network.
+``--mock`` writes deterministic per-tag notes and a daily summary and does
+not call a model or the network.
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ from typing import NamedTuple
 
 import db
 from config_loader import load_config
+from tag_stories import TAG_LABELS
 
 
 _CONFIG = load_config()
@@ -46,27 +48,27 @@ OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 PENDING_MARKERS = (
     "AI Summary Pending",
     "AI Headline Pending",
+    "AI headline pending",
     "AI Summary goes HERE",
 )
-REQUIRED_HEADINGS = (
-    "# The Loop: Macro Landscape",
-    "## Pattern Analysis & Signal Drift",
-    "## Research Radar",
-)
 SYSTEM_PROMPT = (
-    "You write Loop: AI Market Briefing's daily macro report from RSS "
-    "headlines, native feed snippets, and the last 14 days of stored "
-    "briefing records. Do not claim you read full articles. Do not invent "
-    "facts that are not supported by the supplied headlines, snippets, or "
-    "history. Label market-impact or causal language as interpretation. "
-    "Return Markdown only, with exactly these headings in this order:\n"
-    "# The Loop: Macro Landscape\n"
-    "## Pattern Analysis & Signal Drift\n"
-    "## Research Radar\n"
-    "Macro Landscape: primary market, tech, and regulatory clusters from "
-    "today's headlines. Pattern Analysis: how today connects to, accelerates, "
-    "or contradicts the last 14 days. Research Radar: 3-5 high-impact topics "
-    "worth manual follow-up. Never write pending-placeholder copy."
+    "You write Loop: AI Market Briefing's daily copy from RSS headlines, "
+    "native feed snippets, and the last 14 days of stored briefing records. "
+    "Do not claim you read full articles. Do not invent facts that are not "
+    "supported by the supplied headlines, snippets, or history. Label "
+    "market-impact or causal language as interpretation. "
+    "Return JSON only (no Markdown wrapper) with this shape:\n"
+    '{"tag_notes": {"Tag-Name": "one paragraph for that tag"}, '
+    '"daily_summary": "what happened today across all headlines and what it '
+    'could mean", "research_radar": ["topic 1", "topic 2", "topic 3"]}\n'
+    "tag_notes: one paragraph per taxonomy tag that has at least one of "
+    "today's selected headlines. Use today's headlines in that tag plus "
+    "the 14-day history for that tag. Do not write a per-story note, "
+    "per-story Why It Matters, or a tags line. "
+    "daily_summary: what happened today across all headlines, and what it "
+    "could mean. research_radar: 3-5 high-impact topics worth manual "
+    "follow-up. Never write pending-placeholder copy such as "
+    '"AI Summary Pending" or "AI Headline Pending".'
 )
 
 
@@ -74,11 +76,76 @@ class SummarizationError(Exception):
     """Every live model attempt failed. Do not write pending placeholders."""
 
 
-class MacroCopy(NamedTuple):
-    """One run-level macro report and the provider that produced it."""
+class BriefingCopy(NamedTuple):
+    """Run-level copy: one note per tag, a daily summary, and research topics."""
 
-    macro_report: str
+    tag_notes: dict[str, str]
+    daily_summary: str
+    research_radar: tuple[str, ...]
     provider: str
+
+    @property
+    def macro_report(self) -> str:
+        """JSON payload persisted on the summarized run and in loop.db."""
+        return serialize_briefing_copy(
+            self.tag_notes, self.daily_summary, list(self.research_radar)
+        )
+
+
+# Older tests and persist_step still refer to MacroCopy / macro_report.
+MacroCopy = BriefingCopy
+
+
+def serialize_briefing_copy(
+    tag_notes: dict[str, str],
+    daily_summary: str,
+    research_radar: list[str],
+) -> str:
+    return json.dumps(
+        {
+            "tag_notes": tag_notes,
+            "daily_summary": daily_summary,
+            "research_radar": research_radar,
+        },
+        indent=2,
+    )
+
+
+def reject_pending(text: str) -> None:
+    lowered = text.lower()
+    for marker in PENDING_MARKERS:
+        if marker.lower() in lowered:
+            raise ValueError("Model response used a pending placeholder.")
+
+
+def story_tag_labels(story: dict[str, object]) -> list[str]:
+    """Return assigned taxonomy tags in config order."""
+    labels = story.get("tags")
+    if not isinstance(labels, list):
+        labels = story.get("topics") or []
+    assigned = {label for label in labels if isinstance(label, str) and label}
+    return [tag for tag in TAG_LABELS if tag in assigned]
+
+
+def tags_with_stories(stories: list[dict[str, object]]) -> list[str]:
+    present: set[str] = set()
+    for story in stories:
+        present.update(story_tag_labels(story))
+    return [tag for tag in TAG_LABELS if tag in present]
+
+
+def history_tag_labels(row: dict[str, object]) -> list[str]:
+    labels = row.get("tags")
+    if isinstance(labels, str):
+        try:
+            parsed = json.loads(labels)
+            labels = parsed if isinstance(parsed, list) else []
+        except json.JSONDecodeError:
+            labels = []
+    if not isinstance(labels, list):
+        labels = []
+    assigned = {label for label in labels if isinstance(label, str) and label}
+    return [tag for tag in TAG_LABELS if tag in assigned]
 
 
 def latest_selected_run(
@@ -104,30 +171,54 @@ def load_selected_run(input_path: Path) -> dict[str, object]:
     return selected_run
 
 
-def mock_macro_report(
+def mock_briefing_copy(
     stories: list[dict[str, object]],
     history: list[dict[str, object]],
-) -> str:
-    """Deterministic offline sections used only with ``--mock``."""
+) -> BriefingCopy:
+    """Deterministic offline copy used only with ``--mock``."""
     headlines = [
         str(story.get("headline") or "(untitled)") for story in stories
     ]
     listed = "; ".join(headlines) if headlines else "(no selected headlines)"
-    return (
-        "# The Loop: Macro Landscape\n\n"
-        f"Mock landscape clustered from: {listed}.\n\n"
-        "## Pattern Analysis & Signal Drift\n\n"
-        f"Mock drift check against {len(history)} stored briefing records "
-        "from the last 14 days.\n\n"
-        "## Research Radar\n\n"
-        "1. Mock follow-up on the densest selected tag cluster.\n"
-        "2. Mock follow-up on a headline that repeats in stored history.\n"
-        "3. Mock follow-up on a regulatory or market split in today's set.\n"
+    tag_notes = {}
+    for tag in tags_with_stories(stories):
+        today = [
+            str(story.get("headline") or "(untitled)")
+            for story in stories
+            if tag in story_tag_labels(story)
+        ]
+        prior = sum(1 for row in history if tag in history_tag_labels(row))
+        tag_notes[tag] = (
+            f"Mock pattern for #{tag}: today's headlines ({'; '.join(today)}) "
+            f"read against {prior} stored {tag} records from the last 14 days."
+        )
+    radar = (
+        "Mock follow-up on the densest selected tag cluster.",
+        "Mock follow-up on a headline that repeats in stored history.",
+        "Mock follow-up on a regulatory or market split in today's set.",
+    )
+    return BriefingCopy(
+        tag_notes=tag_notes,
+        daily_summary=(
+            f"Mock daily summary of what happened today: {listed}. "
+            f"Checked against {len(history)} stored briefing records "
+            "from the last 14 days."
+        ),
+        research_radar=radar,
+        provider="mock",
     )
 
 
+def mock_macro_report(
+    stories: list[dict[str, object]],
+    history: list[dict[str, object]],
+) -> str:
+    """JSON string of mock per-tag notes and daily summary."""
+    return mock_briefing_copy(stories, history).macro_report
+
+
 def mock_summary(headline: str) -> str:
-    """Backward-compatible mock line; the live brief uses mock_macro_report."""
+    """Backward-compatible mock line; the live brief uses mock_briefing_copy."""
     return f"Mock interpretation of {headline}."
 
 
@@ -141,50 +232,62 @@ def story_snippet(story: dict[str, object]) -> str:
 
 
 def format_today_block(stories: list[dict[str, object]]) -> str:
-    lines = ["TODAY'S SELECTED HEADLINES AND SNIPPETS:"]
+    lines = ["TODAY'S SELECTED HEADLINES AND SNIPPETS, GROUPED BY TAG:"]
     if not stories:
         lines.append("(none)")
         return "\n".join(lines)
-    for story in stories:
-        labels = story.get("tags")
-        if not isinstance(labels, list):
-            labels = story.get("topics") or []
-        tags = ", ".join(label for label in labels if isinstance(label, str))
-        snippet = story_snippet(story)
-        lines.append(
-            f"- {story.get('source', 'Unknown')} | {story.get('headline')} | "
-            f"tags: {tags or 'none'} | snippet: {snippet or '(none)'}"
-        )
+    grouped = False
+    for tag in tags_with_stories(stories):
+        grouped = True
+        lines.append(f"[{tag}]")
+        for story in stories:
+            if tag not in story_tag_labels(story):
+                continue
+            snippet = story_snippet(story)
+            lines.append(
+                f"- {story.get('source', 'Unknown')} | {story.get('headline')} | "
+                f"snippet: {snippet or '(none)'}"
+            )
+    untagged = [story for story in stories if not story_tag_labels(story)]
+    if untagged:
+        lines.append("[untagged]")
+        for story in untagged:
+            snippet = story_snippet(story)
+            lines.append(
+                f"- {story.get('source', 'Unknown')} | {story.get('headline')} | "
+                f"snippet: {snippet or '(none)'}"
+            )
+            grouped = True
+    if not grouped:
+        lines.append("(none)")
     return "\n".join(lines)
 
 
 def format_history_block(history: list[dict[str, object]]) -> str:
-    lines = ["LAST 14 DAYS OF STORED BRIEFING RECORDS:"]
+    lines = ["LAST 14 DAYS OF STORED BRIEFING RECORDS, GROUPED BY TAG:"]
     if not history:
         lines.append("(none; do not invent prior coverage)")
         return "\n".join(lines)
-    for row in history:
-        labels = row.get("tags")
-        if isinstance(labels, str):
-            try:
-                parsed = json.loads(labels)
-                labels = parsed if isinstance(parsed, list) else []
-            except json.JSONDecodeError:
-                labels = []
-        if not isinstance(labels, list):
-            labels = []
-        tags = ", ".join(label for label in labels if isinstance(label, str))
-        snippet = ""
-        for key in ("full_text", "description", "ai_summary"):
-            value = row.get(key)
-            if isinstance(value, str) and value.strip():
-                snippet = " ".join(value.split())[:400]
-                break
-        lines.append(
-            f"- {row.get('published_date') or ''} | {row.get('source') or 'Unknown'} | "
-            f"{row.get('headline')} | tags: {tags or 'none'} | "
-            f"snippet: {snippet or '(none)'}"
-        )
+    any_tag = False
+    for tag in TAG_LABELS:
+        rows = [row for row in history if tag in history_tag_labels(row)]
+        if not rows:
+            continue
+        any_tag = True
+        lines.append(f"[{tag}]")
+        for row in rows:
+            snippet = ""
+            for key in ("full_text", "description", "ai_summary"):
+                value = row.get(key)
+                if isinstance(value, str) and value.strip():
+                    snippet = " ".join(value.split())[:400]
+                    break
+            lines.append(
+                f"- {row.get('published_date') or ''} | {row.get('source') or 'Unknown'} | "
+                f"{row.get('headline')} | snippet: {snippet or '(none)'}"
+            )
+    if not any_tag:
+        lines.append("(none with taxonomy tags; do not invent prior coverage)")
     return "\n".join(lines)
 
 
@@ -193,12 +296,14 @@ def run_prompt(
     history: list[dict[str, object]],
 ) -> str:
     """Build the single user prompt for this run."""
+    expected = tags_with_stories(stories)
     return "\n\n".join(
         [
-            "Write today's macro report from the material below.",
+            "Write today's briefing copy from the material below.",
+            f"Tags that must appear in tag_notes: {', '.join(expected) or '(none)'}.",
             format_today_block(stories),
             format_history_block(history),
-            "Return Markdown with the three required headings and no JSON wrapper.",
+            "Return JSON only with tag_notes, daily_summary, and research_radar.",
         ]
     )
 
@@ -238,12 +343,75 @@ def visible_gemini_text(data: dict[str, object]) -> str:
     return text
 
 
-def parse_macro_report(text: str) -> str:
-    """Accept Markdown, or JSON with a ``macro_report`` field."""
+def _radar_from_value(value: object) -> list[str]:
+    if isinstance(value, list):
+        return [item.strip() for item in value if isinstance(item, str) and item.strip()]
+    if isinstance(value, str) and value.strip():
+        items = []
+        for line in value.splitlines():
+            cleaned = re.sub(r"^\s*(?:\d+[.)]|[-*])\s*", "", line).strip()
+            if cleaned:
+                items.append(cleaned)
+        return items
+    return []
+
+
+def _notes_from_value(value: object) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    notes = {}
+    for key, text in value.items():
+        if not isinstance(key, str) or not key:
+            continue
+        if isinstance(text, str) and text.strip():
+            notes[key] = text.strip()
+    return notes
+
+
+def parse_delimited_sections(text: str) -> tuple[dict[str, str], str, list[str]]:
+    """Parse clearly delimited Markdown when the model skipped JSON."""
+    notes: dict[str, str] = {}
+    daily = ""
+    radar: list[str] = []
+    current = None
+    chunks: dict[str, list[str]] = {}
+    for line in text.splitlines():
+        heading = re.match(r"^#{1,3}\s+(.*)$", line)
+        if heading:
+            title = heading.group(1).strip()
+            if re.search(r"daily summary", title, re.I):
+                current = "daily"
+            elif re.search(r"research", title, re.I):
+                current = "radar"
+            else:
+                tag = title.lstrip("#").strip()
+                tag = re.sub(r"^Tag:\s*", "", tag, flags=re.I)
+                current = tag
+            chunks.setdefault(current, [])
+            continue
+        if current is None:
+            continue
+        chunks.setdefault(current, []).append(line)
+    for key, lines in chunks.items():
+        body = "\n".join(lines).strip()
+        if not body or key is None:
+            continue
+        if key == "daily":
+            daily = body
+        elif key == "radar":
+            radar = _radar_from_value(body)
+        else:
+            notes[key] = body
+    return notes, daily, radar
+
+
+def parse_briefing_copy(text: str) -> tuple[dict[str, str], str, list[str]]:
+    """Accept JSON, or delimited sections with tag notes + daily summary + radar."""
     cleaned = text.strip()
     if cleaned.startswith("```"):
         cleaned = re.sub(r"^```(?:json|markdown|md)?\s*", "", cleaned)
         cleaned = re.sub(r"\s*```$", "", cleaned)
+    reject_pending(cleaned)
     start = cleaned.find("{")
     end = cleaned.rfind("}")
     if start != -1 and end > start:
@@ -251,17 +419,49 @@ def parse_macro_report(text: str) -> str:
             data = json.loads(cleaned[start : end + 1])
         except json.JSONDecodeError:
             data = None
-        if isinstance(data, dict):
-            report = data.get("macro_report")
-            if isinstance(report, str) and report.strip():
-                cleaned = report.strip()
-    for marker in PENDING_MARKERS:
-        if marker in cleaned:
-            raise ValueError("Model response used a pending placeholder.")
-    for heading in REQUIRED_HEADINGS:
-        if heading not in cleaned:
-            raise ValueError("Model response missed a required macro heading.")
-    return cleaned
+        if isinstance(data, dict) and (
+            "daily_summary" in data or "tag_notes" in data or "research_radar" in data
+        ):
+            notes = _notes_from_value(data.get("tag_notes"))
+            summary = data.get("daily_summary")
+            daily = summary.strip() if isinstance(summary, str) else ""
+            radar = _radar_from_value(data.get("research_radar"))
+            if daily:
+                return notes, daily, radar
+    notes, daily, radar = parse_delimited_sections(cleaned)
+    if not daily:
+        raise ValueError("Model response missed a daily summary.")
+    return notes, daily, radar
+
+
+def parse_macro_report(text: str) -> str:
+    """Normalize model text to the persisted JSON briefing payload."""
+    notes, daily, radar = parse_briefing_copy(text)
+    return serialize_briefing_copy(notes, daily, radar)
+
+
+def fill_missing_tag_notes(
+    notes: dict[str, str],
+    stories: list[dict[str, object]],
+) -> dict[str, str]:
+    """Keep model notes; add a non-pending fallback for any missing today's tag."""
+    filled = dict(notes)
+    for tag in tags_with_stories(stories):
+        existing = filled.get(tag)
+        if isinstance(existing, str) and existing.strip():
+            filled[tag] = existing.strip()
+            continue
+        headlines = [
+            str(story.get("headline") or "(untitled)")
+            for story in stories
+            if tag in story_tag_labels(story)
+        ]
+        listed = "; ".join(headlines) if headlines else "(none)"
+        filled[tag] = (
+            f"Today's #{tag} headlines ({listed}) continue that tag's "
+            "recent coverage; treat market-impact language as interpretation."
+        )
+    return filled
 
 
 def gemini_url(model: str) -> str:
@@ -273,7 +473,7 @@ def summarize_with_gemini(
     api_key: str,
     model: str = GEMINI_MODEL,
 ) -> str:
-    """Ask one Gemini flash model for the run-level macro report."""
+    """Ask one Gemini flash model for the run-level briefing JSON."""
     payload = {
         "contents": [
             {
@@ -337,7 +537,7 @@ def summarize_with_gemini_cascade(
 
 
 def summarize_with_openai(prompt: str, api_key: str) -> str:
-    """Ask OpenAI gpt-4o-mini for the run-level macro report."""
+    """Ask OpenAI gpt-4o-mini for the run-level briefing JSON."""
     payload = {
         "model": OPENAI_MODEL,
         "temperature": 0.2,
@@ -394,15 +594,26 @@ def load_history(history: list[dict[str, object]] | None = None) -> list[dict[st
         return []
 
 
+def briefing_from_payload(payload: str, stories: list[dict[str, object]], provider: str) -> BriefingCopy:
+    notes, daily, radar = parse_briefing_copy(payload)
+    notes = fill_missing_tag_notes(notes, stories)
+    return BriefingCopy(
+        tag_notes=notes,
+        daily_summary=daily,
+        research_radar=tuple(radar),
+        provider=provider,
+    )
+
+
 def summarize_macro(
     stories: list[dict[str, object]],
     mock: bool = False,
     history: list[dict[str, object]] | None = None,
-) -> MacroCopy:
-    """Return one macro report using the Gemini cascade, OpenAI, or ``--mock``."""
+) -> BriefingCopy:
+    """Return one briefing copy using the Gemini cascade, OpenAI, or ``--mock``."""
     records = load_history(history)
     if mock:
-        return MacroCopy(mock_macro_report(stories, records), "mock")
+        return mock_briefing_copy(stories, records)
     load_project_env()
     prompt = run_prompt(stories, records)
     gemini_key = os.environ.get("GEMINI_API_KEY")
@@ -411,7 +622,7 @@ def summarize_macro(
     if gemini_key:
         try:
             report, _model = summarize_with_gemini_cascade(prompt, gemini_key)
-            return MacroCopy(report, "gemini")
+            return briefing_from_payload(report, stories, "gemini")
         except SummarizationError:
             if not openai_key:
                 raise
@@ -419,7 +630,7 @@ def summarize_macro(
     if openai_key:
         try:
             report = summarize_with_openai(prompt, openai_key)
-            return MacroCopy(report, "openai")
+            return briefing_from_payload(report, stories, "openai")
         except (urllib.error.URLError, TimeoutError, ValueError, KeyError, OSError) as error:
             raise SummarizationError("OpenAI summarization failed.") from error
 
@@ -433,7 +644,7 @@ def summarize_stories(
     mock: bool = False,
     history: list[dict[str, object]] | None = None,
 ) -> tuple[list[dict[str, object]], str, str]:
-    """Copy selected stories and attach a run-level macro report. Does not mutate input."""
+    """Copy selected stories and attach run-level copy. Does not mutate input."""
     result = summarize_macro(stories, mock=mock, history=history)
     copied = [{**story} for story in stories]
     return copied, result.provider, result.macro_report
@@ -448,15 +659,17 @@ def save_summarized_run(
     """Create ``data/summarized`` if needed, then write the dated JSON file."""
     os.makedirs("data/summarized", exist_ok=True)
     SUMMARIZED_DATA_DIRECTORY.mkdir(parents=True, exist_ok=True)
-    stories, provider, macro_report = summarize_stories(
-        selected_run["stories"], mock=mock, history=history
-    )
+    result = summarize_macro(selected_run["stories"], mock=mock, history=history)
+    stories = [{**story} for story in selected_run["stories"]]
     output = {
         "selected_run": input_path.name,
         "failed_sources": selected_run.get("failed_sources", []),
-        "summarizer": provider,
+        "summarizer": result.provider,
         "market_snapshot": selected_run.get("market_snapshot"),
-        "macro_report": macro_report,
+        "tag_notes": result.tag_notes,
+        "daily_summary": result.daily_summary,
+        "research_radar": list(result.research_radar),
+        "macro_report": result.macro_report,
         "stories": stories,
     }
     output_path = SUMMARIZED_DATA_DIRECTORY / input_path.name
@@ -466,7 +679,7 @@ def save_summarized_run(
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Write one headline-based macro report for the selected run."
+        description="Write per-tag notes and a daily summary for the selected run."
     )
     parser.add_argument(
         "input_file",
@@ -477,7 +690,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--mock",
         action="store_true",
-        help="Write offline mock macro sections and do not call Gemini or OpenAI.",
+        help="Write offline mock per-tag notes and daily summary; do not call Gemini or OpenAI.",
     )
     return parser.parse_args()
 
@@ -487,5 +700,5 @@ if __name__ == "__main__":
     input_file = arguments.input_file or latest_selected_run()
     selected_run = load_selected_run(input_file)
     saved_file = save_summarized_run(selected_run, input_file, mock=arguments.mock)
-    print(f"Loop: wrote macro report for {len(selected_run['stories'])} stories.")
+    print(f"Loop: wrote briefing copy for {len(selected_run['stories'])} stories.")
     print(f"Saved summarized data to {saved_file}")

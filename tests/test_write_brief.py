@@ -2,16 +2,21 @@ import sys
 from pathlib import Path
 import tempfile
 import unittest
+from urllib.parse import parse_qs, urlparse
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from write_brief import (
+    TAG_ARCHIVE_BASE,
+    TAG_COLORS,
     latest_briefing_source,
     normalize_headline,
     render_brief,
     section_for_story,
     slugify,
+    tag_archive_url,
+    tag_hashtag_html,
 )
 
 
@@ -48,38 +53,73 @@ class WriteBriefTests(unittest.TestCase):
             "Foundation-Models",
         )
 
+    def test_tag_archive_url_encodes_ampersand_for_local_streamlit(self):
+        url = tag_archive_url("Legislation-&-Policy")
+        self.assertTrue(url.startswith(TAG_ARCHIVE_BASE))
+        parsed = urlparse(url)
+        self.assertEqual(parsed.hostname, "127.0.0.1")
+        self.assertEqual(parsed.port, 8501)
+        self.assertEqual(parse_qs(parsed.query)["tag"], ["Legislation-&-Policy"])
+        self.assertIn("Legislation-%26-Policy", url)
+        heading = tag_hashtag_html("Legislation-&-Policy")
+        self.assertIn("#Legislation-&amp;-Policy", heading)
+        self.assertIn(TAG_COLORS["Legislation-&-Policy"], heading)
+        self.assertIn('href="http://127.0.0.1:8501/?tag=Legislation-%26-Policy"', heading)
+
     def test_brief_groups_stories_and_keeps_the_source_link(self):
         briefing = render_brief(
-            {"stories": [
-                story("Bill advances", ["Legislation-&-Policy"], "The bill can change compliance."),
-                story("Model release", ["Foundation-Models"], "Benchmarks may shift adoption."),
-            ]},
+            {
+                "stories": [
+                    story("Bill advances", ["Legislation-&-Policy"], "The bill can change compliance."),
+                    story("Model release", ["Foundation-Models"], "Benchmarks may shift adoption."),
+                ],
+                "tag_notes": {
+                    "Legislation-&-Policy": "Policy pattern from today's bill headline.",
+                    "Foundation-Models": "Model pattern from today's release headline.",
+                },
+                "daily_summary": "A policy bill and a model release landed the same day.",
+                "research_radar": ["Bill markup", "Model evals"],
+            },
             "2026-09-20",
         )
 
         self.assertIn("# Looping... (2026-09-20)", briefing)
         self.assertIn("## Market Snapshot", briefing)
         snapshot_at = briefing.index("## Market Snapshot")
-        policy_at = briefing.index("## Legislation-&-Policy")
+        policy_at = briefing.index("#Legislation-&amp;-Policy")
         self.assertLess(snapshot_at, policy_at)
         self.assertIn("- Fed Funds:", briefing)
         self.assertIn("- S&P 500:", briefing)
         self.assertIn("- Nasdaq:", briefing)
         self.assertIn("- Dow:", briefing)
         self.assertLess(
-            briefing.index("## Legislation-&-Policy"),
-            briefing.index("## Foundation-Models"),
+            briefing.index("#Legislation-&amp;-Policy"),
+            briefing.index("#Foundation-Models"),
         )
         glance_at = briefing.index("## At a Glance")
+        summary_at = briefing.index("## Daily Summary")
         self.assertLess(snapshot_at, glance_at)
         self.assertLess(glance_at, policy_at)
+        self.assertLess(policy_at, summary_at)
         self.assertIn("[Bill advances](https://example.com/story)", briefing)
-        self.assertIn("*Tags: #Foundation-Models*", briefing)
-        self.assertIn("Why It Matters: The bill can change compliance.", briefing)
-        self.assertIn("Why It Matters: Benchmarks may shift adoption.", briefing)
+        self.assertNotIn("*Tags:", briefing)
+        self.assertNotIn("Why It Matters:", briefing)
+        self.assertIn(
+            "Why it might matter / pattern: Policy pattern from today's bill headline.",
+            briefing,
+        )
+        self.assertIn(
+            "Why it might matter / pattern: Model pattern from today's release headline.",
+            briefing,
+        )
         self.assertNotIn("## Enterprise-Adoption", briefing)
-        bill_line = next(line for line in briefing.splitlines() if "Bill advances" in line)
+        bill_line = next(
+            line for line in briefing.splitlines() if line.startswith("- [Bill advances](")
+        )
         self.assertTrue(bill_line.startswith("- [Bill advances]("))
+        policy_block = briefing[policy_at:summary_at]
+        self.assertIn("- [Bill advances](https://example.com/story)", policy_block)
+        self.assertNotIn("Why it might matter / pattern:", policy_block.split("- [Bill advances]")[0])
 
     def test_original_headline_leads_even_when_ai_headline_is_present(self):
         briefing = render_brief(
@@ -91,19 +131,29 @@ class WriteBriefTests(unittest.TestCase):
                         "The bill can change compliance.",
                         ai_headline="A policy shift for enterprise AI",
                     )
-                ]
+                ],
+                "tag_notes": {
+                    "Legislation-&-Policy": "Shared policy pattern.",
+                    "Enterprise-Adoption": "Shared adoption pattern.",
+                },
+                "daily_summary": "One story, two tags.",
             },
             "2026-09-20",
         )
 
-        title_line = next(line for line in briefing.splitlines() if "Bill advances" in line)
+        title_line = next(
+            line for line in briefing.splitlines() if line.startswith("- [Bill advances](")
+        )
         self.assertTrue(title_line.startswith("- [Bill advances]("))
         self.assertNotIn("A policy shift for enterprise AI", briefing)
+        self.assertNotIn("*Tags:", briefing)
+        self.assertNotIn("Why It Matters:", briefing)
+        self.assertIn("#Legislation-&amp;-Policy", briefing)
+        self.assertIn("#Enterprise-Adoption", briefing)
+        self.assertEqual(briefing.count("- [Bill advances](https://example.com/story)"), 3)
         source_at = briefing.index("[Bill advances](https://example.com/story)")
-        tags_at = briefing.index("*Tags: #Legislation-&-Policy #Enterprise-Adoption*")
-        why_at = briefing.index("Why It Matters: The bill can change compliance.")
-        self.assertLess(source_at, tags_at)
-        self.assertLess(tags_at, why_at)
+        pattern_at = briefing.index("Why it might matter / pattern: Shared policy pattern.")
+        self.assertLess(source_at, pattern_at)
 
     def test_missing_ai_summary_does_not_write_pending_placeholder(self):
         briefing = render_brief(
@@ -112,7 +162,9 @@ class WriteBriefTests(unittest.TestCase):
         )
         self.assertNotIn("AI Summary Pending", briefing)
         self.assertNotIn("AI Headline Pending", briefing)
+        self.assertNotIn("AI headline pending", briefing)
         self.assertNotIn("AI Summary goes HERE", briefing)
+        self.assertNotIn("Why It Matters:", briefing)
         self.assertIn("[Bill advances](https://example.com/story)", briefing)
 
     def test_market_snapshot_uses_explicit_failure_not_fake_numbers(self):
@@ -145,31 +197,29 @@ class WriteBriefTests(unittest.TestCase):
         self.assertIn("- Dow: 42,000.00 (+0.10%)", briefing)
         self.assertNotIn("timeout", briefing)
 
-    def test_macro_report_follows_at_a_glance_and_does_not_need_ai_summary(self):
+    def test_daily_summary_follows_tag_sections_and_does_not_need_ai_summary(self):
         briefing = render_brief(
             {
                 "stories": [story("Bill advances", ["Legislation-&-Policy"])],
-                "macro_report": (
-                    "# The Loop: Macro Landscape\n\n"
-                    "Policy cluster from RSS headlines.\n\n"
-                    "## Pattern Analysis & Signal Drift\n\n"
-                    "Today continues stored briefing records.\n\n"
-                    "## Research Radar\n\n"
-                    "1. Follow the bill markup.\n"
-                ),
+                "tag_notes": {
+                    "Legislation-&-Policy": "The bill continues a 14-day policy cluster."
+                },
+                "daily_summary": "Policy cluster from RSS headlines.",
+                "research_radar": ["Follow the bill markup."],
             },
             "2026-10-23",
         )
         snapshot_at = briefing.index("## Market Snapshot")
         glance_at = briefing.index("## At a Glance")
-        macro_at = briefing.index("# The Loop: Macro Landscape")
-        policy_at = briefing.index("## Legislation-&-Policy")
+        policy_at = briefing.index("#Legislation-&amp;-Policy")
+        summary_at = briefing.index("## Daily Summary")
         self.assertLess(snapshot_at, glance_at)
-        self.assertLess(glance_at, macro_at)
-        self.assertLess(macro_at, policy_at)
+        self.assertLess(glance_at, policy_at)
+        self.assertLess(policy_at, summary_at)
         self.assertIn("- [Bill advances](https://example.com/story)", briefing)
-        self.assertIn("## Pattern Analysis & Signal Drift", briefing)
-        self.assertIn("## Research Radar", briefing)
+        self.assertIn("Research topics to look into more", briefing)
+        self.assertIn("1. Follow the bill markup.", briefing)
+        self.assertNotIn("# The Loop: Macro Landscape", briefing)
         self.assertNotIn("Why It Matters:", briefing)
         self.assertNotIn("AI Summary Pending", briefing)
 
@@ -189,7 +239,7 @@ class WriteBriefTests(unittest.TestCase):
                 summarized_file,
             )
 
-    def test_at_a_glance_links_to_explicit_story_anchors(self):
+    def test_at_a_glance_links_rss_headlines_before_tag_sections(self):
         briefing = render_brief(
             {
                 "stories": [
@@ -201,21 +251,12 @@ class WriteBriefTests(unittest.TestCase):
         )
         glance_at = briefing.index("## At a Glance")
         snapshot_at = briefing.index("## Market Snapshot")
-        policy_at = briefing.index("## Legislation-&-Policy")
+        policy_at = briefing.index("#Legislation-&amp;-Policy")
         self.assertLess(snapshot_at, glance_at)
         self.assertLess(glance_at, policy_at)
         self.assertIn("- [Bill advances](https://example.com/story)", briefing)
         self.assertIn("- [Model release](https://example.com/story)", briefing)
-        self.assertIn('<a id="bill-advances"></a>', briefing)
-        self.assertIn('<a id="model-release"></a>', briefing)
-        self.assertLess(
-            briefing.index("- [Bill advances](https://example.com/story)"),
-            briefing.index('<a id="bill-advances"></a>'),
-        )
-        self.assertLess(
-            briefing.index('<a id="bill-advances"></a>'),
-            briefing.index("[Bill advances](https://example.com/story)", briefing.index('<a id="bill-advances"></a>')),
-        )
+        self.assertNotIn('<a id="bill-advances"></a>', briefing)
         self.assertEqual(slugify("Bill advances!"), "bill-advances")
 
     def test_duplicate_headlines_are_grouped_as_also_covered_by(self):
@@ -225,16 +266,27 @@ class WriteBriefTests(unittest.TestCase):
         second["source"] = "CNBC"
         third = story("Rates rise", ["Market-Valuations"], "Same source again.")
         third["source"] = "Reuters"
-        briefing = render_brief({"stories": [first, second, third]}, "2026-10-21")
+        briefing = render_brief(
+            {
+                "stories": [first, second, third],
+                "tag_notes": {"Market-Valuations": "Valuation pattern from the rates cluster."},
+                "daily_summary": "Rates were the market story.",
+            },
+            "2026-10-21",
+        )
 
         self.assertEqual(normalize_headline("  RATES   rise "), "rates rise")
         self.assertEqual(briefing.count("- [Rates rise](https://example.com/story)"), 2)
-        self.assertEqual(briefing.count('<a id="rates-rise"></a>'), 1)
         self.assertIn("also covered by [CNBC]", briefing)
         self.assertNotIn("also covered by [CNBC, Reuters]", briefing)
         self.assertNotIn("Duplicate copy.", briefing)
-        self.assertIn("Why It Matters: Primary copy.", briefing)
+        self.assertNotIn("Why It Matters:", briefing)
+        self.assertIn(
+            "Why it might matter / pattern: Valuation pattern from the rates cluster.",
+            briefing,
+        )
         self.assertNotIn("- [Rates rise](#rates-rise)", briefing)
+        self.assertNotIn("*Tags:", briefing)
 
 
 if __name__ == "__main__":

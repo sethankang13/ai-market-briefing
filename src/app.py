@@ -32,6 +32,7 @@ if str(SRC_DIR) not in sys.path:
 
 import streamlit as st
 from config_loader import load_config, project_path
+from write_brief import TAG_ARCHIVE_BASE, tag_archive_url, tag_hashtag_html
 
 
 def ensure_project_root() -> Path:
@@ -249,6 +250,53 @@ def unique_sources(db_path_str: str) -> list[str]:
 
 
 @st.cache_data
+def read_query_tag(query_params=None) -> str | None:
+    """Read ``?tag=`` from Streamlit query params, or from an injected mapping."""
+    params = query_params
+    if params is None:
+        params = getattr(st, "query_params", None)
+        if params is None:
+            getter = getattr(st, "experimental_get_query_params", None)
+            params = getter() if callable(getter) else {}
+    if params is None:
+        return None
+    value = None
+    if hasattr(params, "get"):
+        value = params.get("tag")
+    elif isinstance(params, dict):
+        value = params.get("tag")
+    if isinstance(value, list):
+        value = value[0] if value else None
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def stories_for_tag(db_path_str: str, tag: str) -> list[dict]:
+    """All loop.db rows whose tags contain ``tag``. Uses bound ``tags LIKE ?``."""
+    return search_stories(db_path_str, tag, "", "")
+
+
+def group_stories_by_date(rows: list[dict]) -> list[tuple[str, list[dict]]]:
+    """Newest date first; preserve row order within each date."""
+    grouped: list[tuple[str, list[dict]]] = []
+    index: dict[str, int] = {}
+    for row in rows:
+        date = str(row.get("published_date") or "").strip() or "(unknown date)"
+        if date in index:
+            grouped[index[date]][1].append(row)
+            continue
+        index[date] = len(grouped)
+        grouped.append((date, [row]))
+    return grouped
+
+
+def tag_chips_html(tags: list[str]) -> str:
+    """Same colored local hashtag links used in the daily brief."""
+    chips = [tag_hashtag_html(tag) for tag in tags if tag]
+    return " ".join(chips)
+
+
 def search_stories(
     db_path_str: str,
     tag: str,
@@ -339,9 +387,13 @@ def render_loop_explorer(path: Path) -> None:
             st.markdown(headline_html(group["headline"], group["url"]), unsafe_allow_html=True)
             st.write(f"**Source:** {group['source']}")
             st.write(f"**Date:** {group['published_date']}")
-            tags_text = ", ".join(group["tags"]) if group["tags"] else "(none)"
-            st.write(f"**Tags:** {tags_text}")
-            st.write(group["ai_summary"] or "(no summary)")
+            chips = tag_chips_html(group["tags"])
+            if chips:
+                st.markdown(f"**Tags:** {chips}", unsafe_allow_html=True)
+            else:
+                st.write("**Tags:** (none)")
+            if group["ai_summary"]:
+                st.write(group["ai_summary"])
             coverage = group["sources"]
             if len(coverage) > 1:
                 with st.popover(f"🔗 Sources ({len(coverage)})"):
@@ -353,6 +405,35 @@ def render_loop_explorer(path: Path) -> None:
                         )
 
 
+def render_tag_archive(path: Path, tag: str) -> None:
+    """Archive of every stored story with this tag, grouped by date (newest first)."""
+    st.markdown(f"## {tag_hashtag_html(tag)}", unsafe_allow_html=True)
+    st.caption("Local Loop archive from data/loop.db. Not a public website.")
+    st.markdown(f"[Back to daily briefings]({TAG_ARCHIVE_BASE})")
+    if not path.is_file():
+        st.info("No Loop history database yet. data/loop.db is created when a briefing run appends stories.")
+        return
+    rows = stories_for_tag(str(path), tag)
+    if not rows:
+        st.info(f"No stored articles tagged {tag}.")
+        return
+    for date, date_rows in group_stories_by_date(rows):
+        st.subheader(date)
+        groups = group_stories_by_headline(date_rows)
+        for group in groups:
+            st.markdown(headline_html(group["headline"], group["url"]), unsafe_allow_html=True)
+            extras = [
+                item["source"]
+                for item in group["sources"]
+                if item["source"] and item["source"] != group["source"]
+            ]
+            if extras:
+                st.caption(f"also covered by [{', '.join(extras)}]")
+            chips = tag_chips_html(group["tags"])
+            if chips:
+                st.markdown(chips, unsafe_allow_html=True)
+
+
 def main() -> None:
     ensure_project_root()
     st.set_page_config(
@@ -362,6 +443,10 @@ def main() -> None:
     )
     path = db_path()
     render_sidebar(path, latest_briefing_date(), active_feed_count())
+    requested = read_query_tag()
+    if requested:
+        render_tag_archive(path, requested)
+        return
     daily_tab, explorer_tab = st.tabs(["Daily Briefings", "The Loop Explorer"])
     with daily_tab:
         render_daily_briefings()

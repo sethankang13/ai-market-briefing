@@ -158,10 +158,13 @@ class RunBriefingTests(unittest.TestCase):
         self.assertEqual(payload["summarizer"], "mock")
         self.assertNotIn("ai_headline", payload["stories"][0])
         self.assertNotIn("ai_summary", payload["stories"][0])
-        self.assertIn("# The Loop: Macro Landscape", payload["macro_report"])
-        self.assertIn("## Pattern Analysis & Signal Drift", payload["macro_report"])
-        self.assertIn("## Research Radar", payload["macro_report"])
+        self.assertIn("tag_notes", payload)
+        self.assertIn("Legislation-&-Policy", payload["tag_notes"])
+        self.assertIn("daily_summary", payload)
+        self.assertIn("research_radar", payload)
+        self.assertIn("tag_notes", payload["macro_report"])
         self.assertNotIn("AI Summary Pending", payload["macro_report"])
+        self.assertNotIn("Why It Matters", payload["macro_report"])
 
     def test_completion_banner_includes_path_count_snapshot_and_failed_sources(self):
         selected = {

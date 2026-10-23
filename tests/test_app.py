@@ -137,6 +137,110 @@ class AppImportTests(unittest.TestCase):
         self.assertNotIn("AND tags LIKE '%", source)
         self.assertNotIn(f"LIKE '%{{", source)
         self.assertIn("SELECT published_date, headline, url, source, tags, ai_summary", source)
+        self.assertIn("def stories_for_tag", source)
+
+    def test_tag_query_param_and_date_grouped_archive_helpers(self):
+        self.assertEqual(
+            self.app.read_query_tag({"tag": "Legislation-&-Policy"}),
+            "Legislation-&-Policy",
+        )
+        self.assertEqual(
+            self.app.read_query_tag({"tag": ["Foundation-Models"]}),
+            "Foundation-Models",
+        )
+        self.assertIsNone(self.app.read_query_tag({}))
+        rows = [
+            {
+                "published_date": "2026-10-15",
+                "headline": "Newer bill",
+                "url": "https://example.com/new",
+                "source": "Example News",
+                "tags": ["Legislation-&-Policy"],
+                "ai_summary": "",
+            },
+            {
+                "published_date": "2026-10-15",
+                "headline": "Same-day bill",
+                "url": "https://example.com/same",
+                "source": "Other Source",
+                "tags": ["Legislation-&-Policy"],
+                "ai_summary": "",
+            },
+            {
+                "published_date": "2026-10-14",
+                "headline": "Older bill",
+                "url": "https://example.com/old",
+                "source": "Example News",
+                "tags": ["Legislation-&-Policy"],
+                "ai_summary": "",
+            },
+        ]
+        grouped = self.app.group_stories_by_date(rows)
+        self.assertEqual([date for date, _rows in grouped], ["2026-10-15", "2026-10-14"])
+        self.assertEqual(len(grouped[0][1]), 2)
+        chips = self.app.tag_chips_html(["Legislation-&-Policy", "Foundation-Models"])
+        self.assertIn("http://127.0.0.1:8501/?tag=Legislation-%26-Policy", chips)
+        self.assertIn("#Foundation-Models", chips)
+
+    def test_stories_for_tag_uses_parameterized_like(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "loop.db"
+            connection = sqlite3.connect(path)
+            connection.execute(
+                """
+                CREATE TABLE stories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    published_date TEXT,
+                    headline TEXT,
+                    url TEXT,
+                    source TEXT,
+                    full_text TEXT,
+                    ai_summary TEXT,
+                    tags TEXT,
+                    market_snapshot_json TEXT
+                )
+                """
+            )
+            connection.executemany(
+                "INSERT INTO stories (published_date, headline, url, source, ai_summary, tags) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        "2026-10-15",
+                        "Policy bill advances",
+                        "https://example.com/bill",
+                        "Example News",
+                        "",
+                        '["Legislation-&-Policy"]',
+                    ),
+                    (
+                        "2026-10-14",
+                        "Chip export rules tighten",
+                        "https://example.com/chips",
+                        "Other Source",
+                        "",
+                        '["Geopolitics-&-Trade"]',
+                    ),
+                    (
+                        "2026-10-13",
+                        "Older policy note",
+                        "https://example.com/older",
+                        "Example News",
+                        "",
+                        '["Legislation-&-Policy"]',
+                    ),
+                ],
+            )
+            connection.commit()
+            connection.close()
+            rows = self.app.stories_for_tag(str(path), "Legislation-&-Policy")
+
+        self.assertEqual(
+            [row["headline"] for row in rows],
+            ["Policy bill advances", "Older policy note"],
+        )
+        dates = [date for date, _rows in self.app.group_stories_by_date(rows)]
+        self.assertEqual(dates, ["2026-10-15", "2026-10-13"])
 
 
 class HeadlineAndPopoverTests(unittest.TestCase):

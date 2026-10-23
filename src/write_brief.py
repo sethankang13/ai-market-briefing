@@ -18,7 +18,7 @@ from urllib.parse import urlencode
 
 import fetch_market
 from config_loader import load_config, project_path
-from tag_stories import TAG_LABELS
+from tag_stories import TAG_LABELS, primary_tag
 
 
 _CONFIG = load_config()
@@ -94,12 +94,9 @@ def story_tags(story: dict[str, object]) -> list[str]:
 
 
 def section_for_story(story: dict[str, object]) -> str:
-    """Choose one section from the first assigned tag in the V2.5 label order."""
-    tags = story_tags(story)
-    for label in TAG_LABELS:
-        if label in tags:
-            return label
-    return "Other"
+    """Choose one section: the highest-weight assigned tag from config."""
+    chosen = primary_tag(story_tags(story))
+    return chosen if chosen else "Other"
 
 
 def tag_archive_url(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:
@@ -119,10 +116,20 @@ def tag_hashtag_html(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:
     )
 
 
+def tag_section_id(tag: str) -> str:
+    """Stable HTML id for a plain ``## Tag`` heading (At a Glance jump target)."""
+    return slugify(tag)
+
+
 def tag_heading_markdown(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:
-    if tag in TAG_COLORS:
-        return f"## {tag_hashtag_html(tag, base)}"
-    return f"## {tag}"
+    """Plain Markdown heading plus an anchor. Not a Streamlit link and not colored."""
+    del base
+    return f'<a id="{tag_section_id(tag)}"></a>\n## {tag}'
+
+
+def tag_chips_html(tags: list[str], base: str = TAG_ARCHIVE_BASE) -> str:
+    """Color-coded Streamlit archive chips, in taxonomy order."""
+    return " ".join(tag_hashtag_html(tag, base) for tag in tags if tag)
 
 
 def tags_line(story: dict[str, object]) -> str:
@@ -150,13 +157,38 @@ def slugify(headline: object) -> str:
     return slug or "story"
 
 
+def glance_phrase(headline: object) -> str:
+    """First three words of the RSS headline, then an ellipsis."""
+    words = str(headline or "").split()
+    if not words:
+        return "(untitled)…"
+    return " ".join(words[:3]) + "…"
+
+
 def glance_markdown(headline: object, url: object, slug: str) -> str:
-    """At a Glance: RSS headline as a hyperlink, with a slug fallback."""
-    title = str(headline or "").strip() or "(untitled)"
+    """At a Glance phrase: three-word RSS link, or a section-slug fallback."""
+    phrase = glance_phrase(headline)
     href = str(url or "").strip()
     if href:
-        return f"- [{title}]({href})"
-    return f"- [{title}](#{slug})"
+        return f"[{phrase}]({href})"
+    return f"[{phrase}](#{slug})"
+
+
+def render_at_a_glance(
+    sections: list[tuple[str, list[tuple[dict[str, object], list[str]]]]],
+) -> list[str]:
+    """Tag subheads jump to later ``##`` sections; phrases link to RSS URLs."""
+    lines: list[str] = []
+    for tag, items in sections:
+        slug = tag_section_id(tag)
+        lines.append(f"### [#{tag}](#{slug})")
+        phrases = []
+        for story, _extra in items:
+            link = str(story.get("link") or story.get("url") or "").strip()
+            phrases.append(glance_markdown(story.get("headline"), link, slug))
+        lines.append(", ".join(phrases))
+        lines.append("")
+    return lines
 
 
 def unique_slug(headline: object, used: set[str]) -> str:
@@ -200,14 +232,16 @@ def render_headline_item(
     story: dict[str, object],
     extra_sources: list[str] | None = None,
 ) -> str:
-    """RSS headline link plus optional also-covered-by. No tags or Why It Matters."""
+    """RSS headline link, colored tag chips, optional also-covered-by. No Why It Matters."""
     headline = str(story.get("headline") or "").strip() or "(untitled)"
     link = str(story.get("link") or story.get("url") or "").strip()
     if link:
         source_link = f"[{headline}]({link})"
     else:
         source_link = f"**{headline}**"
-    lines = [f"- {source_link}"]
+    chips = tag_chips_html(story_tags(story))
+    lead = f"- {source_link} {chips}".rstrip()
+    lines = [lead]
     if extra_sources:
         lines.append(f"  also covered by [{', '.join(extra_sources)}]")
     return "\n".join(lines)
@@ -226,18 +260,10 @@ def render_story(
 def grouped_sections(
     selected_run: dict[str, object],
 ) -> list[tuple[str, list[tuple[dict[str, object], list[str]]]]]:
-    """Group stories under every assigned taxonomy tag (config order)."""
+    """One section per story: the highest-weight tag from config."""
     sections = {section: [] for section in SECTION_ORDER}
     for story in selected_run["stories"]:
-        tags = story_tags(story)
-        if tags:
-            for tag in tags:
-                if tag in sections:
-                    sections[tag].append(story)
-                else:
-                    sections["Other"].append(story)
-        else:
-            sections["Other"].append(story)
+        sections[section_for_story(story)].append(story)
     grouped = []
     for section in SECTION_ORDER:
         items = group_stories_by_headline(sections[section])
@@ -319,19 +345,10 @@ def render_brief(selected_run: dict[str, object], date_stem: str) -> str:
         "",
     ]
 
-    used_slugs: set[str] = set()
-    glance_seen: set[str] = set()
-    for story, _extra in group_stories_by_headline(list(selected_run["stories"])):
-        key = normalize_headline(story.get("headline"))
-        if key in glance_seen:
-            continue
-        glance_seen.add(key)
-        slug = unique_slug(story.get("headline"), used_slugs)
-        link = str(story.get("link") or story.get("url") or "").strip()
-        lines.append(glance_markdown(story.get("headline"), link, slug))
-
     notes, daily_summary, radar = copy_from_run(selected_run)
-    for section, items in grouped_sections(selected_run):
+    sections = grouped_sections(selected_run)
+    lines.extend(render_at_a_glance(sections))
+    for section, items in sections:
         note = notes.get(section) if section != "Other" else None
         lines.extend(render_tag_section(section, items, note))
 

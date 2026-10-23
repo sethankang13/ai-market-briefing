@@ -77,3 +77,15 @@ taxonomy:
     - Gemini
     - weights
     - benchmark
+
+# Higher weight wins when a story has several tags (one brief section per story).
+tag_weights:
+  Market-Valuations: 90
+  Venture-&-M&A: 80
+  Legislation-&-Policy: 70
+  Antitrust-&-Compliance: 60
+  Copyright-&-IP: 50
+  Geopolitics-&-Trade: 40
+  Labor-&-Economy: 30
+  Enterprise-Adoption: 20
+  Foundation-Models: 10

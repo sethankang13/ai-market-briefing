@@ -206,18 +206,9 @@ def render_the_loop(
         return "\n".join(lines) + "\n"
 
     stories = [row_as_story(row) for row in rows]
-    used_slugs: set[str] = set()
-    glance_seen: set[str] = set()
-    for story, _extra in write_brief.group_stories_by_headline(stories):
-        key = write_brief.normalize_headline(story.get("headline"))
-        if key in glance_seen:
-            continue
-        glance_seen.add(key)
-        slug = write_brief.unique_slug(story.get("headline"), used_slugs)
-        link = str(story.get("link") or story.get("url") or "").strip()
-        lines.append(write_brief.glance_markdown(story.get("headline"), link, slug))
-
-    for section, items in write_brief.grouped_sections({"stories": stories}):
+    sections = write_brief.grouped_sections({"stories": stories})
+    lines.extend(write_brief.render_at_a_glance(sections))
+    for section, items in sections:
         lines.extend(["", write_brief.tag_heading_markdown(section), ""])
         for story, extra_sources in items:
             lines.append(write_brief.render_headline_item(story, extra_sources))

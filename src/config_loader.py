@@ -94,6 +94,17 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "Enterprise-Adoption": ["enterprise", "ROI", "corporate", "B2B", "SaaS"],
         "Foundation-Models": ["LLM", "GPT", "Claude", "Gemini", "weights", "benchmark"],
     },
+    "tag_weights": {
+        "Market-Valuations": 90,
+        "Venture-&-M&A": 80,
+        "Legislation-&-Policy": 70,
+        "Antitrust-&-Compliance": 60,
+        "Copyright-&-IP": 50,
+        "Geopolitics-&-Trade": 40,
+        "Labor-&-Economy": 30,
+        "Enterprise-Adoption": 20,
+        "Foundation-Models": 10,
+    },
 }
 
 

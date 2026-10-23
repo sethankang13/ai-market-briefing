@@ -38,6 +38,7 @@ No paid news API, database, website, or automated email yet.
 | 2026-10-21 | Use eight public feeds, including Bloomberg, Reuters markets, Politico, and a narrower AP policy search | Broader AI market and policy coverage from still-free RSS. |
 | 2026-10-21 | Rebrand to Loop: AI Market Briefing; daily files use `# Looping... (YYYY-MM-DD)`; historical reports use `# The Loop` | One product name for the daily habit and a separate title for the archive. |
 | 2026-10-21 | Put a Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow) above story sections; failed quotes say fetch failed | The brief should open with observable market context, never invented numbers. |
+| 2026-10-23 | Place each story in one weighted tag section; glance uses three-word RSS links to section anchors; only headline chips are colored Streamlit links | Section titles stay plain headings; multi-tag stories are not duplicated. |
 | 2026-10-23 | Group the daily brief by taxonomy tag with one Gemini pattern note per tag, then a Daily Summary; colored `#Tag-Name` links open a local Streamlit tag archive | Kill per-story Why It Matters and tag lines under headlines; keep one Gemini call per run. |
 | 2026-10-23 | Infer the daily macro report from RSS headlines and snippets plus 14 days of `loop.db`; archive per-article HTML extraction | Publisher pages 403 / paywall; headlines plus stored context are enough for clusters, drift, and a research radar. |
 | 2026-10-21 | Drop RSS items older than 48 hours; summarize from full article body; Gemini cascade; append each run to gitignored `data/loop.db` | Recency, body-grounded copy, and a durable history without storing secrets. |
@@ -179,7 +180,7 @@ The app resolves the project root from `src/app.py`, so `config/`, `briefs/`, an
 
 | Tab | What it shows |
 | --- | --- |
-| Daily Briefings | Date selector (newest first) and the Markdown file. At a Glance and story titles are hyperlinked RSS headlines; `also covered by` stays exact-headline. Color-coded `#Tag-Name` headings link to the local tag archive. |
+| Daily Briefings | Date selector (newest first) and the Markdown file. At a Glance lists three-word RSS links under tag subheads that jump to later `##` sections. Color-coded `#Tag-Name` chips beside each full headline open the local tag archive. |
 | The Loop Explorer | SQLite filters: taxonomy tag, source, and headline/summary search. Results are expander cards with a linked headline, the same colored clickable hashtag chips, and a sources popover when more than one publisher used the same headline. |
 | Tag archive (`?tag=`) | All `loop.db` rows whose stored tags contain that label (`tags LIKE ?`), grouped by date, newest first. Example: `http://127.0.0.1:8501/?tag=Legislation-%26-Policy`. Local Streamlit only; not a public website. |
 
@@ -257,9 +258,9 @@ Create a readable Markdown briefing from the latest summarized run (or selected 
 python3 src/write_brief.py
 ```
 
-The briefing title is `# Looping... (YYYY-MM-DD)`. A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) sits above **At a Glance**, a list of RSS headlines linked to the original story URL. The RSS headline is the only title; Gemini does not write an AI headline.
+The briefing title is `# Looping... (YYYY-MM-DD)`. A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) sits above **At a Glance**. Glance subheads are `### [#Tag](#slug)` jumps to later plain `## Tag` sections. Under each subhead, the first three words of each RSS headline in that section, with an ellipsis, comma-separated, each linked to the article URL. The RSS headline is the only title; Gemini does not write an AI headline.
 
-Stories are then grouped under every V2.5 tag that has at least one selected story that day, in config order. Each tag heading is a color-coded, clickable `#Tag-Name` that opens the local Streamlit tag archive at `http://127.0.0.1:8501/?tag=...` (for example `?tag=Legislation-%26-Policy`). Under the heading: RSS headline links, plus `also covered by [Source B]` for exact-headline duplicates. After those links, one **Why it might matter / pattern** paragraph for the tag (today’s headlines in that tag plus 14-day `loop.db` history). There is no italic tags line and no per-story Why It Matters. A story with several tags appears under each of them.
+Stories are grouped under the **highest-weight** tag from `config/config.yaml` `tag_weights` (one section per story). Section titles are plain Markdown headings and are not colored or linked. Full RSS headline links sit under the heading, with color-coded `#Tag-Name` chips beside the headline that open the local Streamlit tag archive at `http://127.0.0.1:8501/?tag=...` (for example `?tag=Legislation-%26-Policy`). Exact-headline duplicates add `also covered by [Source B]`. After those links, one **Why it might matter / pattern** paragraph for the tag (today’s headlines in that section plus 14-day `loop.db` history). There is no italic tags line and no per-story Why It Matters.
 
 **Daily Summary** follows the tag sections: what happened today across all headlines, what it could mean, then research topics to look into more. Historical reports from `data/loop.db` are titled `# The Loop: Macro Summary (Last N Days)`.
 
@@ -277,6 +278,7 @@ Shared settings live in YAML and are loaded with `src/config_loader.py` (`yaml.s
 | `models.gemini` | Cascade order (`gemini-3.8-flash` down through `gemini-2.5-flash`). |
 | `models.openai_fallback` | OpenAI model after Gemini (`gpt-4o-mini`). |
 | `taxonomy` | The nine Loop tags and their keyword lists. |
+| `tag_weights` | Integer weights; the highest assigned tag chooses the brief section. |
 
 Changing a feed, tag keyword, cutoff, or model name here is enough; the Python modules do not keep a second copy of those values as the source of truth.
 

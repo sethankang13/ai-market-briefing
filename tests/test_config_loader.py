@@ -45,6 +45,11 @@ class LoadConfigTests(unittest.TestCase):
             config["taxonomy"]["Copyright-&-IP"],
             ["copyright", "lawsuit", "licensing", "data scraping", "IP"],
         )
+        self.assertEqual(config["tag_weights"]["Legislation-&-Policy"], 70)
+        self.assertGreater(
+            config["tag_weights"]["Legislation-&-Policy"],
+            config["tag_weights"]["Enterprise-Adoption"],
+        )
 
     def test_missing_file_returns_the_same_internal_defaults(self):
         missing = Path("/tmp/loop-config-does-not-exist.yaml")

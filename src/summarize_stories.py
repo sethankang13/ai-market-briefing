@@ -31,7 +31,7 @@ from typing import NamedTuple
 
 import db
 from config_loader import load_config
-from tag_stories import TAG_LABELS
+from tag_stories import TAG_LABELS, primary_tag
 
 
 _CONFIG = load_config()
@@ -128,9 +128,12 @@ def story_tag_labels(story: dict[str, object]) -> list[str]:
 
 
 def tags_with_stories(stories: list[dict[str, object]]) -> list[str]:
+    """Tags that own a brief section: each story counts once, by highest weight."""
     present: set[str] = set()
     for story in stories:
-        present.update(story_tag_labels(story))
+        chosen = primary_tag(story_tag_labels(story))
+        if chosen:
+            present.add(chosen)
     return [tag for tag in TAG_LABELS if tag in present]
 
 

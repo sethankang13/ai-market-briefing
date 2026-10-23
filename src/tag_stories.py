@@ -8,11 +8,42 @@ import re
 from config_loader import load_config
 
 
-_TAXONOMY = load_config()["taxonomy"]
+_CONFIG = load_config()
+_TAXONOMY = _CONFIG["taxonomy"]
 TAG_LABELS = tuple(_TAXONOMY)
 TAG_KEYWORDS = {
     label: tuple(keywords) for label, keywords in _TAXONOMY.items()
 }
+
+
+def _tag_weights_from_config(config: dict) -> dict[str, int]:
+    """Higher integer wins. Missing labels fall back to YAML order (earlier = higher)."""
+    raw = config.get("tag_weights")
+    n = len(TAG_LABELS)
+    fallback = {label: n - index for index, label in enumerate(TAG_LABELS)}
+    if not isinstance(raw, dict) or not raw:
+        return fallback
+    weights = dict(fallback)
+    for label in TAG_LABELS:
+        value = raw.get(label)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        weights[label] = int(value)
+    return weights
+
+
+TAG_WEIGHTS = _tag_weights_from_config(_CONFIG)
+
+
+def primary_tag(tags: list[str]) -> str | None:
+    """Return the highest-weight taxonomy tag, or None when none match."""
+    assigned = [tag for tag in tags if tag in TAG_LABELS]
+    if not assigned:
+        return None
+    return max(
+        assigned,
+        key=lambda tag: (TAG_WEIGHTS.get(tag, 0), -TAG_LABELS.index(tag)),
+    )
 
 
 def contains_keyword(text: str, keyword: str) -> bool:

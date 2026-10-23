@@ -180,7 +180,7 @@ The app resolves the project root from `src/app.py`, so `config/`, `briefs/`, an
 
 | Tab | What it shows |
 | --- | --- |
-| Daily Briefings | Date selector (newest first) and the Markdown file. At a Glance lists three-word RSS links under tag subheads that jump to later `##` sections. Color-coded `#Tag-Name` chips beside each full headline open the local tag archive. |
+| Daily Briefings | Date selector (newest first) and the Markdown file. At a Glance is one italic white tag label per line (jumps to later `##` sections) plus three-word RSS links. Color-coded `#Tag-Name` chips beside each full headline open the local tag archive. |
 | The Loop Explorer | SQLite filters: taxonomy tag, source, and headline/summary search. Results are expander cards with a linked headline, the same colored clickable hashtag chips, and a sources popover when more than one publisher used the same headline. |
 | Tag archive (`?tag=`) | All `loop.db` rows whose stored tags contain that label (`tags LIKE ?`), grouped by date, newest first. Example: `http://127.0.0.1:8501/?tag=Legislation-%26-Policy`. Local Streamlit only; not a public website. |
 
@@ -258,7 +258,7 @@ Create a readable Markdown briefing from the latest summarized run (or selected 
 python3 src/write_brief.py
 ```
 
-The briefing title is `# Looping... (YYYY-MM-DD)`. A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) sits above **At a Glance**. Glance subheads are `### [#Tag](#slug)` jumps to later plain `## Tag` sections. Under each subhead, the first three words of each RSS headline in that section, with an ellipsis, comma-separated, each linked to the article URL. The RSS headline is the only title; Gemini does not write an AI headline.
+The briefing title is `# Looping... (YYYY-MM-DD)`. A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) sits above **At a Glance**. Each glance line is a white italic tag label (HTML, no `#`, no underline) that jumps to the later plain `## Tag` section, then the first three words of each RSS headline in that section, with an ellipsis, comma-separated and linked to the article URL. The RSS headline is the only title; Gemini does not write an AI headline.
 
 Stories are grouped under the **highest-weight** tag from `config/config.yaml` `tag_weights` (one section per story). Section titles are plain Markdown headings and are not colored or linked. Full RSS headline links sit under the heading, with color-coded `#Tag-Name` chips beside the headline that open the local Streamlit tag archive at `http://127.0.0.1:8501/?tag=...` (for example `?tag=Legislation-%26-Policy`). Exact-headline duplicates add `also covered by [Source B]`. After those links, one **Why it might matter / pattern** paragraph for the tag (today’s headlines in that section plus 14-day `loop.db` history). There is no italic tags line and no per-story Why It Matters.
 

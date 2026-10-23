@@ -174,20 +174,28 @@ def glance_markdown(headline: object, url: object, slug: str) -> str:
     return f"[{phrase}](#{slug})"
 
 
+def glance_tag_label(tag: str) -> str:
+    """White italic section jump. Not a hashtag and not a default Markdown link."""
+    href = html.escape(f"#{tag_section_id(tag)}", quote=True)
+    label = html.escape(tag)
+    return (
+        f'<a href="{href}" style="color:#fff;font-style:italic;text-decoration:none">'
+        f"{label}</a>"
+    )
+
+
 def render_at_a_glance(
     sections: list[tuple[str, list[tuple[dict[str, object], list[str]]]]],
 ) -> list[str]:
-    """Tag subheads jump to later ``##`` sections; phrases link to RSS URLs."""
+    """One compact line per tag: italic label, then three-word RSS links."""
     lines: list[str] = []
     for tag, items in sections:
         slug = tag_section_id(tag)
-        lines.append(f"### [#{tag}](#{slug})")
         phrases = []
         for story, _extra in items:
             link = str(story.get("link") or story.get("url") or "").strip()
             phrases.append(glance_markdown(story.get("headline"), link, slug))
-        lines.append(", ".join(phrases))
-        lines.append("")
+        lines.append(f"{glance_tag_label(tag)}: {', '.join(phrases)}")
     return lines
 
 

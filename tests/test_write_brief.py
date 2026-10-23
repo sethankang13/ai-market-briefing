@@ -182,8 +182,12 @@ class WriteBriefTests(unittest.TestCase):
             briefing.index("Why it might matter / pattern: Shared policy pattern."),
         )
         glance = briefing[briefing.index("## At a Glance"):briefing.index("## Legislation-&-Policy")]
-        self.assertIn("### [#Legislation-&-Policy](#legislation-policy)", glance)
-        self.assertNotIn("### [#Enterprise-Adoption]", glance)
+        self.assertIn(
+            'href="#legislation-policy" style="color:#fff;font-style:italic;text-decoration:none">Legislation-&amp;-Policy</a>:',
+            glance,
+        )
+        self.assertNotIn("Enterprise-Adoption", glance)
+        self.assertNotIn("### [#", glance)
 
     def test_missing_ai_summary_does_not_write_pending_placeholder(self):
         briefing = render_brief(
@@ -287,19 +291,29 @@ class WriteBriefTests(unittest.TestCase):
         glance = briefing[glance_at:policy_at]
         self.assertLess(snapshot_at, glance_at)
         self.assertLess(glance_at, policy_at)
-        self.assertIn("### [#Legislation-&-Policy](#legislation-policy)", glance)
-        self.assertIn("### [#Foundation-Models](#foundation-models)", glance)
         self.assertIn("[Bill advances today…](https://example.com/story)", glance)
         self.assertIn("[Model release…](https://example.com/story)", glance)
         self.assertNotIn("- [Bill advances today in committee](https://example.com/story)", glance)
         self.assertIn("- [Bill advances today in committee](https://example.com/story)", briefing[policy_at:])
         self.assertNotIn('<a id="bill-advances"></a>', briefing)
         self.assertEqual(slugify("Legislation-&-Policy"), "legislation-policy")
-        heading_line = next(
-            line for line in glance.splitlines() if line.startswith("### [#Legislation")
+        policy_line = next(
+            line
+            for line in glance.splitlines()
+            if "legislation-policy" in line and "Bill advances today…" in line
         )
-        self.assertNotIn("style=", heading_line)
-        self.assertNotIn("8501", heading_line)
+        self.assertTrue(policy_line.startswith('<a href="#legislation-policy"'))
+        self.assertIn('style="color:#fff;font-style:italic;text-decoration:none"', policy_line)
+        self.assertIn(">Legislation-&amp;-Policy</a>:", policy_line)
+        self.assertNotIn("#Legislation", policy_line)
+        self.assertNotIn("### ", glance)
+        self.assertNotIn("8501", policy_line)
+        self.assertNotIn("text-decoration:underline", policy_line)
+        model_line = next(
+            line for line in glance.splitlines() if "Model release…" in line
+        )
+        self.assertIn("[Bill advances today…](https://example.com/story)", policy_line)
+        self.assertIn("[Model release…](https://example.com/story)", model_line)
 
     def test_duplicate_headlines_are_grouped_as_also_covered_by(self):
         first = story("Rates rise", ["Market-Valuations"], "Primary copy.")

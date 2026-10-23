@@ -106,7 +106,11 @@ class WriteTheLoopCliTests(unittest.TestCase):
         self.assertIn("## At a Glance", report)
         self.assertIn("[Policy bill advances](https://example.com/bill)", report)
         self.assertIn("[Policy bill advances…](https://example.com/bill)", report)
-        self.assertIn("### [#Legislation-&-Policy](#legislation-policy)", report)
+        self.assertIn(
+            'href="#legislation-policy" style="color:#fff;font-style:italic;text-decoration:none">Legislation-&amp;-Policy</a>:',
+            report,
+        )
+        self.assertNotIn("### [#Legislation", report)
         self.assertIn("also covered by [Second Desk]", report)
         self.assertIn("## Legislation-&-Policy", report)
         self.assertNotIn("Why It Matters:", report)

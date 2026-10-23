@@ -9,6 +9,7 @@ Run from the project folder:
 
 from __future__ import annotations
 
+import html
 import json
 import os
 import re
@@ -19,6 +20,12 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = Path(__file__).resolve().parent
 BRIEF_NAME = re.compile(r"^(\d{4}-\d{2}-\d{2})\.md$")
+_MD_HTTP_LINK = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
+_GLANCE_SLUG_LINK = re.compile(r"^(\s*-\s*)\[([^\]]+)\]\(#([^)]+)\)\s*$", re.M)
+_BARE_URL_LINE = re.compile(r"^[ \t]*(?:[-*]\s*)?(https?://\S+)\s*$", re.M)
+_ANCHOR_STORY = re.compile(
+    r'<a id="([^"]+)"></a>\s*\n-\s*\[([^\]]+)\]\((https?://[^)]+)\)'
+)
 
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
@@ -94,6 +101,115 @@ def parse_tags(raw: object) -> list[str]:
     return [raw]
 
 
+def normalize_headline(headline: object) -> str:
+    """Collapse whitespace and lowercase so exact headlines group together."""
+    return " ".join(str(headline or "").lower().split())
+
+
+def headline_markdown(headline: object, url: object = None) -> str:
+    """Render a heading as a Markdown link, never a bare URL."""
+    text = str(headline or "").strip() or "(untitled)"
+    href = str(url or "").strip()
+    if href:
+        return f"### [{text}]({href})"
+    return f"### **{text}**"
+
+
+def headline_html(headline: object, url: object = None) -> str:
+    """Same heading with ``target=_blank`` when Streamlit allows HTML."""
+    text = html.escape(str(headline or "").strip() or "(untitled)")
+    href = str(url or "").strip()
+    if href:
+        safe = html.escape(href, quote=True)
+        return (
+            f'### <a href="{safe}" target="_blank" rel="noopener noreferrer">{text}</a>'
+        )
+    return f"### **{text}**"
+
+
+def source_bullet_markdown(source: object, title: object, url: object = None) -> str:
+    label = f"{source or 'Unknown source'}: {title or '(untitled)'}"
+    href = str(url or "").strip()
+    if href:
+        return f"- [{label}]({href})"
+    return f"- **{label}**"
+
+
+def display_brief_markdown(markdown: str) -> str:
+    """Hyperlink At a Glance / titles to RSS URLs; drop standalone URL lines."""
+    slug_to_url: dict[str, str] = {}
+    for match in _ANCHOR_STORY.finditer(markdown):
+        slug_to_url[match.group(1)] = match.group(3)
+    headline_to_url: dict[str, str] = {}
+    for title, url in _MD_HTTP_LINK.findall(markdown):
+        headline_to_url[title] = url
+        headline_to_url[normalize_headline(title)] = url
+
+    def replace_glance(match: re.Match[str]) -> str:
+        prefix, title, slug = match.group(1), match.group(2), match.group(3)
+        url = (
+            slug_to_url.get(slug)
+            or headline_to_url.get(title)
+            or headline_to_url.get(normalize_headline(title))
+        )
+        if url:
+            return f"{prefix}[{title}]({url})"
+        return match.group(0)
+
+    rewritten = _GLANCE_SLUG_LINK.sub(replace_glance, markdown)
+    rewritten = _BARE_URL_LINE.sub("", rewritten)
+    return rewritten
+
+
+def source_popover_items(rows: list[dict]) -> list[dict]:
+    """Unique publisher/title/url rows for an explorer popover."""
+    items: list[dict] = []
+    seen: set[tuple[str, str, str]] = set()
+    for row in rows:
+        source = str(row.get("source") or "Unknown source").strip() or "Unknown source"
+        title = str(row.get("headline") or "(untitled)").strip() or "(untitled)"
+        url = str(row.get("url") or "").strip()
+        key = (source, title, url)
+        if key in seen:
+            continue
+        seen.add(key)
+        items.append({"source": source, "headline": title, "url": url})
+    return items
+
+
+def group_stories_by_headline(rows: list[dict]) -> list[dict]:
+    """Collapse exact RSS headlines (one URL per SQLite row) like write_brief."""
+    groups: list[dict] = []
+    index: dict[str, int] = {}
+    for row_number, row in enumerate(rows):
+        key = normalize_headline(row.get("headline"))
+        if not key:
+            key = f"__row_{row_number}"
+        if key in index:
+            groups[index[key]]["coverage"].append(row)
+            continue
+        index[key] = len(groups)
+        groups.append(
+            {
+                "headline": row.get("headline") or "(untitled)",
+                "url": str(row.get("url") or "").strip(),
+                "published_date": row.get("published_date") or "",
+                "source": row.get("source") or "Unknown source",
+                "tags": row.get("tags") or [],
+                "ai_summary": row.get("ai_summary") or "",
+                "coverage": [row],
+            }
+        )
+    for group in groups:
+        group["sources"] = source_popover_items(group["coverage"])
+        if not group["url"]:
+            for item in group["sources"]:
+                if item["url"]:
+                    group["url"] = item["url"]
+                    break
+    return groups
+
+
 @st.cache_resource
 def get_connection(db_path_str: str) -> sqlite3.Connection:
     """Reuse one SQLite connection (not pickleable; not ``st.cache_data``)."""
@@ -145,7 +261,7 @@ def search_stories(
         return []
     connection = get_connection(db_path_str)
     sql = (
-        "SELECT published_date, headline, source, tags, ai_summary "
+        "SELECT published_date, headline, url, source, tags, ai_summary "
         "FROM stories WHERE 1=1"
     )
     params: list[object] = []
@@ -170,6 +286,7 @@ def search_stories(
             {
                 "published_date": row["published_date"] or "",
                 "headline": row["headline"] or "(untitled)",
+                "url": row["url"] or "",
                 "source": row["source"] or "Unknown source",
                 "tags": parse_tags(row["tags"]),
                 "ai_summary": row["ai_summary"] or "",
@@ -196,7 +313,7 @@ def render_daily_briefings() -> None:
     if markdown is None:
         st.warning(f"Could not read briefs/{selected}.md.")
         return
-    st.markdown(markdown, unsafe_allow_html=True)
+    st.markdown(display_brief_markdown(markdown), unsafe_allow_html=True)
 
 
 def render_loop_explorer(path: Path) -> None:
@@ -211,18 +328,29 @@ def render_loop_explorer(path: Path) -> None:
     tag = "" if tag_choice == "All tags" else tag_choice
     source = "" if source_choice == "All sources" else source_choice
     rows = search_stories(str(path), tag, source, query.strip())
-    st.caption(f"{len(rows)} matching stor{'y' if len(rows) == 1 else 'ies'}")
-    if not rows:
+    groups = group_stories_by_headline(rows)
+    st.caption(f"{len(groups)} matching stor{'y' if len(groups) == 1 else 'ies'}")
+    if not groups:
         st.info("No stored articles match those filters.")
         return
-    for index, row in enumerate(rows):
-        title = row["headline"]
+    for index, group in enumerate(groups):
+        title = group["headline"]
         with st.expander(title, expanded=index == 0):
-            st.write(f"**Source:** {row['source']}")
-            st.write(f"**Date:** {row['published_date']}")
-            tags_text = ", ".join(row["tags"]) if row["tags"] else "(none)"
+            st.markdown(headline_html(group["headline"], group["url"]), unsafe_allow_html=True)
+            st.write(f"**Source:** {group['source']}")
+            st.write(f"**Date:** {group['published_date']}")
+            tags_text = ", ".join(group["tags"]) if group["tags"] else "(none)"
             st.write(f"**Tags:** {tags_text}")
-            st.write(row["ai_summary"] or "(no summary)")
+            st.write(group["ai_summary"] or "(no summary)")
+            coverage = group["sources"]
+            if len(coverage) > 1:
+                with st.popover(f"🔗 Sources ({len(coverage)})"):
+                    for item in coverage:
+                        st.markdown(
+                            source_bullet_markdown(
+                                item["source"], item["headline"], item["url"]
+                            )
+                        )
 
 
 def main() -> None:

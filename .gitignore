@@ -4,3 +4,4 @@
 data/loop.db
 *.db-journal
 logs/
+logs/streamlit.pid

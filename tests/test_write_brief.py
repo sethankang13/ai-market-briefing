@@ -176,17 +176,17 @@ class WriteBriefTests(unittest.TestCase):
         policy_at = briefing.index("## Legislation-&-Policy")
         self.assertLess(snapshot_at, glance_at)
         self.assertLess(glance_at, policy_at)
-        self.assertIn("- [Bill advances](#bill-advances)", briefing)
-        self.assertIn("- [Model release](#model-release)", briefing)
+        self.assertIn("- [Bill advances](https://example.com/story)", briefing)
+        self.assertIn("- [Model release](https://example.com/story)", briefing)
         self.assertIn('<a id="bill-advances"></a>', briefing)
         self.assertIn('<a id="model-release"></a>', briefing)
         self.assertLess(
-            briefing.index("- [Bill advances](#bill-advances)"),
+            briefing.index("- [Bill advances](https://example.com/story)"),
             briefing.index('<a id="bill-advances"></a>'),
         )
         self.assertLess(
             briefing.index('<a id="bill-advances"></a>'),
-            briefing.index("[Bill advances](https://example.com/story)"),
+            briefing.index("[Bill advances](https://example.com/story)", briefing.index('<a id="bill-advances"></a>')),
         )
         self.assertEqual(slugify("Bill advances!"), "bill-advances")
 
@@ -200,13 +200,13 @@ class WriteBriefTests(unittest.TestCase):
         briefing = render_brief({"stories": [first, second, third]}, "2026-10-21")
 
         self.assertEqual(normalize_headline("  RATES   rise "), "rates rise")
-        self.assertEqual(briefing.count("- [Rates rise](#rates-rise)"), 1)
+        self.assertEqual(briefing.count("- [Rates rise](https://example.com/story)"), 2)
         self.assertEqual(briefing.count('<a id="rates-rise"></a>'), 1)
         self.assertIn("also covered by [CNBC]", briefing)
         self.assertNotIn("also covered by [CNBC, Reuters]", briefing)
         self.assertNotIn("Duplicate copy.", briefing)
         self.assertIn("Why It Matters: Primary copy.", briefing)
-        self.assertEqual(briefing.count("[Rates rise](https://example.com/story)"), 1)
+        self.assertNotIn("- [Rates rise](#rates-rise)", briefing)
 
 
 if __name__ == "__main__":

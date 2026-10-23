@@ -150,7 +150,7 @@ ai-market-briefing/
 ├── config/config.yaml   # feeds, recency, models, taxonomy, output paths
 ├── src/                 # the small programs we build together
 ├── src/app.py           # Phase 1 Streamlit UI (briefs + Loop explorer)
-├── scripts/             # launchd wrapper, plist template, installer
+├── scripts/             # launchd, Streamlit start/stop, Loop.app installer
 ├── logs/                # gitignored launchd and pipeline logs
 ├── data/raw/            # saved incoming story data, if we choose to retain it
 ├── data/enriched/       # saved copies with derived tags
@@ -168,15 +168,17 @@ Browse generated briefs and stored Loop history without running the pipeline or 
 
 ```bash
 pip3 install -r requirements.txt
-streamlit run src/app.py
+bash scripts/start_app.sh
 ```
 
-The app resolves the project root from `src/app.py`, so `config/`, `briefs/`, and `data/` are found even when Streamlit's working directory is `src/`. The sidebar shows stored article count (`data/loop.db`, or zero if the file is missing), the newest `briefs/YYYY-MM-DD.md` date, and the active feed count from `config/config.yaml`.
+Stop it with `bash scripts/stop_app.sh`. Install a double-clickable macOS app with `bash scripts/install_app_launcher.sh`, then open `~/Applications/Loop.app` (drag that to the Dock or Desktop if you want). `start_app.sh` puts Homebrew on `PATH` so Finder/`osascript` can find `streamlit`, writes `logs/streamlit.pid`, and opens http://localhost:8501. You can still run `streamlit run src/app.py` from the project folder.
+
+The app resolves the project root from `src/app.py`, so `config/`, `briefs/`, and `data/` are found even when Streamlit's working directory is `src/`. The sidebar shows stored article count (`data/loop.db`, or zero if the file is missing), the newest `briefs/YYYY-MM-DD.md` date, and the active feed count from `config/config.yaml`. Headlines are Markdown links to the RSS story (`target=_blank` in the explorer). Clustered coverage uses a `🔗 Sources (N)` popover. The UI never prints a raw URL as standalone text.
 
 | Tab | What it shows |
 | --- | --- |
-| Daily Briefings | Date selector (newest first) and the Markdown file, including At a Glance HTML anchors |
-| The Loop Explorer | SQLite filters: taxonomy tag, source, and headline/summary search. Results are expander cards. |
+| Daily Briefings | Date selector (newest first) and the Markdown file, including At a Glance HTML anchors. At a Glance and story titles are hyperlinked RSS headlines; `also covered by` stays exact-headline. |
+| The Loop Explorer | SQLite filters: taxonomy tag, source, and headline/summary search. Results are expander cards with a linked headline, summary, and a sources popover when more than one publisher used the same headline. |
 
 Phase 1 only: no generate-brief button, no new Gemini calls, no writes to the database from the UI.
 
@@ -250,7 +252,7 @@ Create a readable Markdown briefing from the latest summarized run (or selected 
 python3 src/write_brief.py
 ```
 
-The briefing title is `# Looping... (YYYY-MM-DD)`. A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) is inserted above the story categories. Next is **At a Glance**, a jump list of RSS headlines linking to in-file anchors (`<a id="..."></a>` above each story so Cursor, VS Code, and GitHub previews can follow `#slug` links). The briefing then groups stories by the V2.5 tag labels, then Other. Stories with more than one tag appear once, under the first matching label in that order, while displaying every assigned tag. Duplicate RSS headlines (whitespace and case ignored) stay as one story, with later sources listed as `also covered by [Source B]`. Each story leads with the original headline as a link, then an italic line such as `*Tags: #Legislation-&-Policy #Enterprise-Adoption*`, then **Why It Matters:** from `ai_summary`. Historical reports from `data/loop.db` are titled `# The Loop: Macro Summary (Last N Days)`.
+The briefing title is `# Looping... (YYYY-MM-DD)`. A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) is inserted above the story categories. Next is **At a Glance**, a list of RSS headlines linked to the original story URL, with `<a id="..."></a>` still placed above each story for in-file anchors. The briefing then groups stories by the V2.5 tag labels, then Other. Stories with more than one tag appear once, under the first matching label in that order, while displaying every assigned tag. Duplicate RSS headlines (whitespace and case ignored) stay as one story, with later sources listed as `also covered by [Source B]`. Each story leads with the original headline as a link, then an italic line such as `*Tags: #Legislation-&-Policy #Enterprise-Adoption*`, then **Why It Matters:** from `ai_summary`. Historical reports from `data/loop.db` are titled `# The Loop: Macro Summary (Last N Days)`.
 
 ## Config (`config/config.yaml`)
 

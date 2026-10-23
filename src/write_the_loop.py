@@ -207,18 +207,19 @@ def render_the_loop(
 
     stories = [row_as_story(row) for row in rows]
     used_slugs: set[str] = set()
-    glance: list[tuple[str, str]] = []
+    glance: list[tuple[str, str, str]] = []
     detail_blocks: list[str] = []
     for section, items in write_brief.grouped_sections({"stories": stories}):
         assigned = []
         for story, extra_sources in items:
             slug = write_brief.unique_slug(story.get("headline"), used_slugs)
-            glance.append((str(story["headline"]), slug))
+            link = str(story.get("link") or story.get("url") or "").strip()
+            glance.append((str(story["headline"]), slug, link))
             assigned.append(write_brief.render_story(story, extra_sources, slug))
         detail_blocks.extend(["", f"## {section}", "", *assigned])
 
-    for headline, slug in glance:
-        lines.append(f"- [{headline}](#{slug})")
+    for headline, slug, link in glance:
+        lines.append(write_brief.glance_markdown(headline, link, slug))
     lines.extend(detail_blocks)
     return "\n".join(lines) + "\n"
 

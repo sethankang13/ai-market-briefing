@@ -104,6 +104,15 @@ def slugify(headline: object) -> str:
     return slug or "story"
 
 
+def glance_markdown(headline: object, url: object, slug: str) -> str:
+    """At a Glance: RSS headline as a hyperlink, with a slug fallback."""
+    title = str(headline or "").strip() or "(untitled)"
+    href = str(url or "").strip()
+    if href:
+        return f"- [{title}]({href})"
+    return f"- [{title}](#{slug})"
+
+
 def unique_slug(headline: object, used: set[str]) -> str:
     """Return a slug that has not already been assigned in this brief."""
     base = slugify(headline)
@@ -190,18 +199,19 @@ def render_brief(selected_run: dict[str, object], date_stem: str) -> str:
     ]
 
     used_slugs: set[str] = set()
-    glance: list[tuple[str, str]] = []
+    glance: list[tuple[str, str, str]] = []
     detail_blocks: list[str] = []
     for section, items in grouped_sections(selected_run):
         assigned = []
         for story, extra_sources in items:
             slug = unique_slug(story.get("headline"), used_slugs)
-            glance.append((str(story["headline"]), slug))
+            link = str(story.get("link") or story.get("url") or "").strip()
+            glance.append((str(story["headline"]), slug, link))
             assigned.append(render_story(story, extra_sources, slug))
         detail_blocks.extend(["", f"## {section}", "", *assigned])
 
-    for headline, slug in glance:
-        lines.append(f"- [{headline}](#{slug})")
+    for headline, slug, link in glance:
+        lines.append(glance_markdown(headline, link, slug))
 
     lines.extend(detail_blocks)
     return "\n".join(lines) + "\n"

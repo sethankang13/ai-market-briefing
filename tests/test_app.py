@@ -78,12 +78,13 @@ class AppImportTests(unittest.TestCase):
                 """
             )
             connection.executemany(
-                "INSERT INTO stories (published_date, headline, source, ai_summary, tags) "
-                "VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO stories (published_date, headline, url, source, ai_summary, tags) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
                 [
                     (
                         "2026-10-15",
                         "Policy bill advances",
+                        "https://example.com/bill",
                         "Example News",
                         "The bill can change compliance.",
                         '["Legislation-&-Policy"]',
@@ -91,6 +92,7 @@ class AppImportTests(unittest.TestCase):
                     (
                         "2026-10-14",
                         "Chip export rules tighten",
+                        "https://example.com/chips",
                         "Other Source",
                         "Trade controls affect supply.",
                         '["Geopolitics-&-Trade"]',
@@ -116,6 +118,7 @@ class AppImportTests(unittest.TestCase):
 
         self.assertEqual(len(by_tag), 1)
         self.assertEqual(by_tag[0]["headline"], "Policy bill advances")
+        self.assertEqual(by_tag[0]["url"], "https://example.com/bill")
         self.assertEqual(by_tag[0]["tags"], ["Legislation-&-Policy"])
         self.assertEqual(len(by_source), 1)
         self.assertEqual(by_source[0]["source"], "Other Source")
@@ -133,3 +136,106 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("AND (headline LIKE ? OR ai_summary LIKE ?)", source)
         self.assertNotIn("AND tags LIKE '%", source)
         self.assertNotIn(f"LIKE '%{{", source)
+        self.assertIn("SELECT published_date, headline, url, source, tags, ai_summary", source)
+
+
+class HeadlineAndPopoverTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        _install_streamlit_stub()
+        import app as app_module
+
+        cls.app = app_module
+
+    def test_headline_markdown_links_or_bolds_without_raw_urls(self):
+        linked = self.app.headline_markdown(
+            "Policy bill advances", "https://example.com/bill"
+        )
+        missing = self.app.headline_markdown("Policy bill advances", "")
+        untitled = self.app.headline_markdown("", None)
+        self.assertEqual(linked, "### [Policy bill advances](https://example.com/bill)")
+        self.assertEqual(missing, "### **Policy bill advances**")
+        self.assertEqual(untitled, "### **(untitled)**")
+        self.assertFalse(missing.startswith("### https://"))
+        html_linked = self.app.headline_html(
+            "Policy bill advances", "https://example.com/bill"
+        )
+        self.assertIn('target="_blank"', html_linked)
+        self.assertIn("Policy bill advances", html_linked)
+        self.assertNotIn(">https://example.com/bill<", html_linked)
+
+    def test_group_stories_by_normalized_headline_for_popover(self):
+        rows = [
+            {
+                "published_date": "2026-10-15",
+                "headline": "Rates rise",
+                "url": "https://example.com/reuters",
+                "source": "Reuters",
+                "tags": ["Market-Valuations"],
+                "ai_summary": "Primary copy.",
+            },
+            {
+                "published_date": "2026-10-15",
+                "headline": "  RATES   rise ",
+                "url": "https://example.com/cnbc",
+                "source": "CNBC",
+                "tags": ["Market-Valuations"],
+                "ai_summary": "Duplicate copy.",
+            },
+            {
+                "published_date": "2026-10-15",
+                "headline": "Rates rise",
+                "url": "https://example.com/reuters",
+                "source": "Reuters",
+                "tags": ["Market-Valuations"],
+                "ai_summary": "Same source again.",
+            },
+            {
+                "published_date": "2026-10-14",
+                "headline": "Other story",
+                "url": "",
+                "source": "AP",
+                "tags": [],
+                "ai_summary": "Solo.",
+            },
+        ]
+        groups = self.app.group_stories_by_headline(rows)
+        self.assertEqual(len(groups), 2)
+        clustered = groups[0]
+        self.assertEqual(clustered["headline"], "Rates rise")
+        self.assertEqual(len(clustered["sources"]), 2)
+        self.assertEqual(
+            clustered["sources"][0],
+            {
+                "source": "Reuters",
+                "headline": "Rates rise",
+                "url": "https://example.com/reuters",
+            },
+        )
+        self.assertEqual(clustered["sources"][1]["source"], "CNBC")
+        self.assertEqual(
+            self.app.source_bullet_markdown(
+                "CNBC", "Rates rise", "https://example.com/cnbc"
+            ),
+            "- [CNBC: Rates rise](https://example.com/cnbc)",
+        )
+        self.assertEqual(len(groups[1]["sources"]), 1)
+
+    def test_display_brief_rewrites_glance_slugs_and_drops_bare_urls(self):
+        markdown = (
+            "## At a Glance\n"
+            "\n"
+            "- [Rates rise](#rates-rise)\n"
+            "\n"
+            "## Market-Valuations\n"
+            "\n"
+            '<a id="rates-rise"></a>\n'
+            "- [Rates rise](https://example.com/rates)\n"
+            "  also covered by [CNBC]\n"
+            "https://example.com/should-not-print\n"
+        )
+        displayed = self.app.display_brief_markdown(markdown)
+        self.assertIn("- [Rates rise](https://example.com/rates)", displayed)
+        self.assertNotIn("](#rates-rise)", displayed)
+        self.assertNotIn("https://example.com/should-not-print", displayed)
+        self.assertIn("also covered by [CNBC]", displayed)

@@ -28,17 +28,17 @@ SELECTED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "selected"
 BRIEFS_DIRECTORY = project_path(_CONFIG["pipeline"]["output_dir"])
 SECTION_ORDER = TAG_LABELS + ("Other",)
 TAG_ARCHIVE_BASE = "http://127.0.0.1:8501/"
-# Distinct colors with contrast on a light Streamlit/Markdown background.
+# Muted pastels (not neon). Shared by Daily Loop markdown, The Loop, and app CSS.
 TAG_COLORS = {
-    "Market-Valuations": "#0B5CAB",
-    "Venture-&-M&A": "#1B7F5A",
-    "Legislation-&-Policy": "#6B2FA0",
-    "Antitrust-&-Compliance": "#B45309",
-    "Copyright-&-IP": "#9D174D",
-    "Geopolitics-&-Trade": "#B42318",
-    "Labor-&-Economy": "#0F6C75",
-    "Enterprise-Adoption": "#1D4ED8",
-    "Foundation-Models": "#C2410C",
+    "Market-Valuations": "#7D9A6F",
+    "Venture-&-M&A": "#D4A07A",
+    "Legislation-&-Policy": "#9B8AB8",
+    "Antitrust-&-Compliance": "#D08C4E",
+    "Copyright-&-IP": "#D08A9C",
+    "Geopolitics-&-Trade": "#C45C5C",
+    "Labor-&-Economy": "#6FA08A",
+    "Enterprise-Adoption": "#7A9CC4",
+    "Foundation-Models": "#C4846A",
 }
 PENDING_MARKERS = (
     "AI Summary Pending",

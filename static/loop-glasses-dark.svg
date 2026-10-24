@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 48" role="img" aria-label="LOOP glasses">
+  <g fill="none" stroke="#F7F6F2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="28.5" cy="24" r="16.5" stroke-width="2.2"/>
+    <circle cx="67.5" cy="24" r="16.5" stroke-width="2.2"/>
+    <path d="M45 24h6" stroke-width="1.6"/>
+  </g>
+</svg>

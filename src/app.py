@@ -17,6 +17,7 @@ import sqlite3
 import sys
 from datetime import date, timedelta
 from pathlib import Path
+from urllib.parse import urlencode
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = Path(__file__).resolve().parent
@@ -32,82 +33,21 @@ _ANCHOR_STORY = re.compile(
 _LOOPING_TITLE = re.compile(r"^# Looping\.\.\. \(([^)]+)\)\s*$", re.M)
 TAB_DAILY = "Daily Loop"
 TAB_LOOP = "The Loop"
-BRAND_CSS = """
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap">
-<style>
-:root {
-  --loop-ink: #171C25;
-  --loop-navy: #263B60;
-  --loop-slate: #64748B;
-  --loop-ice: #A7C7E7;
-  --loop-ivory: #F7F6F2;
-  --loop-mist: #E5EAF0;
-}
-html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
-.stMarkdown, .stCaption, .stText, .stSelectbox, .stTextInput {
-  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
-}
-a[id], h1, h2, h3, [id] { scroll-margin-top: 90px; }
-h1, h2, h3 {
-  color: var(--loop-ink);
-  font-weight: 500;
-  letter-spacing: 0.01em;
-}
-hr { border: none; border-top: 1px solid var(--loop-mist); }
-[data-testid="stHeader"] { background: transparent; }
-.loop-wordmark { padding-top: 0.35rem; }
-.loop-wordmark-name {
-  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 2.35rem;
-  font-weight: 400;
-  letter-spacing: 0.32em;
-  color: var(--loop-ink);
-  line-height: 1.05;
-  text-transform: uppercase;
-}
-.loop-wordmark-desc {
-  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 0.92rem;
-  font-weight: 400;
-  letter-spacing: 0.14em;
-  color: var(--loop-navy);
-  margin-top: 0.4rem;
-}
-a[href*="?tag="] {
-  color: var(--loop-navy) !important;
-  font-weight: 500 !important;
-  background: var(--loop-mist);
-  border: 1px solid var(--loop-ice);
-  border-radius: 999px;
-  padding: 0.12rem 0.55rem;
-  margin: 0 0.12rem 0.12rem 0;
-  display: inline-block;
-  text-decoration: none !important;
-  font-size: 0.82rem;
-  letter-spacing: 0.01em;
-}
-[data-testid="stSidebar"] a[href*="?tag="],
-[data-testid="stMarkdownContainer"] a[href*="?tag="]:nth-of-type(3n) {
-  color: var(--loop-slate) !important;
-}
-[data-testid="stVerticalBlockBorderWrapper"] {
-  border-color: var(--loop-mist) !important;
-}
-@media (prefers-color-scheme: dark) {
-  h1, h2, h3, .loop-wordmark-name { color: var(--loop-ivory); }
-  .loop-wordmark-desc { color: var(--loop-ice); }
-  a[href*="?tag="] {
-    color: var(--loop-ice) !important;
-    background: rgba(38, 59, 96, 0.55);
-    border-color: var(--loop-navy);
-  }
-}
-</style>
-"""
 WORDMARK_HTML = """
 <div class="loop-wordmark">
   <div class="loop-wordmark-name">LOOP</div>
   <div class="loop-wordmark-desc">AI Market Briefing</div>
+</div>
+"""
+GLASSES_HTML = """
+<div class="loop-mark" aria-label="LOOP glasses">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 48" class="loop-glasses" role="img">
+    <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="28.5" cy="24" r="16.5" stroke-width="2.2"/>
+      <circle cx="67.5" cy="24" r="16.5" stroke-width="2.2"/>
+      <path d="M45 24h6" stroke-width="1.6"/>
+    </g>
+  </svg>
 </div>
 """
 
@@ -118,11 +58,104 @@ import streamlit as st
 from config_loader import load_config, project_path
 from write_brief import (
     TAG_ARCHIVE_BASE,
+    TAG_COLORS,
     TAG_LABELS,
     humanize_tag,
     tag_archive_url,
     tag_hashtag_html,
 )
+
+
+def brand_css() -> str:
+    """Editorial tokens plus the same pastel map used in Daily Loop markdown."""
+    chip_colors = "\n".join(
+        f'a[href*="{urlencode({"tag": tag})}"] {{ color: {color} !important; }}'
+        for tag, color in TAG_COLORS.items()
+    )
+    return f"""
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap">
+<style>
+:root {{
+  --loop-ink: #171C25;
+  --loop-navy: #263B60;
+  --loop-slate: #64748B;
+  --loop-ice: #A7C7E7;
+  --loop-ivory: #F7F6F2;
+  --loop-mist: #E5EAF0;
+}}
+html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
+.stMarkdown, .stCaption, .stText, .stSelectbox, .stTextInput {{
+  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+}}
+a[id], h1, h2, h3, [id] {{ scroll-margin-top: 90px; }}
+h1, h2, h3 {{
+  color: var(--loop-ink);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}}
+hr {{ border: none; border-top: 1px solid var(--loop-mist); }}
+[data-testid="stHeader"] {{ background: transparent; }}
+.loop-mark {{
+  color: var(--loop-ink);
+  width: 88px;
+}}
+.loop-glasses {{
+  width: 88px;
+  height: 44px;
+  display: block;
+}}
+.loop-wordmark {{ padding-top: 0.35rem; color: var(--loop-ink); }}
+.loop-wordmark-name {{
+  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 2.35rem;
+  font-weight: 400;
+  letter-spacing: 0.32em;
+  color: inherit;
+  line-height: 1.05;
+  text-transform: uppercase;
+}}
+.loop-wordmark-desc {{
+  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 0.92rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  color: inherit;
+  margin-top: 0.4rem;
+}}
+a[href*="?tag="] {{
+  font-weight: 500 !important;
+  background: color-mix(in srgb, currentColor 14%, var(--loop-ivory));
+  border: 1px solid color-mix(in srgb, currentColor 32%, var(--loop-mist));
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+  margin: 0 0.12rem 0.12rem 0;
+  display: inline-block;
+  text-decoration: none !important;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+}}
+{chip_colors}
+[data-testid="stVerticalBlockBorderWrapper"] {{
+  border-color: var(--loop-mist) !important;
+}}
+@media (prefers-color-scheme: dark) {{
+  h1, h2, h3 {{ color: var(--loop-ivory); }}
+  .loop-mark, .loop-wordmark {{ color: var(--loop-ivory); }}
+  a[href*="?tag="] {{
+    background: color-mix(in srgb, currentColor 22%, var(--loop-ink));
+    border-color: color-mix(in srgb, currentColor 40%, var(--loop-navy));
+  }}
+}}
+[data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3,
+[data-theme="dark"] .loop-mark, [data-theme="dark"] .loop-wordmark {{
+  color: var(--loop-ivory);
+}}
+[data-theme="light"] h1, [data-theme="light"] h2, [data-theme="light"] h3,
+[data-theme="light"] .loop-mark, [data-theme="light"] .loop-wordmark {{
+  color: var(--loop-ink);
+}}
+</style>
+"""
 
 
 def ensure_project_root() -> Path:
@@ -610,12 +643,9 @@ def page_icon_value() -> str:
 
 
 def render_brand_header() -> None:
-    glasses = STATIC_DIR / "loop-glasses.svg"
-    logo = STATIC_DIR / "loop-logo.svg"
     left, right = st.columns([1, 6])
     with left:
-        if not show_static_image(glasses, width=88):
-            show_static_image(logo, width=88)
+        st.markdown(GLASSES_HTML, unsafe_allow_html=True)
     with right:
         st.markdown(WORDMARK_HTML, unsafe_allow_html=True)
 
@@ -833,7 +863,7 @@ def main() -> None:
         page_icon=page_icon_value(),
         layout="wide",
     )
-    st.markdown(BRAND_CSS, unsafe_allow_html=True)
+    st.markdown(brand_css(), unsafe_allow_html=True)
     render_brand_header()
     path = db_path()
     dates = list_briefing_dates()

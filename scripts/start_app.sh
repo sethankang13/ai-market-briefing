@@ -8,6 +8,7 @@ export PATH="/Library/Frameworks/Python.framework/Versions/3.13/bin:/opt/homebre
 
 cd /Users/ethankang/Documents/Codex/ai-market-briefing
 mkdir -p logs
+bash scripts/apply_loop_icon.sh >/dev/null 2>&1 || true
 
 URL="http://127.0.0.1:8501"
 

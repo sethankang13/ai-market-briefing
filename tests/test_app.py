@@ -258,13 +258,20 @@ class AppImportTests(unittest.TestCase):
 
     def test_static_svgs_are_utf8_and_bad_assets_are_skipped(self):
         static = Path(self.app.__file__).resolve().parents[1] / "static"
-        for name in ("loop-logo.svg", "loop-banner.svg"):
+        for name in ("loop-logo.svg", "loop-banner.svg", "loop-glasses.svg"):
             path = static / name
             self.assertTrue(path.is_file(), name)
             raw = path.read_bytes()
             raw.decode("utf-8")
             self.assertNotIn(b"\xb7", raw)
             self.assertTrue(self.app.static_asset_is_utf8(path))
+        for name in ("loop-icon-light.png", "loop-icon-dark.png", "loop-glasses.png"):
+            self.assertTrue((static / name).is_file(), name)
+        source = Path(self.app.__file__).read_text(encoding="utf-8")
+        self.assertIn("LOOP: AI Market Briefing", source)
+        self.assertIn("family=Inter", source)
+        self.assertIn("--loop-navy: #263B60", source)
+        self.assertIn("scroll-margin-top: 90px", source)
         with TemporaryDirectory() as temp_dir:
             bad = Path(temp_dir) / "loop-banner.svg"
             bad.write_bytes(b'<svg xmlns="http://www.w3.org/2000/svg">Daily Loop \xb7 The Loop</svg>')

@@ -1,4 +1,4 @@
-"""Local Streamlit UI for Loop: AI Market Briefing.
+"""Local Streamlit UI for LOOP: AI Market Briefing.
 
 Reads existing ``briefs/YYYY-MM-DD.md`` files and ``data/loop.db``.
 Does not call Gemini, OpenAI, or any other model.
@@ -32,10 +32,83 @@ _ANCHOR_STORY = re.compile(
 _LOOPING_TITLE = re.compile(r"^# Looping\.\.\. \(([^)]+)\)\s*$", re.M)
 TAB_DAILY = "Daily Loop"
 TAB_LOOP = "The Loop"
-SCROLL_CSS = """
+BRAND_CSS = """
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap">
 <style>
+:root {
+  --loop-ink: #171C25;
+  --loop-navy: #263B60;
+  --loop-slate: #64748B;
+  --loop-ice: #A7C7E7;
+  --loop-ivory: #F7F6F2;
+  --loop-mist: #E5EAF0;
+}
+html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
+.stMarkdown, .stCaption, .stText, .stSelectbox, .stTextInput {
+  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
 a[id], h1, h2, h3, [id] { scroll-margin-top: 90px; }
+h1, h2, h3 {
+  color: var(--loop-ink);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+hr { border: none; border-top: 1px solid var(--loop-mist); }
+[data-testid="stHeader"] { background: transparent; }
+.loop-wordmark { padding-top: 0.35rem; }
+.loop-wordmark-name {
+  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 2.35rem;
+  font-weight: 400;
+  letter-spacing: 0.32em;
+  color: var(--loop-ink);
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+.loop-wordmark-desc {
+  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 0.92rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  color: var(--loop-navy);
+  margin-top: 0.4rem;
+}
+a[href*="?tag="] {
+  color: var(--loop-navy) !important;
+  font-weight: 500 !important;
+  background: var(--loop-mist);
+  border: 1px solid var(--loop-ice);
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+  margin: 0 0.12rem 0.12rem 0;
+  display: inline-block;
+  text-decoration: none !important;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+}
+[data-testid="stSidebar"] a[href*="?tag="],
+[data-testid="stMarkdownContainer"] a[href*="?tag="]:nth-of-type(3n) {
+  color: var(--loop-slate) !important;
+}
+[data-testid="stVerticalBlockBorderWrapper"] {
+  border-color: var(--loop-mist) !important;
+}
+@media (prefers-color-scheme: dark) {
+  h1, h2, h3, .loop-wordmark-name { color: var(--loop-ivory); }
+  .loop-wordmark-desc { color: var(--loop-ice); }
+  a[href*="?tag="] {
+    color: var(--loop-ice) !important;
+    background: rgba(38, 59, 96, 0.55);
+    border-color: var(--loop-navy);
+  }
+}
 </style>
+"""
+WORDMARK_HTML = """
+<div class="loop-wordmark">
+  <div class="loop-wordmark-name">LOOP</div>
+  <div class="loop-wordmark-desc">AI Market Briefing</div>
+</div>
 """
 
 if str(SRC_DIR) not in sys.path:
@@ -521,25 +594,35 @@ def show_static_image(path: Path, **kwargs) -> bool:
 
 
 def page_icon_value() -> str:
-    logo = STATIC_DIR / "loop-logo.svg"
-    if logo.is_file() and static_asset_is_utf8(logo):
-        return str(logo)
+    for name in (
+        "loop-icon-light.png",
+        "loop-glasses.svg",
+        "loop-glasses.png",
+        "loop-logo.svg",
+    ):
+        path = STATIC_DIR / name
+        if not path.is_file():
+            continue
+        if path.suffix.lower() == ".svg" and not static_asset_is_utf8(path):
+            continue
+        return str(path)
     return "🔁"
 
 
 def render_brand_header() -> None:
+    glasses = STATIC_DIR / "loop-glasses.svg"
     logo = STATIC_DIR / "loop-logo.svg"
-    banner = STATIC_DIR / "loop-banner.svg"
     left, right = st.columns([1, 6])
     with left:
-        show_static_image(logo, width=88)
+        if not show_static_image(glasses, width=88):
+            show_static_image(logo, width=88)
     with right:
-        show_static_image(banner, use_container_width=True)
+        st.markdown(WORDMARK_HTML, unsafe_allow_html=True)
 
 
 def render_sidebar(path: Path, latest: str | None, feed_names: list[str], brief_count: int) -> None:
     with st.sidebar:
-        st.header("Loop: AI Market Briefing")
+        st.header("LOOP: AI Market Briefing")
         st.metric("Stored briefings", brief_count)
         st.metric("Latest briefing", latest or "None")
         st.subheader("Active feeds")
@@ -746,11 +829,11 @@ def render_tag_archive(path: Path, tag: str) -> None:
 def main() -> None:
     ensure_project_root()
     st.set_page_config(
-        page_title="Loop: AI Market Briefing",
+        page_title="LOOP: AI Market Briefing",
         page_icon=page_icon_value(),
         layout="wide",
     )
-    st.markdown(SCROLL_CSS, unsafe_allow_html=True)
+    st.markdown(BRAND_CSS, unsafe_allow_html=True)
     render_brand_header()
     path = db_path()
     dates = list_briefing_dates()

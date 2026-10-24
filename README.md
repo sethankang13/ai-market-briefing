@@ -1,4 +1,4 @@
-# Loop: AI Market Briefing
+# LOOP: AI Market Briefing
 
 **Active version: v4.0.1.** Loop.app stays responsive while a briefing generates in the background, login can auto-run the weekday pipeline when today’s file is missing, Fed Funds mock quotes a realistic rate, and the UI shows humanized tag labels (`Market Valuations`, `Legislation & Policy`). Live pipeline runs still need a gitignored `.env` in the project root.
 
@@ -154,7 +154,7 @@ ai-market-briefing/
 ├── config/config.yaml   # feeds, recency, models, taxonomy, output paths
 ├── src/                 # the small programs we build together
 ├── src/app.py           # Streamlit UI (Daily Loop + The Loop)
-├── static/              # Loop logo and banner
+├── static/              # LOOP wordmark, glasses mark, and app icons
 ├── scripts/             # launchd, Streamlit start/stop, Loop.app installer
 ├── logs/                # gitignored launchd and pipeline logs
 ├── data/raw/            # saved incoming story data, if we choose to retain it

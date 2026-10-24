@@ -88,22 +88,46 @@ def brand_css() -> str:
   --loop-ice: #A7C7E7;
   --loop-ivory: #F7F6F2;
   --loop-mist: #E5EAF0;
+  --loop-fg: var(--loop-ink);
+  --loop-page: var(--loop-ivory);
+  --loop-surface: var(--loop-mist);
 }}
-html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
+@media (prefers-color-scheme: dark) {{
+  :root {{
+    --loop-fg: var(--loop-ivory);
+    --loop-page: var(--loop-ink);
+    --loop-surface: var(--loop-navy);
+  }}
+}}
+html[data-theme="light"], [data-theme="light"] {{
+  --loop-fg: var(--loop-ink);
+  --loop-page: var(--loop-ivory);
+  --loop-surface: var(--loop-mist);
+}}
+html[data-theme="dark"], [data-theme="dark"] {{
+  --loop-fg: var(--loop-ivory);
+  --loop-page: var(--loop-ink);
+  --loop-surface: var(--loop-navy);
+}}
+html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
 .stMarkdown, .stCaption, .stText, .stSelectbox, .stTextInput {{
   font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
-  color: var(--loop-ink);
+  color: var(--loop-fg);
+}}
+html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
+[data-testid="stSidebar"], [data-testid="stHeader"] {{
+  background-color: var(--loop-page) !important;
 }}
 a[id], h1, h2, h3, [id] {{ scroll-margin-top: 90px; }}
 h1, h2, h3 {{
-  color: var(--loop-ink) !important;
+  color: var(--loop-fg) !important;
   font-weight: 500;
   letter-spacing: 0.01em;
 }}
-hr {{ border: none; border-top: 1px solid var(--loop-mist); }}
+hr {{ border: none; border-top: 1px solid var(--loop-surface); }}
 [data-testid="stHeader"] {{ background: transparent; }}
 [data-testid="stSidebar"] {{
-  color: var(--loop-ink) !important;
+  color: var(--loop-fg) !important;
 }}
 .loop-header {{
   display: flex;
@@ -112,7 +136,7 @@ hr {{ border: none; border-top: 1px solid var(--loop-mist); }}
   justify-content: flex-start;
   text-align: left;
   gap: 1rem;
-  color: var(--loop-ink) !important;
+  color: var(--loop-fg) !important;
   padding: 0.4rem 0 0.8rem;
 }}
 .loop-mark {{
@@ -125,6 +149,7 @@ hr {{ border: none; border-top: 1px solid var(--loop-mist); }}
   height: 44px;
   display: block;
   margin: 0;
+  color: inherit;
 }}
 .loop-wordmark {{
   padding-top: 0;
@@ -135,7 +160,7 @@ hr {{ border: none; border-top: 1px solid var(--loop-mist); }}
   font-size: 2.35rem;
   font-weight: 400;
   letter-spacing: 0.32em;
-  color: var(--loop-ink) !important;
+  color: var(--loop-fg) !important;
   line-height: 1.05;
   text-transform: uppercase;
 }}
@@ -144,7 +169,7 @@ hr {{ border: none; border-top: 1px solid var(--loop-mist); }}
   font-size: 0.92rem;
   font-weight: 400;
   letter-spacing: 0.14em;
-  color: var(--loop-ink) !important;
+  color: var(--loop-fg) !important;
   margin-top: 0.25rem;
 }}
 a[href*="?tag="] {{
@@ -161,34 +186,73 @@ a[href*="?tag="] {{
 }}
 {chip_colors}
 [data-testid="stVerticalBlockBorderWrapper"] {{
-  border-color: var(--loop-mist) !important;
+  border-color: var(--loop-surface) !important;
 }}
-html[data-theme="light"] .loop-header,
-html[data-theme="light"] .loop-wordmark-name,
-html[data-theme="light"] .loop-wordmark-desc,
-html[data-theme="light"] h1,
-html[data-theme="light"] h2,
-html[data-theme="light"] h3,
-html[data-theme="light"] [data-testid="stSidebar"],
-[data-theme="light"] .loop-header,
-[data-theme="light"] .loop-wordmark-name,
-[data-theme="light"] .loop-wordmark-desc {{
-  color: var(--loop-ink) !important;
-}}
-html[data-theme="dark"] .loop-header,
-html[data-theme="dark"] .loop-wordmark-name,
-html[data-theme="dark"] .loop-wordmark-desc,
-html[data-theme="dark"] h1,
-html[data-theme="dark"] h2,
-html[data-theme="dark"] h3,
-html[data-theme="dark"] [data-testid="stSidebar"],
-[data-theme="dark"] .loop-header,
-[data-theme="dark"] .loop-wordmark-name,
-[data-theme="dark"] .loop-wordmark-desc {{
-  color: var(--loop-ivory) !important;
+div[data-testid="stHtml"] {{
+  height: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden;
 }}
 </style>
 """
+
+
+def brand_theme_script() -> str:
+    """Track macOS/browser appearance and keep Streamlit on Custom Theme Auto."""
+    return """
+<script>
+(function () {
+  var media = window.matchMedia("(prefers-color-scheme: dark)");
+  function scheme() {
+    return media.matches ? "dark" : "light";
+  }
+  function apply(theme) {
+    var nodes = [document.documentElement, document.body];
+    var app = document.querySelector(".stApp");
+    if (app) nodes.push(app);
+    nodes.forEach(function (el) {
+      if (!el) return;
+      el.setAttribute("data-theme", theme);
+      el.style.colorScheme = theme;
+    });
+  }
+  function preferSystemTheme() {
+    var key = "stActiveTheme-" + (window.location.pathname || "/") + "-v2";
+    try {
+      if (window.localStorage.getItem(key) !== '"System"') {
+        window.localStorage.setItem(key, '"System"');
+        if (!window.sessionStorage.getItem("loop-system-theme")) {
+          window.sessionStorage.setItem("loop-system-theme", "1");
+          window.location.reload();
+          return false;
+        }
+      }
+    } catch (err) {}
+    return true;
+  }
+  if (!preferSystemTheme()) return;
+  apply(scheme());
+  var onChange = function () { apply(scheme()); };
+  if (media.addEventListener) media.addEventListener("change", onChange);
+  else if (media.addListener) media.addListener(onChange);
+})();
+</script>
+"""
+
+
+def inject_brand_chrome() -> None:
+    """CSS via markdown; JS via st.html so Streamlit does not strip the script."""
+    st.markdown(brand_css(), unsafe_allow_html=True)
+    html_fn = getattr(st, "html", None)
+    script = brand_theme_script()
+    if callable(html_fn):
+        try:
+            html_fn(script, unsafe_allow_javascript=True)
+            return
+        except TypeError:
+            html_fn(script)
+            return
+    st.markdown(script, unsafe_allow_html=True)
 
 
 def ensure_project_root() -> Path:
@@ -893,7 +957,7 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="collapsed",
     )
-    st.markdown(brand_css(), unsafe_allow_html=True)
+    inject_brand_chrome()
     render_brand_header()
     path = db_path()
     dates = list_briefing_dates()

@@ -1,20 +1,23 @@
 [theme]
-base = "light"
-primaryColor = "#263B60"
-backgroundColor = "#F7F6F2"
-secondaryBackgroundColor = "#E5EAF0"
-textColor = "#171C25"
+# Streamlit 1.66 has no base="auto". Pair [theme.light] + [theme.dark]
+# so the client builds Custom Theme Auto from prefers-color-scheme.
 font = "sans-serif"
 headingFont = "sans-serif"
-borderColor = "#E5EAF0"
-linkColor = "#263B60"
 linkUnderline = false
 showSidebarBorder = true
 showWidgetBorder = true
 baseRadius = "0.4rem"
 headingFontWeights = [500, 500, 600, 600, 600, 600]
 
-[theme.sidebar]
+[theme.light]
+primaryColor = "#263B60"
+backgroundColor = "#F7F6F2"
+secondaryBackgroundColor = "#E5EAF0"
+textColor = "#171C25"
+borderColor = "#E5EAF0"
+linkColor = "#263B60"
+
+[theme.light.sidebar]
 backgroundColor = "#F7F6F2"
 secondaryBackgroundColor = "#E5EAF0"
 textColor = "#171C25"

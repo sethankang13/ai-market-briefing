@@ -498,16 +498,43 @@ def in_focus_title(tag: str, source: str, query: str, year: str, month: str, day
     return "In Focus: " + (" · ".join(parts) if parts else "All stories")
 
 
+def static_asset_is_utf8(path: Path) -> bool:
+    """Streamlit reads SVG as UTF-8; latin-1 bytes such as 0xb7 crash st.image."""
+    try:
+        path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    return True
+
+
+def show_static_image(path: Path, **kwargs) -> bool:
+    """Show a local image; skip it if the file is missing or not UTF-8 SVG."""
+    if not path.is_file():
+        return False
+    if path.suffix.lower() == ".svg" and not static_asset_is_utf8(path):
+        return False
+    try:
+        st.image(str(path), **kwargs)
+    except (UnicodeDecodeError, OSError, ValueError, TypeError):
+        return False
+    return True
+
+
+def page_icon_value() -> str:
+    logo = STATIC_DIR / "loop-logo.svg"
+    if logo.is_file() and static_asset_is_utf8(logo):
+        return str(logo)
+    return "🔁"
+
+
 def render_brand_header() -> None:
     logo = STATIC_DIR / "loop-logo.svg"
     banner = STATIC_DIR / "loop-banner.svg"
     left, right = st.columns([1, 6])
     with left:
-        if logo.is_file():
-            st.image(str(logo), width=88)
+        show_static_image(logo, width=88)
     with right:
-        if banner.is_file():
-            st.image(str(banner), use_container_width=True)
+        show_static_image(banner, use_container_width=True)
 
 
 def render_sidebar(path: Path, latest: str | None, feed_names: list[str], brief_count: int) -> None:
@@ -720,7 +747,7 @@ def main() -> None:
     ensure_project_root()
     st.set_page_config(
         page_title="Loop: AI Market Briefing",
-        page_icon=str(STATIC_DIR / "loop-logo.svg") if (STATIC_DIR / "loop-logo.svg").is_file() else "🔁",
+        page_icon=page_icon_value(),
         layout="wide",
     )
     st.markdown(SCROLL_CSS, unsafe_allow_html=True)

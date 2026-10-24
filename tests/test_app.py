@@ -256,6 +256,30 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("## Legislation & Policy", displayed)
         self.assertIn("## Daily Summary & Research Topics", displayed)
 
+    def test_static_svgs_are_utf8_and_bad_assets_are_skipped(self):
+        static = Path(self.app.__file__).resolve().parents[1] / "static"
+        for name in ("loop-logo.svg", "loop-banner.svg"):
+            path = static / name
+            self.assertTrue(path.is_file(), name)
+            raw = path.read_bytes()
+            raw.decode("utf-8")
+            self.assertNotIn(b"\xb7", raw)
+            self.assertTrue(self.app.static_asset_is_utf8(path))
+        with TemporaryDirectory() as temp_dir:
+            bad = Path(temp_dir) / "loop-banner.svg"
+            bad.write_bytes(b'<svg xmlns="http://www.w3.org/2000/svg">Daily Loop \xb7 The Loop</svg>')
+            self.assertFalse(self.app.static_asset_is_utf8(bad))
+            image = self.app.st.image
+            image.reset_mock()
+            self.assertFalse(self.app.show_static_image(bad, use_container_width=True))
+            image.assert_not_called()
+            missing = Path(temp_dir) / "missing.svg"
+            self.assertFalse(self.app.show_static_image(missing))
+            image.side_effect = UnicodeDecodeError("utf-8", b"\xb7", 0, 1, "invalid")
+            ok = Path(temp_dir) / "ok.svg"
+            ok.write_text("<svg xmlns='http://www.w3.org/2000/svg'></svg>", encoding="utf-8")
+            self.assertFalse(self.app.show_static_image(ok))
+
     def test_generation_banners_and_lock_detection(self):
         today = "2026-10-24"
         self.assertEqual(

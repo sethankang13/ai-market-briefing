@@ -48,8 +48,10 @@ def select_step(enriched_path: Path) -> Path:
     return select_stories.save_selected_run(enriched_run, enriched_path)
 
 
-def market_step() -> dict:
-    """Fetch Fed Funds and index quotes without inventing numbers."""
+def market_step(mock: bool = False) -> dict:
+    """Fetch Fed Funds and index quotes, or use a realistic offline snapshot."""
+    if mock:
+        return fetch_market.mock_market_snapshot()
     return fetch_market.fetch_market_snapshot()
 
 
@@ -159,7 +161,7 @@ def run_briefing(mock: bool = False, open_after: bool = False) -> Path:
     print(f"Enriched stories saved to {enriched_path}")
     selected_path = _run("select", lambda: select_step(enriched_path))
     print(f"Selected stories saved to {selected_path}")
-    snapshot = _run("market", market_step)
+    snapshot = _run("market", lambda: market_step(mock=mock))
     summarized_path = _run(
         "summarize", lambda: summarize_step(selected_path, mock=mock)
     )

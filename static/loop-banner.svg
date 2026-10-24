@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 120" role="img" aria-label="Loop: AI Market Briefing">
+  <defs>
+    <linearGradient id="loopBanner" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B3A5B"/>
+      <stop offset="100%" stop-color="#125E8A"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="120" rx="16" fill="url(#loopBanner)"/>
+  <text x="36" y="52" fill="#F8FAFC" font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="700">Loop</text>
+  <text x="36" y="86" fill="#BAE6FD" font-family="system-ui, -apple-system, sans-serif" font-size="18">AI Market Briefing</text>
+  <text x="924" y="70" text-anchor="end" fill="#7DD3FC" font-family="system-ui, -apple-system, sans-serif" font-size="16">Daily Loop · The Loop</text>
+</svg>

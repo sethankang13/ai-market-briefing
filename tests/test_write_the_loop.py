@@ -102,17 +102,17 @@ class WriteTheLoopCliTests(unittest.TestCase):
             tag="Legislation-&-Policy",
         )
         self.assertTrue(report.startswith("# The Loop: Macro Summary (Last 14 Days)\n"))
-        self.assertIn("Filtered to tag `Legislation-&-Policy`.", report)
+        self.assertIn("Filtered to tag `Legislation & Policy`.", report)
         self.assertIn("## At a Glance", report)
         self.assertIn("[Policy bill advances](https://example.com/bill)", report)
         self.assertIn("[Policy bill advances…](https://example.com/bill)", report)
         self.assertIn(
-            'href="#legislation-policy" style="color:#fff;font-style:italic;text-decoration:none">Legislation-&amp;-Policy</a>:',
+            'href="#legislation-policy" style="color:#fff;font-style:italic;text-decoration:none">Legislation &amp; Policy</a>:',
             report,
         )
         self.assertNotIn("### [#Legislation", report)
         self.assertIn("also covered by [Second Desk]", report)
-        self.assertIn("## Legislation-&-Policy", report)
+        self.assertIn("## Legislation & Policy", report)
         self.assertNotIn("Why It Matters:", report)
         self.assertNotIn("*Tags:", report)
         self.assertIn("## Market Snapshot Trends", report)

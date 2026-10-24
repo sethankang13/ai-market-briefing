@@ -1,6 +1,6 @@
 # Loop: AI Market Briefing
 
-**Active version: v4.0: Local web UI (Phase 1).** A Streamlit app reads existing daily briefs and `data/loop.db` in the browser. It does not call Gemini or OpenAI. Weekday LaunchAgent automation from v3.5 is unchanged. Live pipeline runs still need a gitignored `.env` in the project root.
+**Active version: v4.0.1.** Loop.app stays responsive while a briefing generates in the background, login can auto-run the weekday pipeline when today’s file is missing, Fed Funds mock quotes a realistic rate, and the UI shows humanized tag labels (`Market Valuations`, `Legislation & Policy`). Live pipeline runs still need a gitignored `.env` in the project root.
 
 ## Purpose
 
@@ -38,6 +38,7 @@ No paid news API, database, website, or automated email yet.
 | 2026-10-21 | Use eight public feeds, including Bloomberg, Reuters markets, Politico, and a narrower AP policy search | Broader AI market and policy coverage from still-free RSS. |
 | 2026-10-21 | Rebrand to Loop: AI Market Briefing; daily files use `# Looping... (YYYY-MM-DD)`; historical reports use `# The Loop` | One product name for the daily habit and a separate title for the archive. |
 | 2026-10-21 | Put a Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow) above story sections; failed quotes say fetch failed | The brief should open with observable market context, never invented numbers. |
+| 2026-10-24 | v4.0.1: login `RunAtLoad` plus skip-if-today’s-brief-exists; Streamlit shows the latest brief while a lockfile run finishes; mock Fed Funds is `4.33%`; user-facing tags unhyphenate | Internal YAML/SQL keys stay hyphenated; the app never blocks on Gemini. |
 | 2026-10-23 | Place each story in one weighted tag section; glance uses three-word RSS links to section anchors; only headline chips are colored Streamlit links | Section titles stay plain headings; multi-tag stories are not duplicated. |
 | 2026-10-23 | Group the daily brief by taxonomy tag with one Gemini pattern note per tag, then a Daily Summary; colored `#Tag-Name` links open a local Streamlit tag archive | Kill per-story Why It Matters and tag lines under headlines; keep one Gemini call per run. |
 | 2026-10-23 | Infer the daily macro report from RSS headlines and snippets plus 14 days of `loop.db`; archive per-article HTML extraction | Publisher pages 403 / paywall; headlines plus stored context are enough for clusters, drift, and a research radar. |
@@ -152,7 +153,8 @@ ai-market-briefing/
 ├── README.md            # roadmap and decisions
 ├── config/config.yaml   # feeds, recency, models, taxonomy, output paths
 ├── src/                 # the small programs we build together
-├── src/app.py           # Phase 1 Streamlit UI (briefs + Loop explorer)
+├── src/app.py           # Streamlit UI (Daily Loop + The Loop)
+├── static/              # Loop logo and banner
 ├── scripts/             # launchd, Streamlit start/stop, Loop.app installer
 ├── logs/                # gitignored launchd and pipeline logs
 ├── data/raw/            # saved incoming story data, if we choose to retain it
@@ -165,6 +167,16 @@ ai-market-briefing/
 
 Raw inputs and generated outputs are separate so we can inspect what the program received before trusting what it produced.
 
+## v4.0.1: Login generate, Fed Funds, and Daily Loop / The Loop
+
+Same local Streamlit app as v4.0, with a non-blocking Daily Loop tab and a search → In Focus explorer.
+
+- **Login auto-generate:** `scripts/com.loop.dailybriefing.plist` keeps weekday 8:00 AM and sets `RunAtLoad` true. `scripts/run_daily.sh` exits 0 when `briefs/YYYY-MM-DD.md` already exists for today; otherwise it writes `logs/briefing.lock`, runs live `python3 src/run_briefing.py`, and clears the lock in a trap. Reinstall with `bash scripts/install_automation.sh` (load, not `launchctl start`).
+- **Non-blocking UI:** Loop.app never runs the pipeline. If today’s file is missing or still being written, it shows the latest complete brief. A generating lock shows `⏳ Today's briefing (YYYY-MM-DD) is currently generating in the background. Showing latest available brief.` When the file appears while the app is open, it shows `🎉 A new briefing for YYYY-MM-DD is now ready!`
+- **Fed Funds:** `--mock` always prints a realistic rate such as `4.33%`, never `fetch failed`. Live runs use `https://markets.newyorkfed.org/api/rates/all/latest.json` with an explicit User-Agent, then the unsecured EFFR fallback, and say `fetch failed` only if every attempt fails.
+- **Tag display:** User-facing labels turn hyphens into spaces and `-&-` into ` & ` (`Market Valuations`, `Legislation & Policy`, `Copyright & IP`, `Foundation Models`). Internal keys in YAML, SQLite, and `?tag=` URLs stay unchanged.
+- **Layout:** Header logo + banner from `static/`. Sidebar: stored briefing count, latest briefing date, active feed names from YAML. Tab **Daily Loop** titles `Daily Loop: YYYY-MM-DD` (not Looping...), then logo/banner, Market Snapshot, At a Glance (section anchors use `scroll-margin-top: 90px`), topic sections, Daily Summary & Research Topics. Tab **The Loop** has humanized tag/source dropdowns, blankable year/month/day, keyword, and Search; results open an In Focus view with `← Back to Search`.
+
 ## v4.0: Local web UI (Phase 1)
 
 Browse generated briefs and stored Loop history without running the pipeline or calling a model.
@@ -176,19 +188,19 @@ bash scripts/start_app.sh
 
 Stop it with `bash scripts/stop_app.sh`. Install a double-clickable macOS app with `bash scripts/install_app_launcher.sh`, then open `~/Applications/Loop.app` (drag that to the Dock or Desktop if you want). `osacompile` writes an applet whose `Contents/MacOS` executable runs `scripts/start_app.sh`. `start_app.sh` puts Homebrew on `PATH` so Finder/`osascript` can find `streamlit`, uses `lsof` on port 8501 to avoid a second copy, `nohup`s Streamlit, writes `logs/streamlit.pid`, and opens http://localhost:8501. You can still run `streamlit run src/app.py` from the project folder. Re-run the installer only if the start script path changes.
 
-The app resolves the project root from `src/app.py`, so `config/`, `briefs/`, and `data/` are found even when Streamlit's working directory is `src/`. The sidebar shows stored article count (`data/loop.db`, or zero if the file is missing), the newest `briefs/YYYY-MM-DD.md` date, and the active feed count from `config/config.yaml`. Headlines are Markdown links to the RSS story (`target=_blank` in the explorer). Clustered coverage uses a `🔗 Sources (N)` popover. The UI never prints a raw URL as standalone text.
+The app resolves the project root from `src/app.py`, so `config/`, `briefs/`, and `data/` are found even when Streamlit's working directory is `src/`. The sidebar shows stored briefing count, the newest `briefs/YYYY-MM-DD.md` date, and active feed names from `config/config.yaml`. Headlines are Markdown links to the RSS story (`target=_blank` in the explorer). Clustered coverage uses a `🔗 Sources (N)` popover. The UI never prints a raw URL as standalone text.
 
 | Tab | What it shows |
 | --- | --- |
-| Daily Briefings | Date selector (newest first) and the Markdown file. At a Glance is one italic white tag label per line (jumps to later `##` sections) plus three-word RSS links. Color-coded `#Tag-Name` chips beside each full headline open the local tag archive. |
-| The Loop Explorer | SQLite filters: taxonomy tag, source, and headline/summary search. Results are expander cards with a linked headline, the same colored clickable hashtag chips, and a sources popover when more than one publisher used the same headline. |
-| Tag archive (`?tag=`) | All `loop.db` rows whose stored tags contain that label (`tags LIKE ?`), grouped by date, newest first. Example: `http://127.0.0.1:8501/?tag=Legislation-%26-Policy`. Local Streamlit only; not a public website. |
+| Daily Loop | Title `Daily Loop: YYYY-MM-DD`, logo/banner, Market Snapshot, At a Glance (italic humanized tag jumps with `scroll-margin-top: 90px`), topic sections, Daily Summary & Research Topics. If today is generating, the latest complete brief is shown instead. |
+| The Loop | Tag/source dropdowns (humanized tags), year/month/day (blank = broader range), keyword, and Search. After Search or choosing a filter: In Focus with `← Back to Search`, story cards, humanized chips, and source popovers. |
+| Tag archive (`?tag=`) | All `loop.db` rows whose stored tags contain that internal label (`tags LIKE ?`), grouped by date, newest first. Example: `http://127.0.0.1:8501/?tag=Legislation-%26-Policy`. Local Streamlit only; not a public website. |
 
 Phase 1 only: no generate-brief button, no new Gemini calls, no writes to the database from the UI.
 
 ## v3.5: Local Automation & Passive Ingestion
 
-A user LaunchAgent runs `python3 src/run_briefing.py` at **8:00 AM Monday–Friday**. There are no new LLM calls; the job is the same live pipeline as a manual run. The Mac must be on (and logged in) at 8:00 AM on weekdays, or that day's interval is skipped. A gitignored `.env` with `GEMINI_API_KEY` (and any OpenAI fallback) must exist in the project root for live runs. Do not put API keys in the plist or shell scripts.
+A user LaunchAgent runs `python3 src/run_briefing.py` at **8:00 AM Monday–Friday** and on login (`RunAtLoad`). If `briefs/YYYY-MM-DD.md` already exists for today, the wrapper exits 0. Otherwise it holds `logs/briefing.lock` for the live run. The Mac must be on (and logged in) at 8:00 AM on weekdays, or that day's interval is skipped. A gitignored `.env` with `GEMINI_API_KEY` (and any OpenAI fallback) must exist in the project root for live runs. Do not put API keys in the plist or shell scripts.
 
 Install (or reinstall) the job:
 
@@ -196,7 +208,7 @@ Install (or reinstall) the job:
 bash scripts/install_automation.sh
 ```
 
-The installer `chmod +x`s `scripts/run_daily.sh`, copies `scripts/com.loop.dailybriefing.plist` to `~/Library/LaunchAgents/com.loop.dailybriefing.plist`, unloads any previous copy, and loads the job. It does not start a briefing.
+The installer `chmod +x`s `scripts/run_daily.sh`, copies `scripts/com.loop.dailybriefing.plist` to `~/Library/LaunchAgents/com.loop.dailybriefing.plist`, unloads any previous copy, and loads the job. It does not `launchctl start` a briefing. `RunAtLoad` may invoke `run_daily.sh`; that script no-ops when today’s brief is already on disk.
 
 | Path | Role |
 | --- | --- |
@@ -214,9 +226,9 @@ That starts a **live** briefing (Gemini if `.env` is present). Use `python3 src/
 
 ## Run the full briefing
 
-From the project folder, run `python3 src/run_briefing.py`. It collects feeds from the last 48 hours, enriches tags, selects stories, fetches a Market Snapshot, writes one run-level Gemini payload (per-tag pattern notes, daily summary, research radar), writes `# Looping... (YYYY-MM-DD)`, and appends the selected stories plus that copy to `data/loop.db`. It stops at the first step that fails. Add `--open` to open `briefs/YYYY-MM-DD.md` when the run finishes (`open` on macOS; other platforms print the path and do not launch a viewer). Every run, mock or live, prints a completion banner with the output path, story count, Market Snapshot status, and `failed_sources` when a feed was skipped.
+From the project folder, run `python3 src/run_briefing.py`. It collects feeds from the last 48 hours, enriches tags, selects stories, fetches a Market Snapshot, writes one run-level Gemini payload (per-tag pattern notes, daily summary, research radar), writes `# Looping... (YYYY-MM-DD)`, and appends the selected stories plus that copy to `data/loop.db`. The Streamlit Daily Loop tab displays that file as `Daily Loop: YYYY-MM-DD`. It stops at the first step that fails. Add `--open` to open `briefs/YYYY-MM-DD.md` when the run finishes (`open` on macOS; other platforms print the path and do not launch a viewer). Every run, mock or live, prints a completion banner with the output path, story count, Market Snapshot status, and `failed_sources` when a feed was skipped.
 
-For a briefing that does not call a model, run `python3 src/run_briefing.py --mock`. It still collects the RSS feeds, enriches tags, selects stories, and fetches market quotes. Per-tag notes and the daily summary are offline mock copy, even when `.env` contains an API key, and it never talks to Gemini. Live runs never write `AI Summary Pending`, `AI Headline Pending`, or `AI Summary goes HERE`. A feed that fails is skipped, and the brief is written from the feeds that succeeded. Failed market quotes are labeled `fetch failed`. Combine flags as needed, for example `python3 src/run_briefing.py --mock --open`.
+For a briefing that does not call a model, run `python3 src/run_briefing.py --mock`. It still collects the RSS feeds, enriches tags, and selects stories. The Market Snapshot uses a realistic offline Fed Funds rate (`4.33%`) and index levels instead of network quotes. Per-tag notes and the daily summary are offline mock copy, even when `.env` contains an API key, and it never talks to Gemini. Live runs never write `AI Summary Pending`, `AI Headline Pending`, or `AI Summary goes HERE`. A feed that fails is skipped, and the brief is written from the feeds that succeeded. Failed live market quotes are labeled `fetch failed`. Combine flags as needed, for example `python3 src/run_briefing.py --mock --open`.
 
 ## Current enrichment step
 
@@ -258,9 +270,9 @@ Create a readable Markdown briefing from the latest summarized run (or selected 
 python3 src/write_brief.py
 ```
 
-The briefing title is `# Looping... (YYYY-MM-DD)`. A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) sits above **At a Glance**. Each glance line is a white italic tag label (HTML, no `#`, no underline) that jumps to the later plain `## Tag` section, then the first three words of each RSS headline in that section, with an ellipsis, comma-separated and linked to the article URL. The RSS headline is the only title; Gemini does not write an AI headline.
+The briefing file title is `# Looping... (YYYY-MM-DD)` (the app shows `Daily Loop: YYYY-MM-DD`). A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) sits above **At a Glance**. Each glance line is a white italic humanized tag label (HTML, no `#`, no underline) that jumps to the later plain `##` section, then the first three words of each RSS headline in that section, with an ellipsis, comma-separated and linked to the article URL. The RSS headline is the only title; Gemini does not write an AI headline.
 
-Stories are grouped under the **highest-weight** tag from `config/config.yaml` `tag_weights` (one section per story). Section titles are plain Markdown headings and are not colored or linked. Full RSS headline links sit under the heading, with color-coded `#Tag-Name` chips beside the headline that open the local Streamlit tag archive at `http://127.0.0.1:8501/?tag=...` (for example `?tag=Legislation-%26-Policy`). Exact-headline duplicates add `also covered by [Source B]`. After those links, one **Why it might matter / pattern** paragraph for the tag (today’s headlines in that section plus 14-day `loop.db` history). There is no italic tags line and no per-story Why It Matters.
+Stories are grouped under the **highest-weight** tag from `config/config.yaml` `tag_weights` (one section per story). Section titles are plain humanized Markdown headings (`Legislation & Policy`) and are not colored or linked. Full RSS headline links sit under the heading, with color-coded `#Tag-Name` chips beside the headline that open the local Streamlit tag archive at `http://127.0.0.1:8501/?tag=...` (for example `?tag=Legislation-%26-Policy`). Exact-headline duplicates add `also covered by [Source B]`. After those links, one **Why it might matter / pattern** paragraph for the tag (today’s headlines in that section plus 14-day `loop.db` history). There is no italic tags line and no per-story Why It Matters.
 
 **Daily Summary** follows the tag sections: what happened today across all headlines, what it could mean, then research topics to look into more. Historical reports from `data/loop.db` are titled `# The Loop: Macro Summary (Last N Days)`.
 

@@ -14,6 +14,19 @@ import fetch_market
 class FetchMarketTests(unittest.TestCase):
     def test_snapshot_uses_previous_close_and_marks_failures(self):
         def fake_get(url: str, timeout: int = 15) -> bytes:
+            if "all/latest" in url:
+                return json.dumps(
+                    {
+                        "refRates": [
+                            {"type": "SOFR", "percentRate": 3.90, "effectiveDate": "2026-10-20"},
+                            {
+                                "type": "EFFR",
+                                "percentRate": 4.33,
+                                "effectiveDate": "2026-10-20",
+                            },
+                        ]
+                    }
+                ).encode("utf-8")
             if "effr" in url:
                 return json.dumps(
                     {"refRates": [{"percentRate": 4.33, "effectiveDate": "2026-10-20"}]}
@@ -63,3 +76,28 @@ class FetchMarketTests(unittest.TestCase):
         self.assertEqual(result["status"], "fetch failed")
         self.assertNotIn("rate", result)
         self.assertEqual(fetch_market.format_fed_funds(result), "fetch failed")
+
+    def test_mock_fed_funds_is_realistic_and_not_failed(self):
+        with patch.object(fetch_market, "_get_bytes", side_effect=AssertionError("network")):
+            snapshot = fetch_market.mock_market_snapshot()
+        self.assertEqual(snapshot["fed_funds"]["status"], "ok")
+        self.assertEqual(snapshot["fed_funds"]["rate"], 4.33)
+        formatted = fetch_market.format_fed_funds(snapshot["fed_funds"])
+        self.assertEqual(formatted, "4.33%")
+        self.assertNotEqual(formatted, "fetch failed")
+        self.assertNotIn("fetch failed", fetch_market.render_market_block(snapshot))
+
+    def test_fed_funds_falls_back_when_all_latest_fails(self):
+        def fake_get(url: str, timeout: int = 15) -> bytes:
+            if "all/latest" in url:
+                raise URLError("all latest blocked")
+            if "unsecured/effr" in url or "effr" in url:
+                return json.dumps(
+                    {"refRates": [{"percentRate": 4.33, "effectiveDate": "2026-10-20"}]}
+                ).encode("utf-8")
+            raise AssertionError(url)
+
+        with patch.object(fetch_market, "_get_bytes", side_effect=fake_get):
+            result = fetch_market.fetch_fed_funds()
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["rate"], 4.33)

@@ -198,7 +198,7 @@ def render_the_loop(
         "Historical Loop: AI Market Briefing stories from ``data/loop.db``.",
     ]
     if tag:
-        lines.extend(["", f"Filtered to tag `{tag}`."])
+        lines.extend(["", f"Filtered to tag `{write_brief.humanize_tag(tag)}`."])
     lines.extend(["", render_market_trends(rows).rstrip(), "", "## At a Glance", ""])
 
     if not rows:

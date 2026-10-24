@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import sys
 from pathlib import Path
@@ -180,7 +181,8 @@ class AppImportTests(unittest.TestCase):
         self.assertEqual(len(grouped[0][1]), 2)
         chips = self.app.tag_chips_html(["Legislation-&-Policy", "Foundation-Models"])
         self.assertIn("http://127.0.0.1:8501/?tag=Legislation-%26-Policy", chips)
-        self.assertIn("#Foundation-Models", chips)
+        self.assertIn("Foundation Models", chips)
+        self.assertNotIn("#Foundation-Models", chips)
 
     def test_stories_for_tag_uses_parameterized_like(self):
         with TemporaryDirectory() as temp_dir:
@@ -241,6 +243,116 @@ class AppImportTests(unittest.TestCase):
         )
         dates = [date for date, _rows in self.app.group_stories_by_date(rows)]
         self.assertEqual(dates, ["2026-10-15", "2026-10-13"])
+
+    def test_humanize_tag_unhyphenates_user_facing_labels(self):
+        self.assertEqual(self.app.humanize_tag("Market-Valuations"), "Market Valuations")
+        self.assertEqual(self.app.humanize_tag("Legislation-&-Policy"), "Legislation & Policy")
+        self.assertEqual(self.app.humanize_tag("Copyright-&-IP"), "Copyright & IP")
+        self.assertEqual(self.app.humanize_tag("Foundation-Models"), "Foundation Models")
+        displayed = self.app.humanize_brief_markdown(
+            "# Looping... (2026-10-24)\n\n## Legislation-&-Policy\n\n## Daily Summary\n"
+        )
+        self.assertNotIn("Looping...", displayed)
+        self.assertIn("## Legislation & Policy", displayed)
+        self.assertIn("## Daily Summary & Research Topics", displayed)
+
+    def test_generation_banners_and_lock_detection(self):
+        today = "2026-10-24"
+        self.assertEqual(
+            self.app.generating_banner(today),
+            "⏳ Today's briefing (2026-10-24) is currently generating in the background. Showing latest available brief.",
+        )
+        self.assertEqual(
+            self.app.ready_banner(today),
+            "🎉 A new briefing for 2026-10-24 is now ready!",
+        )
+        with TemporaryDirectory() as temp_dir:
+            lock = Path(temp_dir) / "briefing.lock"
+            lock.write_text(str(os.getpid()), encoding="utf-8")
+            self.assertTrue(self.app.is_briefing_generating(lock))
+            lock.write_text("99999999", encoding="utf-8")
+            self.assertFalse(self.app.is_briefing_generating(lock))
+
+    def test_tab_titles_are_daily_loop_and_the_loop(self):
+        source = Path(self.app.__file__).read_text(encoding="utf-8")
+        self.assertEqual(self.app.TAB_DAILY, "Daily Loop")
+        self.assertEqual(self.app.TAB_LOOP, "The Loop")
+        self.assertIn("st.tabs([TAB_DAILY, TAB_LOOP])", source)
+        self.assertIn("Daily Loop:", source)
+        self.assertNotIn("Daily Briefings", source)
+        self.assertNotIn("The Loop Explorer", source)
+
+    def test_search_stories_date_range_year_month_day(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "loop.db"
+            connection = sqlite3.connect(path)
+            connection.execute(
+                """
+                CREATE TABLE stories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    published_date TEXT,
+                    headline TEXT,
+                    url TEXT,
+                    source TEXT,
+                    full_text TEXT,
+                    ai_summary TEXT,
+                    tags TEXT,
+                    market_snapshot_json TEXT
+                )
+                """
+            )
+            connection.executemany(
+                "INSERT INTO stories (published_date, headline, url, source, ai_summary, tags) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        "2026-10-15",
+                        "October policy",
+                        "https://example.com/oct",
+                        "Example News",
+                        "",
+                        '["Legislation-&-Policy"]',
+                    ),
+                    (
+                        "2026-09-15",
+                        "September policy",
+                        "https://example.com/sep",
+                        "Example News",
+                        "",
+                        '["Legislation-&-Policy"]',
+                    ),
+                    (
+                        "2025-10-15",
+                        "Prior year",
+                        "https://example.com/prior",
+                        "Example News",
+                        "",
+                        '["Legislation-&-Policy"]',
+                    ),
+                ],
+            )
+            connection.commit()
+            connection.close()
+            by_year = self.app.search_stories(str(path), "", "", "", year="2026")
+            by_month = self.app.search_stories(
+                str(path), "", "", "", year="2026", month="10"
+            )
+            by_day = self.app.search_stories(
+                str(path), "", "", "", year="2026", month="10", day="15"
+            )
+            blank = self.app.search_stories(str(path), "", "", "")
+            source = Path(self.app.__file__).read_text(encoding="utf-8")
+
+        self.assertEqual(
+            [row["headline"] for row in by_year],
+            ["October policy", "September policy"],
+        )
+        self.assertEqual([row["headline"] for row in by_month], ["October policy"])
+        self.assertEqual([row["headline"] for row in by_day], ["October policy"])
+        self.assertEqual(len(blank), 3)
+        self.assertIn("AND published_date = ?", source)
+        self.assertIn("AND published_date LIKE ?", source)
+        self.assertNotIn("AND published_date = '{", source)
 
 
 class HeadlineAndPopoverTests(unittest.TestCase):

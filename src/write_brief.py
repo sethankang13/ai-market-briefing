@@ -99,6 +99,13 @@ def section_for_story(story: dict[str, object]) -> str:
     return chosen if chosen else "Other"
 
 
+def humanize_tag(tag: str) -> str:
+    """User-facing label: ``-&-`` becomes `` & ``, remaining hyphens become spaces."""
+    if not isinstance(tag, str) or not tag:
+        return ""
+    return tag.replace("-&-", " & ").replace("-", " ")
+
+
 def tag_archive_url(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:
     """Local Streamlit archive URL for one taxonomy tag (query-parameterized)."""
     root = base if base.endswith("/") else f"{base}/"
@@ -106,10 +113,10 @@ def tag_archive_url(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:
 
 
 def tag_hashtag_html(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:
-    """Color-coded, clickable ``#Tag-Name`` pointing at the local tag archive."""
+    """Color-coded chip with a humanized label; href still uses the internal key."""
     color = TAG_COLORS.get(tag, "#334155")
     href = html.escape(tag_archive_url(tag, base), quote=True)
-    label = html.escape(f"#{tag}")
+    label = html.escape(humanize_tag(tag))
     return (
         f'<a href="{href}" style="color:{color};font-weight:700;text-decoration:none">'
         f"{label}</a>"
@@ -124,7 +131,7 @@ def tag_section_id(tag: str) -> str:
 def tag_heading_markdown(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:
     """Plain Markdown heading plus an anchor. Not a Streamlit link and not colored."""
     del base
-    return f'<a id="{tag_section_id(tag)}"></a>\n## {tag}'
+    return f'<a id="{tag_section_id(tag)}"></a>\n## {humanize_tag(tag)}'
 
 
 def tag_chips_html(tags: list[str], base: str = TAG_ARCHIVE_BASE) -> str:
@@ -177,7 +184,7 @@ def glance_markdown(headline: object, url: object, slug: str) -> str:
 def glance_tag_label(tag: str) -> str:
     """White italic section jump. Not a hashtag and not a default Markdown link."""
     href = html.escape(f"#{tag_section_id(tag)}", quote=True)
-    label = html.escape(tag)
+    label = html.escape(humanize_tag(tag))
     return (
         f'<a href="{href}" style="color:#fff;font-style:italic;text-decoration:none">'
         f"{label}</a>"
@@ -326,7 +333,7 @@ def render_tag_section(
 def render_daily_summary(summary: str, radar: list[str]) -> list[str]:
     if not summary and not radar:
         return []
-    lines = ["", "## Daily Summary", ""]
+    lines = ["", "## Daily Summary & Research Topics", ""]
     if summary:
         lines.append(summary)
     if radar:
@@ -356,11 +363,15 @@ def render_brief(selected_run: dict[str, object], date_stem: str) -> str:
     notes, daily_summary, radar = copy_from_run(selected_run)
     sections = grouped_sections(selected_run)
     lines.extend(render_at_a_glance(sections))
+    if sections:
+        lines.extend(["", "---"])
     for section, items in sections:
         note = notes.get(section) if section != "Other" else None
         lines.extend(render_tag_section(section, items, note))
-
-    lines.extend(render_daily_summary(daily_summary, radar))
+    summary_lines = render_daily_summary(daily_summary, radar)
+    if summary_lines:
+        lines.extend(["", "---"])
+        lines.extend(summary_lines)
     briefing = "\n".join(lines) + "\n"
     for marker in PENDING_MARKERS:
         if marker.lower() in briefing.lower():

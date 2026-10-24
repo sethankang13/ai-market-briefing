@@ -43,8 +43,9 @@ class RunBriefingTests(unittest.TestCase):
 
         snapshot = {"fed_funds": {"status": "fetch failed"}}
 
-        def market_step():
+        def market_step(mock=False):
             order.append("market")
+            del mock
             return snapshot
 
         def attach_market(summarized_path, market):

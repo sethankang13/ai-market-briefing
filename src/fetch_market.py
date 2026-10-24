@@ -18,9 +18,22 @@ from datetime import datetime, timezone
 from typing import Any
 
 
-USER_AGENT = "Loop-AI-Market-Briefing/0.1"
-EFFR_URL = "https://markets.newyorkfed.org/api/rates/unsecured/effr/last.json"
+USER_AGENT = (
+    "Loop-AI-Market-Briefing/4.0.1 "
+    "(local briefing; https://github.com/sethankang13/ai-market-briefing)"
+)
+REQUEST_HEADERS = {
+    "User-Agent": USER_AGENT,
+    "Accept": "application/json,text/plain;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+EFFR_URLS = (
+    "https://markets.newyorkfed.org/api/rates/all/latest.json",
+    "https://markets.newyorkfed.org/api/rates/unsecured/effr/last.json",
+)
+EFFR_URL = EFFR_URLS[0]
 YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+MOCK_FED_FUNDS_RATE = 4.33
 
 INDEXES = (
     ("^GSPC", "S&P 500"),
@@ -31,7 +44,7 @@ INDEXES = (
 
 def _get_bytes(url: str, timeout: int = 15) -> bytes:
     """GET one URL. Isolated so tests can mock it."""
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    request = urllib.request.Request(url, headers=REQUEST_HEADERS)
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read(2_000_000)
 
@@ -40,24 +53,103 @@ def _failed(reason: str) -> dict[str, Any]:
     return {"status": "fetch failed", "error": reason}
 
 
+def _ref_rate_rows(data: Any) -> list[dict[str, Any]]:
+    if isinstance(data, list):
+        return [row for row in data if isinstance(row, dict)]
+    if not isinstance(data, dict):
+        return []
+    for key in ("refRates", "rates", "data"):
+        rows = data.get(key)
+        if isinstance(rows, list):
+            return [row for row in rows if isinstance(row, dict)]
+        if isinstance(rows, dict):
+            nested = _ref_rate_rows(rows)
+            if nested:
+                return nested
+    return []
+
+
+def _parse_effr(data: Any) -> dict[str, Any] | None:
+    """Pick the Effective Federal Funds Rate row from a NY Fed JSON payload."""
+    rows = _ref_rate_rows(data)
+    if not rows:
+        return None
+    chosen = None
+    for row in rows:
+        kind = str(row.get("type") or row.get("rateType") or "").strip().upper()
+        if kind == "EFFR" or "FEDERAL FUNDS" in kind:
+            chosen = row
+            break
+    if chosen is None:
+        chosen = rows[0]
+    rate = chosen.get("percentRate")
+    if rate is None:
+        return None
+    return {
+        "status": "ok",
+        "rate": float(rate),
+        "as_of": chosen.get("effectiveDate"),
+    }
+
+
+def mock_market_snapshot() -> dict[str, Any]:
+    """Realistic offline snapshot for ``--mock``. Never labeled fetch failed."""
+    indexes = {
+        "^GSPC": {
+            "status": "ok",
+            "symbol": "^GSPC",
+            "name": "S&P 500",
+            "previous_close": 5775.25,
+            "percent_change": 0.32,
+        },
+        "^IXIC": {
+            "status": "ok",
+            "symbol": "^IXIC",
+            "name": "Nasdaq",
+            "previous_close": 18240.10,
+            "percent_change": 0.48,
+        },
+        "^DJI": {
+            "status": "ok",
+            "symbol": "^DJI",
+            "name": "Dow",
+            "previous_close": 42350.75,
+            "percent_change": 0.15,
+        },
+    }
+    return {
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "fed_funds": {
+            "status": "ok",
+            "rate": MOCK_FED_FUNDS_RATE,
+            "as_of": "mock",
+            "source": "mock",
+        },
+        "indexes": indexes,
+    }
+
+
 def fetch_fed_funds() -> dict[str, Any]:
     """Return the latest Effective Federal Funds Rate, or an explicit failure."""
-    try:
-        data = json.loads(_get_bytes(EFFR_URL).decode("utf-8"))
-        rows = data.get("refRates") if isinstance(data, dict) else None
-        if not isinstance(rows, list) or not rows:
-            return _failed("NY Fed response had no refRates")
-        row = rows[0]
-        rate = row.get("percentRate")
-        if rate is None:
-            return _failed("NY Fed response had no percentRate")
-        return {
-            "status": "ok",
-            "rate": float(rate),
-            "as_of": row.get("effectiveDate"),
-        }
-    except (urllib.error.URLError, TimeoutError, OSError, ValueError, TypeError, KeyError) as error:
-        return _failed(str(error) or error.__class__.__name__)
+    errors: list[str] = []
+    for url in EFFR_URLS:
+        try:
+            data = json.loads(_get_bytes(url).decode("utf-8"))
+            parsed = _parse_effr(data)
+            if parsed is not None:
+                parsed["source"] = url
+                return parsed
+            errors.append(f"{url}: NY Fed response had no EFFR percentRate")
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            TypeError,
+            KeyError,
+        ) as error:
+            errors.append(f"{url}: {error or error.__class__.__name__}")
+    return _failed("; ".join(errors) if errors else "NY Fed Fed Funds fetch failed")
 
 
 def _closes_from_chart(result: dict[str, Any]) -> list[float]:

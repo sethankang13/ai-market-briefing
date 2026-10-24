@@ -1,5 +1,6 @@
 #!/bin/bash
-# Install the Loop weekday LaunchAgent. Does not start a live briefing.
+# Install the Loop weekday/login LaunchAgent (load only; does not launchctl start).
+# RunAtLoad is true in the plist; run_daily.sh exits 0 if today's brief already exists.
 set -e
 
 PROJECT="/Users/ethankang/Documents/Codex/ai-market-briefing"

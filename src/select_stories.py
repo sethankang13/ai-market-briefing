@@ -81,19 +81,46 @@ def _is_untagged(story: dict[str, object]) -> bool:
     return not tags
 
 
+def _published_on_day(story: dict[str, object], run_day) -> bool:
+    """True when RSS pubDate falls on the run's UTC calendar day."""
+    published = parse_published_at(story.get("published_at"))
+    if published is None:
+        return False
+    return published.date() == run_day
+
+
+def _rank_today_first(
+    stories: list[dict[str, object]], indexes: list[int], run_day
+) -> list[int]:
+    """Prefer same-calendar-day items, then fall back to the 48-hour pool."""
+    today = [index for index in indexes if _published_on_day(stories[index], run_day)]
+    rest = [index for index in indexes if index not in set(today)]
+    if today:
+        return _ranked_indexes(stories, today) + _ranked_indexes(stories, rest)
+    return _ranked_indexes(stories, indexes)
+
+
 def select_stories(
-    stories: list[dict[str, object]], maximum: int = MAX_STORIES
+    stories: list[dict[str, object]],
+    maximum: int = MAX_STORIES,
+    now: datetime | None = None,
 ) -> list[dict[str, object]]:
     """Select the top stories by score, plus the best story for each tag present.
 
+    Same-day RSS items beat older items still inside the 48-hour collect window.
     The top ``maximum`` slots still prefer tagged stories. An untagged story fills
     a leftover slot only, and the whole set keeps at most one untagged story.
     Each real tag is worth one point. Equal scores keep their original feed order.
     """
+    run_day = (_as_utc(now) if now is not None else datetime.now(timezone.utc)).date()
     consequential = [
         index for index, story in enumerate(stories) if not _is_untagged(story)
     ]
-    selected_indexes = _ranked_indexes(stories, consequential)[:maximum]
+    today_consequential = [
+        index for index in consequential if _published_on_day(stories[index], run_day)
+    ]
+    pool = today_consequential if today_consequential else consequential
+    selected_indexes = _ranked_indexes(stories, pool)[:maximum]
 
     if len(selected_indexes) < maximum:
         untagged_index = next(
@@ -108,7 +135,7 @@ def select_stories(
         tagged = [index for index, story in enumerate(stories) if tag in story_tags(story)]
         if not tagged:
             continue
-        best_index = _ranked_indexes(stories, tagged)[0]
+        best_index = _rank_today_first(stories, tagged, run_day)[0]
         selected.add(best_index)
 
     untagged_indexes = [index for index in selected if _is_untagged(stories[index])]
@@ -124,7 +151,7 @@ def select_stories(
             "selection_score": score_story(stories[index]),
             "selection_reason": selection_reason(stories[index]),
         }
-        for index in _ranked_indexes(stories, list(selected))
+        for index in _rank_today_first(stories, list(selected), run_day)
     ]
 
 
@@ -227,7 +254,7 @@ def save_selected_run(enriched_run: dict[str, object], input_path: Path) -> Path
     output = {
         "enriched_run": input_path.name,
         "failed_sources": enriched_run.get("failed_sources", []),
-        "stories": select_stories(stories),
+        "stories": select_stories(stories, now=datetime.now(timezone.utc)),
     }
     output_path.write_text(json.dumps(output, indent=2), encoding="utf-8")
     return output_path

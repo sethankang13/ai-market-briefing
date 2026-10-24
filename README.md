@@ -1,6 +1,6 @@
 # LOOP: AI Market Briefing
 
-**Active version: v4.0.1.** Loop.app stays responsive while a briefing generates in the background, login can auto-run the weekday pipeline when today’s file is missing, Fed Funds mock quotes a realistic rate, and the UI shows humanized tag labels (`Market Valuations`, `Legislation & Policy`). Live pipeline runs still need a gitignored `.env` in the project root.
+**Active version: v4.1.** LOOP branding, pastel tag chips, a left header with vertically centered glasses + wordmark, ink type in light mode, mock RSS still fetched live, and 2026-scale market closes (Dow ~52k). Loop.app stays responsive while a briefing generates in the background. Live pipeline runs still need a gitignored `.env` in the project root.
 
 ## Purpose
 
@@ -38,6 +38,7 @@ No paid news API, database, website, or automated email yet.
 | 2026-10-21 | Use eight public feeds, including Bloomberg, Reuters markets, Politico, and a narrower AP policy search | Broader AI market and policy coverage from still-free RSS. |
 | 2026-10-21 | Rebrand to Loop: AI Market Briefing; daily files use `# Looping... (YYYY-MM-DD)`; historical reports use `# The Loop` | One product name for the daily habit and a separate title for the archive. |
 | 2026-10-21 | Put a Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow) above story sections; failed quotes say fetch failed | The brief should open with observable market context, never invented numbers. |
+| 2026-10-24 | v4.1: LOOP wordmark/glasses, pastel `#Tag` chips, ink-on-ivory light UI, same-day RSS preferred over the 48h leftover pool, Yahoo latest session close, mock Dow ~52k | `--mock` still collects live feeds and skips Gemini. |
 | 2026-10-24 | v4.0.1: login `RunAtLoad` plus skip-if-today’s-brief-exists; Streamlit shows the latest brief while a lockfile run finishes; mock Fed Funds is `4.33%`; user-facing tags unhyphenate | Internal YAML/SQL keys stay hyphenated; the app never blocks on Gemini. |
 | 2026-10-23 | Place each story in one weighted tag section; glance uses three-word RSS links to section anchors; only headline chips are colored Streamlit links | Section titles stay plain headings; multi-tag stories are not duplicated. |
 | 2026-10-23 | Group the daily brief by taxonomy tag with one Gemini pattern note per tag, then a Daily Summary; colored `#Tag-Name` links open a local Streamlit tag archive | Kill per-story Why It Matters and tag lines under headlines; keep one Gemini call per run. |
@@ -166,6 +167,10 @@ ai-market-briefing/
 ```
 
 Raw inputs and generated outputs are separate so we can inspect what the program received before trusting what it produced.
+
+## v4.1: LOOP branding, same-day RSS, 2026 market close
+
+Same pipeline as v4.0.1. The Streamlit header is glasses + LOOP + AI Market Briefing, left-aligned and vertically centered. Light appearance uses ink `#171C25` on ivory; dark uses ivory on ink. Tag chips are `#Humanized Tag` with a pastel underline. `--mock` still fetches live RSS and skips Gemini; selection prefers items published on the run’s calendar day so yesterday’s 48-hour leftovers do not reuse the same lead headlines. Market Snapshot shows the latest completed session close (Friday’s close on a weekend) with green/red percent change. Mock index levels are 2026-scale (Dow ~52,215, S&P ~7,624, Nasdaq ~25,955).
 
 ## v4.0.1: Login generate, Fed Funds, and Daily Loop / The Loop
 

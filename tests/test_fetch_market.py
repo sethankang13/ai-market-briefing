@@ -66,7 +66,7 @@ class FetchMarketTests(unittest.TestCase):
         self.assertEqual(snapshot["fed_funds"]["rate"], 4.33)
         spx = snapshot["indexes"]["^GSPC"]
         self.assertEqual(spx["status"], "ok")
-        self.assertEqual(spx["previous_close"], 5000.0)
+        self.assertEqual(spx["previous_close"], 5123.45)
         self.assertAlmostEqual(spx["percent_change"], -0.42)
         self.assertEqual(snapshot["indexes"]["^IXIC"]["status"], "fetch failed")
         self.assertEqual(snapshot["indexes"]["^DJI"]["status"], "fetch failed")
@@ -84,7 +84,7 @@ class FetchMarketTests(unittest.TestCase):
         self.assertNotIn("rate", result)
         self.assertEqual(fetch_market.format_fed_funds(result), "fetch failed")
 
-    def test_index_quote_uses_yahoo_previous_close_not_last_bar(self):
+    def test_index_quote_uses_latest_session_close_not_prior_bar(self):
         payload = {
             "chart": {
                 "result": [
@@ -108,9 +108,9 @@ class FetchMarketTests(unittest.TestCase):
         ):
             quote = fetch_market.fetch_index_quote("^GSPC", "S&P 500")
         self.assertEqual(quote["status"], "ok")
-        self.assertEqual(quote["previous_close"], 7659.44)
+        self.assertEqual(quote["previous_close"], 7623.68)
         self.assertAlmostEqual(quote["percent_change"], -0.519)
-        self.assertNotEqual(quote["previous_close"], 7623.68)
+        self.assertNotEqual(quote["previous_close"], 7659.44)
         block = fetch_market.render_market_block(
             {
                 "fed_funds": {"status": "ok", "rate": 4.33},
@@ -129,6 +129,9 @@ class FetchMarketTests(unittest.TestCase):
         self.assertEqual(formatted, "4.33%")
         self.assertNotEqual(formatted, "fetch failed")
         self.assertNotIn("fetch failed", fetch_market.render_market_block(snapshot))
+        self.assertGreater(snapshot["indexes"]["^DJI"]["previous_close"], 50000)
+        self.assertGreater(snapshot["indexes"]["^GSPC"]["previous_close"], 7000)
+        self.assertGreater(snapshot["indexes"]["^IXIC"]["previous_close"], 20000)
 
     def test_fed_funds_falls_back_when_all_latest_fails(self):
         def fake_get(url: str, timeout: int = 15) -> bytes:

@@ -92,43 +92,50 @@ def brand_css() -> str:
 html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
 .stMarkdown, .stCaption, .stText, .stSelectbox, .stTextInput {{
   font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: var(--loop-ink);
 }}
 a[id], h1, h2, h3, [id] {{ scroll-margin-top: 90px; }}
 h1, h2, h3 {{
-  color: var(--loop-ink);
+  color: var(--loop-ink) !important;
   font-weight: 500;
   letter-spacing: 0.01em;
 }}
 hr {{ border: none; border-top: 1px solid var(--loop-mist); }}
 [data-testid="stHeader"] {{ background: transparent; }}
+[data-testid="stSidebar"] {{
+  color: var(--loop-ink) !important;
+}}
 .loop-header {{
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  text-align: center;
-  color: var(--loop-ink);
+  justify-content: flex-start;
+  text-align: left;
+  gap: 1rem;
+  color: var(--loop-ink) !important;
   padding: 0.4rem 0 0.8rem;
 }}
 .loop-mark {{
   color: inherit;
   width: 88px;
+  flex: 0 0 auto;
 }}
 .loop-glasses {{
   width: 88px;
   height: 44px;
   display: block;
-  margin: 0 auto;
+  margin: 0;
 }}
 .loop-wordmark {{
-  padding-top: 0.35rem;
-  color: inherit;
+  padding-top: 0;
+  color: inherit !important;
 }}
 .loop-wordmark-name {{
   font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 2.35rem;
   font-weight: 400;
   letter-spacing: 0.32em;
-  color: inherit;
+  color: var(--loop-ink) !important;
   line-height: 1.05;
   text-transform: uppercase;
 }}
@@ -137,8 +144,8 @@ hr {{ border: none; border-top: 1px solid var(--loop-mist); }}
   font-size: 0.92rem;
   font-weight: 400;
   letter-spacing: 0.14em;
-  color: inherit;
-  margin-top: 0.4rem;
+  color: var(--loop-ink) !important;
+  margin-top: 0.25rem;
 }}
 a[href*="?tag="] {{
   font-weight: 500 !important;
@@ -157,22 +164,28 @@ a[href*="?tag="] {{
   border-color: var(--loop-mist) !important;
 }}
 html[data-theme="light"] .loop-header,
-[data-theme="light"] .loop-header {{
+html[data-theme="light"] .loop-wordmark-name,
+html[data-theme="light"] .loop-wordmark-desc,
+html[data-theme="light"] h1,
+html[data-theme="light"] h2,
+html[data-theme="light"] h3,
+html[data-theme="light"] [data-testid="stSidebar"],
+[data-theme="light"] .loop-header,
+[data-theme="light"] .loop-wordmark-name,
+[data-theme="light"] .loop-wordmark-desc {{
   color: var(--loop-ink) !important;
 }}
 html[data-theme="dark"] .loop-header,
-[data-theme="dark"] .loop-header {{
+html[data-theme="dark"] .loop-wordmark-name,
+html[data-theme="dark"] .loop-wordmark-desc,
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] [data-testid="stSidebar"],
+[data-theme="dark"] .loop-header,
+[data-theme="dark"] .loop-wordmark-name,
+[data-theme="dark"] .loop-wordmark-desc {{
   color: var(--loop-ivory) !important;
-}}
-@media (prefers-color-scheme: dark) {{
-  html:not([data-theme="light"]) .loop-header {{
-    color: var(--loop-ivory);
-  }}
-  html:not([data-theme="light"]) h1,
-  html:not([data-theme="light"]) h2,
-  html:not([data-theme="light"]) h3 {{
-    color: var(--loop-ivory);
-  }}
 }}
 </style>
 """

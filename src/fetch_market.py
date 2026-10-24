@@ -20,7 +20,7 @@ from typing import Any
 
 
 USER_AGENT = (
-    "Loop-AI-Market-Briefing/4.0.1 "
+    "Loop-AI-Market-Briefing/4.1 "
     "(local briefing; https://github.com/sethankang13/ai-market-briefing)"
 )
 REQUEST_HEADERS = {
@@ -100,22 +100,22 @@ def mock_market_snapshot() -> dict[str, Any]:
             "status": "ok",
             "symbol": "^GSPC",
             "name": "S&P 500",
-            "previous_close": 5775.25,
-            "percent_change": 0.32,
+            "previous_close": 7623.68,
+            "percent_change": -0.52,
         },
         "^IXIC": {
             "status": "ok",
             "symbol": "^IXIC",
             "name": "Nasdaq",
-            "previous_close": 18240.10,
-            "percent_change": 0.48,
+            "previous_close": 25955.34,
+            "percent_change": -0.21,
         },
         "^DJI": {
             "status": "ok",
             "symbol": "^DJI",
             "name": "Dow",
-            "previous_close": 42350.75,
-            "percent_change": 0.15,
+            "previous_close": 52215.16,
+            "percent_change": -1.23,
         },
     }
     return {
@@ -183,22 +183,26 @@ def fetch_index_quote(symbol: str, name: str) -> dict[str, Any]:
         closes = _closes_from_chart(result)
         last_close = closes[-1] if closes else None
         prior_close = closes[-2] if len(closes) >= 2 else None
-        previous_close = _number(
+        prior = _number(
             meta.get("previousClose"),
             meta.get("chartPreviousClose"),
             prior_close,
         )
         last = _number(meta.get("regularMarketPrice"), last_close)
         percent_change = _number(meta.get("regularMarketChangePercent"))
-        if percent_change is None and last is not None and previous_close:
-            percent_change = (last - previous_close) / previous_close * 100.0
-        if previous_close is None or percent_change is None:
+        if percent_change is None and last is not None and prior:
+            percent_change = (last - prior) / prior * 100.0
+        # Latest completed session close (yesterday on a weekend / before open).
+        level = last if last is not None else prior
+        if symbol == "^DJI" and level is not None and level < 48000 and last_close and last_close >= 48000:
+            level = float(last_close)
+        if level is None or percent_change is None:
             return _failed("Yahoo chart did not include previous close and percent change")
         return {
             "status": "ok",
             "symbol": symbol,
             "name": name,
-            "previous_close": previous_close,
+            "previous_close": level,
             "percent_change": percent_change,
         }
     except (urllib.error.URLError, TimeoutError, OSError, ValueError, TypeError, KeyError) as error:

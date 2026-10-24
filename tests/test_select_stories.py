@@ -119,6 +119,23 @@ class SelectStoriesTests(unittest.TestCase):
         self.assertNotIn("Aside", headlines)
         self.assertNotIn("Another aside", headlines)
 
+    def test_same_day_stories_beat_older_48h_headlines(self):
+        now = datetime(2026, 10, 24, 18, 0, tzinfo=timezone.utc)
+        selected = select_stories(
+            [
+                {
+                    **story("Yesterday IPO", ["Market-Valuations"]),
+                    "published_at": "Fri, 23 Oct 2026 12:00:00 GMT",
+                },
+                {
+                    **story("Today funding", ["Market-Valuations"]),
+                    "published_at": "Sat, 24 Oct 2026 09:00:00 GMT",
+                },
+            ],
+            now=now,
+        )
+        self.assertEqual([item["headline"] for item in selected], ["Today funding"])
+
     def test_a_missing_tag_adds_nothing(self):
         selected = select_stories([
             story("Bill", ["Legislation-&-Policy"]),

@@ -37,8 +37,15 @@ class FetchMarketTests(unittest.TestCase):
                         "chart": {
                             "result": [
                                 {
-                                    "meta": {},
-                                    "indicators": {"quote": [{"close": [5000.0, 5123.45]}]},
+                                    "meta": {
+                                        "previousClose": 5000.0,
+                                        "chartPreviousClose": 5000.0,
+                                        "regularMarketPrice": 5123.45,
+                                        "regularMarketChangePercent": -0.42,
+                                    },
+                                    "indicators": {
+                                        "quote": [{"close": [4980.0, 5000.0, 5123.45]}]
+                                    },
                                 }
                             ]
                         }
@@ -59,8 +66,8 @@ class FetchMarketTests(unittest.TestCase):
         self.assertEqual(snapshot["fed_funds"]["rate"], 4.33)
         spx = snapshot["indexes"]["^GSPC"]
         self.assertEqual(spx["status"], "ok")
-        self.assertEqual(spx["previous_close"], 5123.45)
-        self.assertAlmostEqual(spx["percent_change"], (5123.45 - 5000.0) / 5000.0 * 100)
+        self.assertEqual(spx["previous_close"], 5000.0)
+        self.assertAlmostEqual(spx["percent_change"], -0.42)
         self.assertEqual(snapshot["indexes"]["^IXIC"]["status"], "fetch failed")
         self.assertEqual(snapshot["indexes"]["^DJI"]["status"], "fetch failed")
         self.assertNotIn("previous_close", snapshot["indexes"]["^IXIC"])
@@ -76,6 +83,42 @@ class FetchMarketTests(unittest.TestCase):
         self.assertEqual(result["status"], "fetch failed")
         self.assertNotIn("rate", result)
         self.assertEqual(fetch_market.format_fed_funds(result), "fetch failed")
+
+    def test_index_quote_uses_yahoo_previous_close_not_last_bar(self):
+        payload = {
+            "chart": {
+                "result": [
+                    {
+                        "meta": {
+                            "chartPreviousClose": 7659.44,
+                            "regularMarketPrice": 7623.68,
+                            "regularMarketChangePercent": -0.519,
+                        },
+                        "indicators": {
+                            "quote": [
+                                {"close": [7712.57, 7757.17, 7663.43, 7623.68]}
+                            ]
+                        },
+                    }
+                ]
+            }
+        }
+        with patch.object(
+            fetch_market, "_get_bytes", return_value=json.dumps(payload).encode("utf-8")
+        ):
+            quote = fetch_market.fetch_index_quote("^GSPC", "S&P 500")
+        self.assertEqual(quote["status"], "ok")
+        self.assertEqual(quote["previous_close"], 7659.44)
+        self.assertAlmostEqual(quote["percent_change"], -0.519)
+        self.assertNotEqual(quote["previous_close"], 7623.68)
+        block = fetch_market.render_market_block(
+            {
+                "fed_funds": {"status": "ok", "rate": 4.33},
+                "indexes": {"^GSPC": quote, "^IXIC": quote, "^DJI": quote},
+            }
+        )
+        self.assertIn('style="color:#C04545"', block)
+        self.assertIn("-0.52%", block)
 
     def test_mock_fed_funds_is_realistic_and_not_failed(self):
         with patch.object(fetch_market, "_get_bytes", side_effect=AssertionError("network")):

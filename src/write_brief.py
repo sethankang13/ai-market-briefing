@@ -118,8 +118,9 @@ def tag_hashtag_html(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:
     href = html.escape(tag_archive_url(tag, base), quote=True)
     label = html.escape(humanize_tag(tag))
     return (
-        f'<a href="{href}" style="color:{color};font-weight:700;text-decoration:none">'
-        f"{label}</a>"
+        f'<a href="{href}" style="color:{color};font-weight:500;'
+        f'text-decoration:underline;text-underline-offset:0.18em;background:none">'
+        f"#{label}</a>"
     )
 
 
@@ -351,8 +352,6 @@ def render_brief(selected_run: dict[str, object], date_stem: str) -> str:
     snapshot = selected_run.get("market_snapshot")
     lines = [
         f"# Looping... ({date_stem})",
-        "",
-        "Loop: AI Market Briefing. Selected public reporting, organized by topic. Links lead to the original source.",
         "",
         fetch_market.render_market_block(snapshot if isinstance(snapshot, dict) else None),
         "",

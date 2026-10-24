@@ -220,6 +220,7 @@ class RunBriefingTests(unittest.TestCase):
         self.assertIn("Market Snapshot:", output)
         self.assertIn("Fed Funds: 4.33%", output)
         self.assertIn("S&P 500: 5,123.45 (-0.42%)", output)
+        self.assertNotIn("style=\"color:", output)
         self.assertIn("Nasdaq: fetch failed", output)
         self.assertIn("Dow: 42,000.00 (+0.10%)", output)
         self.assertIn("failed_sources: Politico AI Policy", output)

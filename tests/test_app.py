@@ -181,7 +181,7 @@ class AppImportTests(unittest.TestCase):
         self.assertEqual(len(grouped[0][1]), 2)
         chips = self.app.tag_chips_html(["Legislation-&-Policy", "Foundation-Models"])
         self.assertIn("http://127.0.0.1:8501/?tag=Legislation-%26-Policy", chips)
-        self.assertIn("Foundation Models", chips)
+        self.assertIn("#Foundation Models", chips)
         self.assertNotIn("#Foundation-Models", chips)
 
     def test_stories_for_tag_uses_parameterized_like(self):
@@ -250,9 +250,13 @@ class AppImportTests(unittest.TestCase):
         self.assertEqual(self.app.humanize_tag("Copyright-&-IP"), "Copyright & IP")
         self.assertEqual(self.app.humanize_tag("Foundation-Models"), "Foundation Models")
         displayed = self.app.humanize_brief_markdown(
-            "# Looping... (2026-10-24)\n\n## Legislation-&-Policy\n\n## Daily Summary\n"
+            "# Looping... (2026-10-24)\n\n"
+            "Loop: AI Market Briefing. Selected public reporting, organized by topic. "
+            "Links lead to the original source.\n\n"
+            "## Legislation-&-Policy\n\n## Daily Summary\n"
         )
         self.assertNotIn("Looping...", displayed)
+        self.assertNotIn("Selected public reporting", displayed)
         self.assertIn("## Legislation & Policy", displayed)
         self.assertIn("## Daily Summary & Research Topics", displayed)
 
@@ -278,9 +282,16 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("family=Inter", source)
         self.assertIn("--loop-navy: #263B60", source)
         self.assertIn("scroll-margin-top: 90px", source)
-        self.assertIn('stroke="currentColor"', self.app.GLASSES_HTML)
+        self.assertIn('stroke="currentColor"', self.app.LOOP_HEADER_HTML)
+        self.assertIn("loop-header", self.app.LOOP_HEADER_HTML)
         css = self.app.brand_css()
-        self.assertIn("prefers-color-scheme: dark", css)
+        self.assertIn("data-theme=\"light\"", css)
+        self.assertIn("background: none !important", css)
+        source = Path(self.app.__file__).read_text(encoding="utf-8")
+        self.assertEqual(source.count("    render_brand_header()"), 1)
+        self.assertIn('initial_sidebar_state="collapsed"', source)
+        self.assertIn('"loop-glasses.png"', source)
+        self.assertNotIn('"loop-icon-light.png"', source)
         colors = list(self.app.TAG_COLORS.values())
         self.assertEqual(len(self.app.TAG_COLORS), 9)
         self.assertEqual(len(set(colors)), 9)

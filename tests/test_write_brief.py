@@ -74,9 +74,10 @@ class WriteBriefTests(unittest.TestCase):
         self.assertEqual(parse_qs(parsed.query)["tag"], ["Legislation-&-Policy"])
         self.assertIn("Legislation-%26-Policy", url)
         chip = tag_hashtag_html("Legislation-&-Policy")
-        self.assertIn("Legislation &amp; Policy", chip)
+        self.assertIn("#Legislation &amp; Policy", chip)
         self.assertNotIn("#Legislation-&amp;-Policy", chip)
         self.assertIn(TAG_COLORS["Legislation-&-Policy"], chip)
+        self.assertIn("text-decoration:underline", chip)
         self.assertIn('href="http://127.0.0.1:8501/?tag=Legislation-%26-Policy"', chip)
 
     def test_section_titles_are_plain_headings_not_colored_links(self):
@@ -228,9 +229,13 @@ class WriteBriefTests(unittest.TestCase):
         )
         self.assertIn("# Looping... (2026-10-21)", briefing)
         self.assertIn("- Fed Funds: 4.33%", briefing)
-        self.assertIn("- S&P 500: 5,123.45 (-0.42%)", briefing)
+        self.assertIn("- S&P 500: 5,123.45 (", briefing)
+        self.assertIn("-0.42%", briefing)
+        self.assertIn('style="color:#C04545"', briefing)
         self.assertIn("- Nasdaq: fetch failed", briefing)
-        self.assertIn("- Dow: 42,000.00 (+0.10%)", briefing)
+        self.assertIn("- Dow: 42,000.00 (", briefing)
+        self.assertIn("+0.10%", briefing)
+        self.assertIn('style="color:#2F7D4F"', briefing)
         self.assertNotIn("timeout", briefing)
 
     def test_daily_summary_follows_tag_sections_and_does_not_need_ai_summary(self):

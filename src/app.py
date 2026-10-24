@@ -31,23 +31,29 @@ _ANCHOR_STORY = re.compile(
     r'<a id="([^"]+)"></a>\s*\n-\s*\[([^\]]+)\]\((https?://[^)]+)\)'
 )
 _LOOPING_TITLE = re.compile(r"^# Looping\.\.\. \(([^)]+)\)\s*$", re.M)
+_BRIEF_INTRO = re.compile(
+    r"^(?:Loop: AI Market Briefing\. )?"
+    r"Selected public reporting, organized by topic\. "
+    r"Links lead to the original source\.\s*\n+",
+    re.M,
+)
 TAB_DAILY = "Daily Loop"
 TAB_LOOP = "The Loop"
-WORDMARK_HTML = """
-<div class="loop-wordmark">
-  <div class="loop-wordmark-name">LOOP</div>
-  <div class="loop-wordmark-desc">AI Market Briefing</div>
-</div>
-"""
-GLASSES_HTML = """
-<div class="loop-mark" aria-label="LOOP glasses">
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 48" class="loop-glasses" role="img">
-    <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="28.5" cy="24" r="16.5" stroke-width="2.2"/>
-      <circle cx="67.5" cy="24" r="16.5" stroke-width="2.2"/>
-      <path d="M45 24h6" stroke-width="1.6"/>
-    </g>
-  </svg>
+LOOP_HEADER_HTML = """
+<div class="loop-header">
+  <div class="loop-mark" aria-label="LOOP glasses">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 48" class="loop-glasses" role="img">
+      <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="28.5" cy="24" r="16.5" stroke-width="2.2"/>
+        <circle cx="67.5" cy="24" r="16.5" stroke-width="2.2"/>
+        <path d="M45 24h6" stroke-width="1.6"/>
+      </g>
+    </svg>
+  </div>
+  <div class="loop-wordmark">
+    <div class="loop-wordmark-name">LOOP</div>
+    <div class="loop-wordmark-desc">AI Market Briefing</div>
+  </div>
 </div>
 """
 
@@ -95,16 +101,28 @@ h1, h2, h3 {{
 }}
 hr {{ border: none; border-top: 1px solid var(--loop-mist); }}
 [data-testid="stHeader"] {{ background: transparent; }}
-.loop-mark {{
+.loop-header {{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
   color: var(--loop-ink);
+  padding: 0.4rem 0 0.8rem;
+}}
+.loop-mark {{
+  color: inherit;
   width: 88px;
 }}
 .loop-glasses {{
   width: 88px;
   height: 44px;
   display: block;
+  margin: 0 auto;
 }}
-.loop-wordmark {{ padding-top: 0.35rem; color: var(--loop-ink); }}
+.loop-wordmark {{
+  padding-top: 0.35rem;
+  color: inherit;
+}}
 .loop-wordmark-name {{
   font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 2.35rem;
@@ -124,35 +142,37 @@ hr {{ border: none; border-top: 1px solid var(--loop-mist); }}
 }}
 a[href*="?tag="] {{
   font-weight: 500 !important;
-  background: color-mix(in srgb, currentColor 14%, var(--loop-ivory));
-  border: 1px solid color-mix(in srgb, currentColor 32%, var(--loop-mist));
-  border-radius: 999px;
-  padding: 0.12rem 0.55rem;
-  margin: 0 0.12rem 0.12rem 0;
-  display: inline-block;
-  text-decoration: none !important;
-  font-size: 0.82rem;
-  letter-spacing: 0.01em;
+  background: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 0.35rem 0 0;
+  display: inline;
+  text-decoration: underline !important;
+  text-underline-offset: 0.18em;
+  font-size: 0.92rem;
 }}
 {chip_colors}
 [data-testid="stVerticalBlockBorderWrapper"] {{
   border-color: var(--loop-mist) !important;
 }}
+html[data-theme="light"] .loop-header,
+[data-theme="light"] .loop-header {{
+  color: var(--loop-ink) !important;
+}}
+html[data-theme="dark"] .loop-header,
+[data-theme="dark"] .loop-header {{
+  color: var(--loop-ivory) !important;
+}}
 @media (prefers-color-scheme: dark) {{
-  h1, h2, h3 {{ color: var(--loop-ivory); }}
-  .loop-mark, .loop-wordmark {{ color: var(--loop-ivory); }}
-  a[href*="?tag="] {{
-    background: color-mix(in srgb, currentColor 22%, var(--loop-ink));
-    border-color: color-mix(in srgb, currentColor 40%, var(--loop-navy));
+  html:not([data-theme="light"]) .loop-header {{
+    color: var(--loop-ivory);
   }}
-}}
-[data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3,
-[data-theme="dark"] .loop-mark, [data-theme="dark"] .loop-wordmark {{
-  color: var(--loop-ivory);
-}}
-[data-theme="light"] h1, [data-theme="light"] h2, [data-theme="light"] h3,
-[data-theme="light"] .loop-mark, [data-theme="light"] .loop-wordmark {{
-  color: var(--loop-ink);
+  html:not([data-theme="light"]) h1,
+  html:not([data-theme="light"]) h2,
+  html:not([data-theme="light"]) h3 {{
+    color: var(--loop-ivory);
+  }}
 }}
 </style>
 """
@@ -266,6 +286,7 @@ def source_bullet_markdown(source: object, title: object, url: object = None) ->
 def humanize_brief_markdown(markdown: str) -> str:
     """User-facing labels and Daily Loop title; internal keys in URLs stay."""
     rewritten = _LOOPING_TITLE.sub("", markdown, count=1)
+    rewritten = _BRIEF_INTRO.sub("", rewritten, count=1)
     rewritten = re.sub(
         r"^## Daily Summary(?: & Research Topics)?\s*$",
         "## Daily Summary & Research Topics",
@@ -628,9 +649,9 @@ def show_static_image(path: Path, **kwargs) -> bool:
 
 def page_icon_value() -> str:
     for name in (
-        "loop-icon-light.png",
-        "loop-glasses.svg",
         "loop-glasses.png",
+        "loop-glasses-light.svg",
+        "loop-glasses.svg",
         "loop-logo.svg",
     ):
         path = STATIC_DIR / name
@@ -643,11 +664,7 @@ def page_icon_value() -> str:
 
 
 def render_brand_header() -> None:
-    left, right = st.columns([1, 6])
-    with left:
-        st.markdown(GLASSES_HTML, unsafe_allow_html=True)
-    with right:
-        st.markdown(WORDMARK_HTML, unsafe_allow_html=True)
+    st.markdown(LOOP_HEADER_HTML, unsafe_allow_html=True)
 
 
 def render_sidebar(path: Path, latest: str | None, feed_names: list[str], brief_count: int) -> None:
@@ -718,7 +735,6 @@ def render_daily_loop() -> None:
             if older:
                 selected = older[0]
 
-    render_brand_header()
     st.title(f"Daily Loop: {selected}")
     markdown = load_briefing_markdown(selected)
     if markdown is None:
@@ -862,6 +878,7 @@ def main() -> None:
         page_title="LOOP: AI Market Briefing",
         page_icon=page_icon_value(),
         layout="wide",
+        initial_sidebar_state="collapsed",
     )
     st.markdown(brand_css(), unsafe_allow_html=True)
     render_brand_header()

@@ -10,6 +10,7 @@ Run from the project folder:
 
 from __future__ import annotations
 
+import html
 import json
 import urllib.error
 import urllib.parse
@@ -158,8 +159,17 @@ def _closes_from_chart(result: dict[str, Any]) -> list[float]:
     return [float(value) for value in raw if isinstance(value, (int, float))]
 
 
+def _number(*values: object) -> float | None:
+    for value in values:
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, (int, float)):
+            return float(value)
+    return None
+
+
 def fetch_index_quote(symbol: str, name: str) -> dict[str, Any]:
-    """Return previous close and session percent change, or an explicit failure."""
+    """Return Yahoo previous close and session percent change, or an explicit failure."""
     encoded = urllib.parse.quote(symbol, safe="")
     url = YAHOO_CHART.format(symbol=encoded) + "?interval=1d&range=10d"
     try:
@@ -171,24 +181,17 @@ def fetch_index_quote(symbol: str, name: str) -> dict[str, Any]:
         result = results[0]
         meta = result.get("meta") if isinstance(result.get("meta"), dict) else {}
         closes = _closes_from_chart(result)
-        previous_close: float | None = None
-        percent_change: float | None = None
-        if len(closes) >= 2:
-            previous_close = closes[-1]
-            prior = closes[-2]
-            if prior:
-                percent_change = (previous_close - prior) / prior * 100.0
-        if previous_close is None:
-            last = meta.get("regularMarketPrice")
-            prior = meta.get("previousClose") or meta.get("chartPreviousClose")
-            if isinstance(last, (int, float)) and isinstance(prior, (int, float)) and prior:
-                previous_close = float(last)
-                percent_change = (float(last) - float(prior)) / float(prior) * 100.0
-            elif isinstance(prior, (int, float)):
-                previous_close = float(prior)
-                change_pct = meta.get("regularMarketChangePercent")
-                if isinstance(change_pct, (int, float)):
-                    percent_change = float(change_pct)
+        last_close = closes[-1] if closes else None
+        prior_close = closes[-2] if len(closes) >= 2 else None
+        previous_close = _number(
+            meta.get("previousClose"),
+            meta.get("chartPreviousClose"),
+            prior_close,
+        )
+        last = _number(meta.get("regularMarketPrice"), last_close)
+        percent_change = _number(meta.get("regularMarketChangePercent"))
+        if percent_change is None and last is not None and previous_close:
+            percent_change = (last - previous_close) / previous_close * 100.0
         if previous_close is None or percent_change is None:
             return _failed("Yahoo chart did not include previous close and percent change")
         return {
@@ -217,9 +220,24 @@ def fetch_market_snapshot() -> dict[str, Any]:
     }
 
 
+PERCENT_UP = "#2F7D4F"
+PERCENT_DOWN = "#C04545"
+
+
 def format_percent(value: float) -> str:
     sign = "+" if value > 0 else ""
     return f"{sign}{value:.2f}%"
+
+
+def format_percent_html(value: float) -> str:
+    text = html.escape(format_percent(value))
+    if value > 0:
+        color = PERCENT_UP
+    elif value < 0:
+        color = PERCENT_DOWN
+    else:
+        return text
+    return f'<span style="color:{color}">{text}</span>'
 
 
 def format_fed_funds(entry: dict[str, Any]) -> str:
@@ -228,12 +246,17 @@ def format_fed_funds(entry: dict[str, Any]) -> str:
     return f"{entry['rate']:.2f}%"
 
 
-def format_index(entry: dict[str, Any]) -> str:
+def format_index(entry: dict[str, Any], *, html_percent: bool = False) -> str:
     if entry.get("status") != "ok":
         return "fetch failed"
     close = entry["previous_close"]
     close_text = f"{close:,.2f}"
-    return f"{close_text} ({format_percent(entry['percent_change'])})"
+    percent = (
+        format_percent_html(entry["percent_change"])
+        if html_percent
+        else format_percent(entry["percent_change"])
+    )
+    return f"{close_text} ({percent})"
 
 
 def render_market_block(snapshot: dict[str, Any] | None) -> str:
@@ -251,7 +274,7 @@ def render_market_block(snapshot: dict[str, Any] | None) -> str:
     lines.append(f"- Fed Funds: {format_fed_funds(fed)}")
     for symbol, label in INDEXES:
         entry = indexes.get(symbol) if isinstance(indexes.get(symbol), dict) else {}
-        lines.append(f"- {label}: {format_index(entry)}")
+        lines.append(f"- {label}: {format_index(entry, html_percent=True)}")
     return "\n".join(lines)
 
 

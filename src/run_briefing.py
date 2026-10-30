@@ -20,6 +20,9 @@ import select_stories
 import summarize_stories
 import write_brief
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+ENRICHED_DATA_DIRECTORY = PROJECT_ROOT / "data" / "enriched"
+
 
 class StepFailed(Exception):
     """One pipeline step raised; later steps should not run."""
@@ -75,11 +78,66 @@ def write_brief_step(summarized_path: Path) -> Path:
     return write_brief.save_brief(summarized_run, summarized_path)
 
 
+def _story_url(story: dict) -> str:
+    return str(story.get("link") or story.get("url") or "").strip()
+
+
+def stories_for_loop_db(summarized_run: dict, enriched_run: dict | None = None) -> list[dict]:
+    """Every collected RSS item, with ``is_selected`` for brief picks."""
+    selected = summarized_run.get("stories") if isinstance(summarized_run, dict) else None
+    selected_stories = selected if isinstance(selected, list) else []
+    selected_by_url = {
+        url: story
+        for story in selected_stories
+        if (url := _story_url(story))
+    }
+    collected = []
+    if isinstance(enriched_run, dict) and isinstance(enriched_run.get("stories"), list):
+        collected = enriched_run["stories"]
+    if not collected:
+        rows = []
+        for story in selected_stories:
+            item = dict(story)
+            item["is_selected"] = 1
+            rows.append(item)
+        return rows
+    rows = []
+    for story in collected:
+        if not isinstance(story, dict):
+            continue
+        item = dict(story)
+        url = _story_url(item)
+        overlay = selected_by_url.get(url)
+        if overlay:
+            if overlay.get("ai_summary"):
+                item["ai_summary"] = overlay["ai_summary"]
+            item["is_selected"] = 1
+        else:
+            item["is_selected"] = 0
+        rows.append(item)
+    return rows
+
+
+def load_enriched_for_persist(summarized_run: dict) -> dict | None:
+    """Load ``data/enriched/YYYY-MM-DD.json`` named by the summarized run."""
+    name = None
+    if isinstance(summarized_run, dict):
+        name = summarized_run.get("selected_run") or summarized_run.get("enriched_run")
+    if not isinstance(name, str) or not name.strip():
+        return None
+    path = ENRICHED_DATA_DIRECTORY / Path(name).name
+    if not path.is_file():
+        return None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, dict) else None
+
+
 def persist_step(summarized_run: dict, snapshot: dict) -> Path:
-    """Append this run's selected stories and macro text to loop.db."""
+    """Store every collected RSS story; mark brief picks with ``is_selected``."""
     macro = summarized_run.get("macro_report")
+    stories = stories_for_loop_db(summarized_run, load_enriched_for_persist(summarized_run))
     inserted = db.append_stories(
-        summarized_run.get("stories") or [],
+        stories,
         snapshot,
         macro_report=macro if isinstance(macro, str) else None,
     )

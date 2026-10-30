@@ -176,11 +176,11 @@ Same pipeline as v4.0.1. The Streamlit header is glasses + LOOP + AI Market Brie
 
 Same local Streamlit app as v4.0, with a non-blocking Daily Loop tab and a search → In Focus explorer.
 
-- **Login auto-generate:** `scripts/com.loop.dailybriefing.plist` keeps weekday 8:00 AM and sets `RunAtLoad` true. `scripts/run_daily.sh` exits 0 when `briefs/YYYY-MM-DD.md` already exists for today; otherwise it writes `logs/briefing.lock`, runs live `python3 src/run_briefing.py`, and clears the lock in a trap. Reinstall with `bash scripts/install_automation.sh` (load, not `launchctl start`).
+- **Login auto-generate:** `scripts/com.loop.dailybriefing.plist` runs every day at 8:00 AM and sets `RunAtLoad` true. `scripts/run_daily.sh` sources a gitignored `.env` when present, timestamps `logs/launchd.log`, and exits 0 when `briefs/YYYY-MM-DD.md` already exists for today; otherwise it writes `logs/briefing.lock`, runs live `python3 src/run_briefing.py`, and clears the lock in a trap. Reinstall with `bash scripts/install_automation.sh` (load, not `launchctl start`).
 - **Non-blocking UI:** Loop.app never runs the pipeline. If today’s file is missing or still being written, it shows the latest complete brief. A generating lock shows `⏳ Today's briefing (YYYY-MM-DD) is currently generating in the background. Showing latest available brief.` When the file appears while the app is open, it shows `🎉 A new briefing for YYYY-MM-DD is now ready!`
 - **Fed Funds:** `--mock` always prints a realistic rate such as `4.33%`, never `fetch failed`. Live runs use `https://markets.newyorkfed.org/api/rates/all/latest.json` with an explicit User-Agent, then the unsecured EFFR fallback, and say `fetch failed` only if every attempt fails.
 - **Tag display:** User-facing labels turn hyphens into spaces and `-&-` into ` & ` (`Market Valuations`, `Legislation & Policy`, `Copyright & IP`, `Foundation Models`). Internal keys in YAML, SQLite, and `?tag=` URLs stay unchanged.
-- **Layout:** Header logo + banner from `static/`. Sidebar: stored briefing count, latest briefing date, active feed names from YAML. Tab **Daily Loop** titles `Daily Loop: YYYY-MM-DD` (not Looping...), then logo/banner, Market Snapshot, At a Glance (section anchors use `scroll-margin-top: 90px`), topic sections, Daily Summary & Research Topics. Tab **The Loop** has humanized tag/source dropdowns, blankable year/month/day, keyword, and Search; results open an In Focus view with `← Back to Search`.
+- **Layout:** Header logo + banner from `static/`. Sidebar: stored briefing count, latest briefing date, active feed names from YAML. Tab **Daily Loop** has a briefing-date select (newest `briefs/YYYY-MM-DD.md` first; default today or latest) then titles `Daily Loop: YYYY-MM-DD` (not Looping...), Market Snapshot, At a Glance (section anchors use `scroll-margin-top: 90px`), topic sections, Daily Summary & Research Topics. Tab **The Loop** wraps Tag, Source, Year/Month/Day, and Keyword in a Search form; changing a widget does not query until **Search**. Results open an In Focus view with `← Back to Search`.
 
 ## v4.0: Local web UI (Phase 1)
 
@@ -197,15 +197,15 @@ The app resolves the project root from `src/app.py`, so `config/`, `briefs/`, an
 
 | Tab | What it shows |
 | --- | --- |
-| Daily Loop | Title `Daily Loop: YYYY-MM-DD`, logo/banner, Market Snapshot, At a Glance (italic humanized tag jumps with `scroll-margin-top: 90px`), topic sections, Daily Summary & Research Topics. If today is generating, the latest complete brief is shown instead. |
-| The Loop | Tag/source dropdowns (humanized tags), year/month/day (blank = broader range), keyword, and Search. After Search or choosing a filter: In Focus with `← Back to Search`, story cards, humanized chips, and source popovers. |
+| Daily Loop | Date select at the top, title `Daily Loop: YYYY-MM-DD`, logo/banner, Market Snapshot, At a Glance (italic humanized tag jumps with `scroll-margin-top: 90px`), topic sections, Daily Summary & Research Topics. If today is generating, the default date is the latest complete brief. |
+| The Loop | Search form (tag, source, year/month/day, keyword). Submit **Search** to query every stored RSS row in `loop.db` and open In Focus with `← Back to Search`, story cards, humanized chips, and source popovers. |
 | Tag archive (`?tag=`) | All `loop.db` rows whose stored tags contain that internal label (`tags LIKE ?`), grouped by date, newest first. Example: `http://127.0.0.1:8501/?tag=Legislation-%26-Policy`. Local Streamlit only; not a public website. |
 
 Phase 1 only: no generate-brief button, no new Gemini calls, no writes to the database from the UI.
 
 ## v3.5: Local Automation & Passive Ingestion
 
-A user LaunchAgent runs `python3 src/run_briefing.py` at **8:00 AM Monday–Friday** and on login (`RunAtLoad`). If `briefs/YYYY-MM-DD.md` already exists for today, the wrapper exits 0. Otherwise it holds `logs/briefing.lock` for the live run. The Mac must be on (and logged in) at 8:00 AM on weekdays, or that day's interval is skipped. A gitignored `.env` with `GEMINI_API_KEY` (and any OpenAI fallback) must exist in the project root for live runs. Do not put API keys in the plist or shell scripts.
+A user LaunchAgent runs `python3 src/run_briefing.py` at **8:00 AM every day** and on login (`RunAtLoad`). If `briefs/YYYY-MM-DD.md` already exists for today, the wrapper exits 0. Otherwise it holds `logs/briefing.lock` for the live run. The Mac must be on (and logged in) at 8:00 AM, or that day's interval is skipped. `run_daily.sh` sources a gitignored `.env` (exporting `GEMINI_API_KEY` into the launchd environment) and writes timestamped start/skip/failure/complete lines to `logs/launchd.log`. Do not put API keys in the plist or shell scripts.
 
 Install (or reinstall) the job:
 
@@ -231,7 +231,7 @@ That starts a **live** briefing (Gemini if `.env` is present). Use `python3 src/
 
 ## Run the full briefing
 
-From the project folder, run `python3 src/run_briefing.py`. It collects feeds from the last 48 hours, enriches tags, selects stories, fetches a Market Snapshot, writes one run-level Gemini payload (per-tag pattern notes, daily summary, research radar), writes `# Looping... (YYYY-MM-DD)`, and appends the selected stories plus that copy to `data/loop.db`. The Streamlit Daily Loop tab displays that file as `Daily Loop: YYYY-MM-DD`. It stops at the first step that fails. Add `--open` to open `briefs/YYYY-MM-DD.md` when the run finishes (`open` on macOS; other platforms print the path and do not launch a viewer). Every run, mock or live, prints a completion banner with the output path, story count, Market Snapshot status, and `failed_sources` when a feed was skipped.
+From the project folder, run `python3 src/run_briefing.py`. It collects feeds from the last 48 hours, enriches tags, selects stories, fetches a Market Snapshot, writes one run-level Gemini payload (per-tag pattern notes, daily summary, research radar), writes `# Looping... (YYYY-MM-DD)`, and upserts every collected RSS item from `data/enriched/YYYY-MM-DD.json` into `data/loop.db` (`is_selected` marks brief picks; same-day duplicate URLs replace). The Streamlit Daily Loop tab displays that file as `Daily Loop: YYYY-MM-DD`. It stops at the first step that fails. Add `--open` to open `briefs/YYYY-MM-DD.md` when the run finishes (`open` on macOS; other platforms print the path and do not launch a viewer). Every run, mock or live, prints a completion banner with the output path, story count, Market Snapshot status, and `failed_sources` when a feed was skipped.
 
 For a briefing that does not call a model, run `python3 src/run_briefing.py --mock`. It still collects the RSS feeds, enriches tags, and selects stories. The Market Snapshot uses a realistic offline Fed Funds rate (`4.33%`) and index levels instead of network quotes. Per-tag notes and the daily summary are offline mock copy, even when `.env` contains an API key, and it never talks to Gemini. Live runs never write `AI Summary Pending`, `AI Headline Pending`, or `AI Summary goes HERE`. A feed that fails is skipped, and the brief is written from the feeds that succeeded. Failed live market quotes are labeled `fetch failed`. Combine flags as needed, for example `python3 src/run_briefing.py --mock --open`.
 

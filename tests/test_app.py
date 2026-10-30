@@ -291,9 +291,14 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("data-theme=\"light\"", css)
         self.assertIn("data-theme=\"dark\"", css)
         self.assertIn("@media (prefers-color-scheme: dark)", css)
-        self.assertIn("color: var(--loop-fg) !important", css)
-        self.assertIn("--loop-fg: var(--loop-ivory)", css)
+        self.assertIn("color: var(--loop-fg, inherit) !important", css)
+        self.assertIn("--loop-fg: #F7F6F2", css)
+        self.assertIn("--loop-fg: #171C25", css)
+        self.assertIn("@media (prefers-color-scheme: light)", css)
         self.assertIn("--loop-page: var(--loop-ink)", css)
+        self.assertNotIn("color:#fff", css.replace(" ", "").lower())
+        self.assertNotIn("#ffffff", css.lower())
+        self.assertIn('a[href^="#"]', css)
         self.assertIn("background: none !important", css)
         self.assertIn("flex-direction: row", css)
         self.assertIn("justify-content: flex-start", css)
@@ -429,6 +434,33 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("AND published_date = ?", source)
         self.assertIn("AND published_date LIKE ?", source)
         self.assertNotIn("AND published_date = '{", source)
+
+    def test_daily_loop_date_default_and_loop_search_form(self):
+        source = Path(self.app.__file__).read_text(encoding="utf-8")
+        self.assertIn('st.selectbox("Briefing date"', source)
+        self.assertIn("key=\"daily_loop_date\"", source)
+        self.assertIn('st.form("loop_search_form")', source)
+        self.assertIn('st.form_submit_button("Search")', source)
+        self.assertNotIn("on_change=_enter_loop_focus", source)
+        self.assertEqual(
+            self.app.default_briefing_date(
+                ["2026-10-30", "2026-10-24"], "2026-10-30", generating=False
+            ),
+            "2026-10-30",
+        )
+        self.assertEqual(
+            self.app.default_briefing_date(
+                ["2026-10-30", "2026-10-24"], "2026-10-30", generating=True
+            ),
+            "2026-10-24",
+        )
+        self.assertEqual(
+            self.app.default_briefing_date(
+                ["2026-10-24"], "2026-10-30", generating=False
+            ),
+            "2026-10-24",
+        )
+        self.assertIsNone(self.app.default_briefing_date([], "2026-10-30"))
 
 
 class HeadlineAndPopoverTests(unittest.TestCase):

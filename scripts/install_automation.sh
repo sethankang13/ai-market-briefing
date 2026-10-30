@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install the Loop weekday/login LaunchAgent (load only; does not launchctl start).
+# Install the Loop daily/login LaunchAgent (load only; does not launchctl start).
 # RunAtLoad is true in the plist; run_daily.sh exits 0 if today's brief already exists.
 set -e
 
@@ -22,7 +22,7 @@ echo "Pipeline log: $PROJECT/logs/launchd.log"
 echo "launchd stdout: $PROJECT/logs/launchd_stdout.log"
 echo "launchd stderr: $PROJECT/logs/launchd_stderr.log"
 echo "Live runs need a gitignored .env in the project root (do not put keys in this plist)."
-echo "The Mac must be on at 8:00 AM on weekdays for the calendar interval to fire."
+echo "The Mac must be on at 8:00 AM every day for the calendar interval to fire."
 echo "To run once without waiting for 8 AM: launchctl start $LABEL"
 echo
 echo "Job status:"

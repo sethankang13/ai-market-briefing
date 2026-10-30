@@ -286,6 +286,97 @@ class RunBriefingTests(unittest.TestCase):
             run_briefing.main(["--mock", "--open"])
         run.assert_called_once_with(mock=True, open_after=True)
 
+    def test_stories_for_loop_db_keeps_unselected_collected_rss(self):
+        enriched = {
+            "stories": [
+                {
+                    "headline": "Selected bill",
+                    "link": "https://example.com/selected",
+                    "source": "Wire",
+                    "tags": ["Legislation-&-Policy"],
+                },
+                {
+                    "headline": "Skipped item",
+                    "link": "https://example.com/skipped",
+                    "source": "Wire",
+                    "tags": ["Foundation-Models"],
+                },
+            ]
+        }
+        summarized = {
+            "selected_run": "2026-10-30.json",
+            "stories": [
+                {
+                    "headline": "Selected bill",
+                    "link": "https://example.com/selected",
+                    "source": "Wire",
+                    "ai_summary": "Why it matters.",
+                    "tags": ["Legislation-&-Policy"],
+                }
+            ],
+        }
+        rows = run_briefing.stories_for_loop_db(summarized, enriched)
+        by_url = {row["link"]: row for row in rows}
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(by_url["https://example.com/selected"]["is_selected"], 1)
+        self.assertEqual(by_url["https://example.com/selected"]["ai_summary"], "Why it matters.")
+        self.assertEqual(by_url["https://example.com/skipped"]["is_selected"], 0)
+
+    def test_persist_step_reads_enriched_json_for_all_collected(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            enriched_dir = root / "data" / "enriched"
+            enriched_dir.mkdir(parents=True)
+            (enriched_dir / "2026-10-30.json").write_text(
+                json.dumps(
+                    {
+                        "stories": [
+                            {
+                                "headline": "Selected bill",
+                                "link": "https://example.com/selected",
+                                "source": "Wire",
+                                "published_at": "2026-10-30",
+                                "tags": ["Legislation-&-Policy"],
+                            },
+                            {
+                                "headline": "Skipped item",
+                                "link": "https://example.com/skipped",
+                                "source": "Wire",
+                                "published_at": "2026-10-30",
+                                "tags": ["Foundation-Models"],
+                            },
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            db_path = root / "data" / "loop.db"
+            summarized = {
+                "selected_run": "2026-10-30.json",
+                "macro_report": "{}",
+                "stories": [
+                    {
+                        "headline": "Selected bill",
+                        "link": "https://example.com/selected",
+                        "source": "Wire",
+                        "published_at": "2026-10-30",
+                        "tags": ["Legislation-&-Policy"],
+                    }
+                ],
+            }
+            with (
+                patch.object(run_briefing, "ENRICHED_DATA_DIRECTORY", enriched_dir),
+                patch.object(run_briefing.db, "DEFAULT_DB_PATH", db_path),
+            ):
+                saved = run_briefing.persist_step(summarized, {"fed_funds": {}})
+            rows = run_briefing.db.load_stories(db_path)
+
+        self.assertEqual(saved, db_path)
+        self.assertEqual(len(rows), 2)
+        flags = {row["url"]: row["is_selected"] for row in rows}
+        self.assertEqual(flags["https://example.com/selected"], 1)
+        self.assertEqual(flags["https://example.com/skipped"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

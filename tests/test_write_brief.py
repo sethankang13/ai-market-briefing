@@ -186,7 +186,7 @@ class WriteBriefTests(unittest.TestCase):
         )
         glance = briefing[briefing.index("## At a Glance"):briefing.index("## Legislation & Policy")]
         self.assertIn(
-            'href="#legislation-policy" style="color:#fff;font-style:italic;text-decoration:none">Legislation &amp; Policy</a>:',
+            'href="#legislation-policy" style="color:var(--loop-fg, inherit);font-style:italic;text-decoration:none">Legislation &amp; Policy</a>:',
             glance,
         )
         self.assertNotIn("Enterprise-Adoption", glance)
@@ -310,7 +310,7 @@ class WriteBriefTests(unittest.TestCase):
             if "legislation-policy" in line and "Bill advances today…" in line
         )
         self.assertTrue(policy_line.startswith('<a href="#legislation-policy"'))
-        self.assertIn('style="color:#fff;font-style:italic;text-decoration:none"', policy_line)
+        self.assertIn('style="color:var(--loop-fg, inherit);font-style:italic;text-decoration:none"', policy_line)
         self.assertIn(">Legislation &amp; Policy</a>:", policy_line)
         self.assertNotIn("#Legislation", policy_line)
         self.assertNotIn("### ", glance)

@@ -88,46 +88,65 @@ def brand_css() -> str:
   --loop-ice: #A7C7E7;
   --loop-ivory: #F7F6F2;
   --loop-mist: #E5EAF0;
-  --loop-fg: var(--loop-ink);
+  --loop-fg: #171C25;
   --loop-page: var(--loop-ivory);
   --loop-surface: var(--loop-mist);
 }}
+@media (prefers-color-scheme: light) {{
+  :root {{
+    --loop-fg: #171C25;
+    --loop-page: var(--loop-ivory);
+    --loop-surface: var(--loop-mist);
+  }}
+}}
 @media (prefers-color-scheme: dark) {{
   :root {{
-    --loop-fg: var(--loop-ivory);
+    --loop-fg: #F7F6F2;
     --loop-page: var(--loop-ink);
     --loop-surface: var(--loop-navy);
   }}
 }}
 html[data-theme="light"], [data-theme="light"] {{
-  --loop-fg: var(--loop-ink);
+  --loop-fg: #171C25;
   --loop-page: var(--loop-ivory);
   --loop-surface: var(--loop-mist);
 }}
 html[data-theme="dark"], [data-theme="dark"] {{
-  --loop-fg: var(--loop-ivory);
+  --loop-fg: #F7F6F2;
   --loop-page: var(--loop-ink);
   --loop-surface: var(--loop-navy);
 }}
 html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
 .stMarkdown, .stCaption, .stText, .stSelectbox, .stTextInput {{
   font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
-  color: var(--loop-fg);
+  color: var(--loop-fg, inherit);
 }}
 html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
 [data-testid="stSidebar"], [data-testid="stHeader"] {{
   background-color: var(--loop-page) !important;
 }}
 a[id], h1, h2, h3, [id] {{ scroll-margin-top: 90px; }}
-h1, h2, h3 {{
-  color: var(--loop-fg) !important;
+h1, h2, h3,
+[data-testid="stMarkdownContainer"] h1,
+[data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3 {{
+  color: var(--loop-fg, inherit) !important;
   font-weight: 500;
   letter-spacing: 0.01em;
+}}
+[data-testid="stMarkdownContainer"],
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stMarkdownContainer"] span {{
+  color: var(--loop-fg, inherit);
+}}
+[data-testid="stMarkdownContainer"] a[href^="#"] {{
+  color: var(--loop-fg, inherit) !important;
 }}
 hr {{ border: none; border-top: 1px solid var(--loop-surface); }}
 [data-testid="stHeader"] {{ background: transparent; }}
 [data-testid="stSidebar"] {{
-  color: var(--loop-fg) !important;
+  color: var(--loop-fg, inherit) !important;
 }}
 .loop-header {{
   display: flex;
@@ -136,7 +155,7 @@ hr {{ border: none; border-top: 1px solid var(--loop-surface); }}
   justify-content: flex-start;
   text-align: left;
   gap: 1rem;
-  color: var(--loop-fg) !important;
+  color: var(--loop-fg, inherit) !important;
   padding: 0.4rem 0 0.8rem;
 }}
 .loop-mark {{
@@ -160,7 +179,7 @@ hr {{ border: none; border-top: 1px solid var(--loop-surface); }}
   font-size: 2.35rem;
   font-weight: 400;
   letter-spacing: 0.32em;
-  color: var(--loop-fg) !important;
+  color: var(--loop-fg, inherit) !important;
   line-height: 1.05;
   text-transform: uppercase;
 }}
@@ -169,7 +188,7 @@ hr {{ border: none; border-top: 1px solid var(--loop-surface); }}
   font-size: 0.92rem;
   font-weight: 400;
   letter-spacing: 0.14em;
-  color: var(--loop-fg) !important;
+  color: var(--loop-fg, inherit) !important;
   margin-top: 0.25rem;
 }}
 a[href*="?tag="] {{
@@ -286,6 +305,24 @@ def list_briefing_dates(briefs_dir: Path | None = None) -> list[str]:
 def latest_briefing_date(briefs_dir: Path | None = None) -> str | None:
     dates = list_briefing_dates(briefs_dir)
     return dates[0] if dates else None
+
+
+def default_briefing_date(
+    dates: list[str],
+    today: str | None = None,
+    generating: bool = False,
+) -> str | None:
+    """Today if that file exists (and is not still generating), else the latest."""
+    if not dates:
+        return None
+    current = today if today is not None else today_iso()
+    if current in dates and not generating:
+        return current
+    if generating:
+        older = [item for item in dates if item != current]
+        if older:
+            return older[0]
+    return dates[0]
 
 
 def load_briefing_markdown(date: str, briefs_dir: Path | None = None) -> str | None:
@@ -804,13 +841,9 @@ def render_daily_loop() -> None:
         arm_generation_poll(generating)
         return
 
-    selected = today if today_exists and not generating else dates[0]
-    if generating or not today_exists:
-        selected = dates[0]
-        if selected == today and generating:
-            older = [item for item in dates if item != today]
-            if older:
-                selected = older[0]
+    default = default_briefing_date(dates, today, generating)
+    index = dates.index(default) if default in dates else 0
+    selected = st.selectbox("Briefing date", dates, index=index, key="daily_loop_date")
 
     st.title(f"Daily Loop: {selected}")
     markdown = load_briefing_markdown(selected)
@@ -868,50 +901,47 @@ def render_loop_explorer(path: Path) -> None:
         render_story_cards(group_stories_by_headline(rows))
         return
 
-    st.selectbox(
-        "Tag",
-        tag_options,
-        format_func=tag_label,
-        key="loop_tag",
-        on_change=_enter_loop_focus,
-    )
-    st.selectbox(
-        "Source",
-        sources,
-        format_func=source_label,
-        key="loop_source",
-        on_change=_enter_loop_focus,
-    )
-    year_options = [""] + years
-    month_options = [""] + months
-    day_options = [""] + days
-    c1, c2, c3 = st.columns(3)
-    with c1:
+    with st.form("loop_search_form"):
         st.selectbox(
-            "Year",
-            year_options,
-            format_func=lambda value: blank_label(value, "Any year"),
-            key="loop_year",
-            on_change=_enter_loop_focus,
+            "Tag",
+            tag_options,
+            format_func=tag_label,
+            key="loop_tag",
         )
-    with c2:
         st.selectbox(
-            "Month",
-            month_options,
-            format_func=lambda value: blank_label(value, "Any month"),
-            key="loop_month",
-            on_change=_enter_loop_focus,
+            "Source",
+            sources,
+            format_func=source_label,
+            key="loop_source",
         )
-    with c3:
-        st.selectbox(
-            "Day",
-            day_options,
-            format_func=lambda value: blank_label(value, "Any day"),
-            key="loop_day",
-            on_change=_enter_loop_focus,
-        )
-    st.text_input("Keyword", key="loop_query")
-    if st.button("Search"):
+        year_options = [""] + years
+        month_options = [""] + months
+        day_options = [""] + days
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.selectbox(
+                "Year",
+                year_options,
+                format_func=lambda value: blank_label(value, "Any year"),
+                key="loop_year",
+            )
+        with c2:
+            st.selectbox(
+                "Month",
+                month_options,
+                format_func=lambda value: blank_label(value, "Any month"),
+                key="loop_month",
+            )
+        with c3:
+            st.selectbox(
+                "Day",
+                day_options,
+                format_func=lambda value: blank_label(value, "Any day"),
+                key="loop_day",
+            )
+        st.text_input("Keyword", key="loop_query")
+        submitted = st.form_submit_button("Search")
+    if submitted:
         _enter_loop_focus()
         rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
         if callable(rerun):

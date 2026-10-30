@@ -1,8 +1,8 @@
 """SQLite history for Loop: AI Market Briefing.
 
-Each briefing run appends selected stories to ``data/loop.db``. The database
-file is gitignored. Existing rows are never deleted; new columns are added
-with ``ALTER TABLE``.
+Each briefing run upserts collected RSS stories into ``data/loop.db``.
+The database file is gitignored. Existing rows are never deleted; new
+columns are added with ``ALTER TABLE``.
 
 Run from the project folder:
     python3 src/db.py
@@ -34,15 +34,26 @@ CREATE TABLE IF NOT EXISTS stories (
     ai_summary TEXT,
     tags TEXT,
     market_snapshot_json TEXT,
-    macro_report TEXT
+    macro_report TEXT,
+    is_selected INTEGER DEFAULT 1
 );
 """
 
+STORY_COLUMNS = (
+    "id, published_date, headline, url, source, full_text, "
+    "ai_summary, tags, market_snapshot_json, macro_report, is_selected"
+)
+
 RECENT_STORIES_SQL = (
-    "SELECT id, published_date, headline, url, source, full_text, "
-    "ai_summary, tags, market_snapshot_json, macro_report FROM stories "
+    f"SELECT {STORY_COLUMNS} FROM stories "
     "WHERE published_date >= date('now', '-14 days') "
     "ORDER BY published_date DESC, id DESC"
+)
+
+UNIQUE_DAY_URL_INDEX = (
+    "CREATE UNIQUE INDEX IF NOT EXISTS stories_published_date_url "
+    "ON stories(published_date, url) "
+    "WHERE url IS NOT NULL AND url != ''"
 )
 
 
@@ -87,6 +98,12 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
     }
     if "macro_report" not in columns:
         connection.execute("ALTER TABLE stories ADD COLUMN macro_report TEXT")
+    if "is_selected" not in columns:
+        # Historical rows were brief picks only.
+        connection.execute(
+            "ALTER TABLE stories ADD COLUMN is_selected INTEGER DEFAULT 1"
+        )
+    connection.execute(UNIQUE_DAY_URL_INDEX)
     connection.commit()
 
 
@@ -98,45 +115,90 @@ def _tags_text(tags: object) -> str:
     return "[]"
 
 
+def _is_selected_value(story: dict[str, Any]) -> int:
+    if "is_selected" not in story:
+        return 1
+    return 1 if story.get("is_selected") else 0
+
+
 def append_stories(
     stories: Iterable[dict[str, Any]],
     market_snapshot: dict[str, Any] | None = None,
     db_path: Path | None = None,
     macro_report: str | None = None,
 ) -> int:
-    """Append one run's stories. Returns the number of rows inserted."""
+    """Upsert collected stories. Same-day duplicate URLs REPLACE; returns new inserts."""
     snapshot_json = json.dumps(market_snapshot) if market_snapshot is not None else None
-    rows = []
-    for story in stories:
-        snippet = story.get("full_text") or story.get("description") or ""
-        rows.append(
-            (
-                iso_published_date(
-                    story.get("published_at") or story.get("published_date")
-                ),
-                story.get("headline"),
-                story.get("link") or story.get("url"),
-                story.get("source"),
-                snippet,
-                story.get("ai_summary"),
-                _tags_text(story.get("tags")),
-                snapshot_json,
-                macro_report if macro_report is not None else story.get("macro_report"),
-            )
-        )
     connection = connect(db_path)
+    inserted = 0
     try:
-        connection.executemany(
-            """
-            INSERT INTO stories (
-                published_date, headline, url, source, full_text,
-                ai_summary, tags, market_snapshot_json, macro_report
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            rows,
-        )
+        for story in stories:
+            snippet = story.get("full_text") or story.get("description") or ""
+            published = iso_published_date(
+                story.get("published_at") or story.get("published_date")
+            )
+            url = story.get("link") or story.get("url")
+            url_text = str(url).strip() if url else ""
+            headline = story.get("headline")
+            source = story.get("source")
+            ai_summary = story.get("ai_summary")
+            tags = _tags_text(story.get("tags"))
+            macro = macro_report if macro_report is not None else story.get("macro_report")
+            is_selected = _is_selected_value(story)
+            existing = None
+            if url_text:
+                existing = connection.execute(
+                    "SELECT id FROM stories WHERE published_date IS ? AND url = ?",
+                    (published, url_text),
+                ).fetchone()
+            values = (
+                published,
+                headline,
+                url_text or url,
+                source,
+                snippet,
+                ai_summary,
+                tags,
+                snapshot_json,
+                macro,
+                is_selected,
+            )
+            if existing:
+                connection.execute(
+                    """
+                    UPDATE stories SET
+                        headline = ?, url = ?, source = ?, full_text = ?,
+                        ai_summary = ?, tags = ?, market_snapshot_json = ?,
+                        macro_report = ?, is_selected = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        headline,
+                        url_text,
+                        source,
+                        snippet,
+                        ai_summary,
+                        tags,
+                        snapshot_json,
+                        macro,
+                        is_selected,
+                        existing["id"],
+                    ),
+                )
+            else:
+                connection.execute(
+                    """
+                    INSERT INTO stories (
+                        published_date, headline, url, source, full_text,
+                        ai_summary, tags, market_snapshot_json, macro_report,
+                        is_selected
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    values,
+                )
+                inserted += 1
         connection.commit()
-        return len(rows)
+        return inserted
     finally:
         connection.close()
 
@@ -146,9 +208,7 @@ def load_stories(db_path: Path | None = None) -> list[dict[str, Any]]:
     connection = connect(db_path)
     try:
         cursor = connection.execute(
-            "SELECT id, published_date, headline, url, source, full_text, "
-            "ai_summary, tags, market_snapshot_json, macro_report "
-            "FROM stories ORDER BY id"
+            f"SELECT {STORY_COLUMNS} FROM stories ORDER BY id"
         )
         return [dict(row) for row in cursor.fetchall()]
     finally:

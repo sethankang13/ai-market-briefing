@@ -1,4 +1,5 @@
 import json
+import sqlite3
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -32,8 +33,8 @@ class LoopDatabaseTests(unittest.TestCase):
             rows = db.load_stories(path)
 
         self.assertEqual(inserted, 1)
-        self.assertEqual(inserted_again, 1)
-        self.assertEqual(len(rows), 2)
+        self.assertEqual(inserted_again, 0)
+        self.assertEqual(len(rows), 1)
         row = rows[0]
         self.assertEqual(
             set(row),
@@ -48,8 +49,10 @@ class LoopDatabaseTests(unittest.TestCase):
                 "tags",
                 "market_snapshot_json",
                 "macro_report",
+                "is_selected",
             },
         )
+        self.assertEqual(row["is_selected"], 1)
         self.assertEqual(row["headline"], "Policy bill advances")
         self.assertEqual(row["url"], "https://example.com/bill")
         self.assertEqual(row["published_date"], "2026-10-06")
@@ -120,3 +123,76 @@ class LoopDatabaseTests(unittest.TestCase):
         self.assertNotIn("Old bill", headlines)
         self.assertEqual(recent[0]["full_text"], "Snippet only.")
         self.assertIn("# The Loop: Macro Landscape", recent[0]["macro_report"] or "")
+
+    def test_append_stores_unselected_rss_and_replaces_same_day_url(self):
+        snapshot = {"fed_funds": {"status": "ok", "rate": 4.33}}
+        collected = [
+            {
+                "published_at": "2026-10-30",
+                "headline": "Policy bill advances",
+                "link": "https://example.com/bill",
+                "source": "Example News",
+                "tags": ["Legislation-&-Policy"],
+                "is_selected": 1,
+            },
+            {
+                "published_at": "2026-10-30",
+                "headline": "Other RSS item",
+                "link": "https://example.com/other",
+                "source": "Wire",
+                "tags": ["Foundation-Models"],
+                "is_selected": 0,
+            },
+        ]
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "loop.db"
+            first = db.append_stories(collected, snapshot, db_path=path)
+            updated = [
+                {
+                    **collected[0],
+                    "headline": "Policy bill advances (updated)",
+                    "is_selected": 1,
+                },
+                collected[1],
+            ]
+            second = db.append_stories(updated, snapshot, db_path=path)
+            rows = db.load_stories(path)
+            by_url = {row["url"]: row for row in rows}
+
+        self.assertEqual(first, 2)
+        self.assertEqual(second, 0)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(by_url["https://example.com/bill"]["headline"], "Policy bill advances (updated)")
+        self.assertEqual(by_url["https://example.com/bill"]["is_selected"], 1)
+        self.assertEqual(by_url["https://example.com/other"]["is_selected"], 0)
+
+    def test_existing_database_migrates_is_selected_column(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "loop.db"
+            connection = sqlite3.connect(path)
+            connection.execute(
+                """
+                CREATE TABLE stories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    published_date TEXT,
+                    headline TEXT,
+                    url TEXT,
+                    source TEXT,
+                    full_text TEXT,
+                    ai_summary TEXT,
+                    tags TEXT,
+                    market_snapshot_json TEXT
+                )
+                """
+            )
+            connection.execute(
+                "INSERT INTO stories (published_date, headline, url, source) "
+                "VALUES (?, ?, ?, ?)",
+                ("2026-10-15", "Old pick", "https://example.com/old", "Wire"),
+            )
+            connection.commit()
+            connection.close()
+            rows = db.load_stories(path)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["is_selected"], 1)
+        self.assertEqual(rows[0]["headline"], "Old pick")

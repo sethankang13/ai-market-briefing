@@ -54,6 +54,12 @@ LOOP_HEADER_HTML = """
     <div class="loop-wordmark-name">LOOP</div>
     <div class="loop-wordmark-desc">AI Market Briefing</div>
   </div>
+  <div class="loop-appearance" role="group" aria-label="Appearance">
+    <button type="button" data-loop-theme-set="light">Light</button>
+    <span aria-hidden="true">/</span>
+    <button type="button" data-loop-theme-set="dark">Dark</button>
+    <button type="button" data-loop-theme-set="system">System</button>
+  </div>
 </div>
 """
 
@@ -88,14 +94,14 @@ def _loop_prefixed(prefix: str) -> str:
 
 
 def brand_css() -> str:
-    """Ivory/ink canvas from macOS appearance; Streamlit widgets follow LOOP tokens."""
+    """Ivory/ink from data-loop-theme; Light/Dark beat OS, System follows it."""
     chip_colors = "\n".join(
         f'a[href*="{urlencode({"tag": tag})}"] {{ color: {color}; }}'
         for tag, color in TAG_COLORS.items()
     )
     light_sel = _loop_prefixed('html[data-loop-theme="light"]')
     dark_sel = _loop_prefixed('html[data-loop-theme="dark"]')
-    os_sel = _loop_prefixed("html")
+    unset_sel = _loop_prefixed("html:not([data-loop-theme])")
     return f"""
 <style data-loop-brand="1">
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap");
@@ -155,7 +161,7 @@ html[data-loop-theme="dark"] .loop-glasses {{
   color: #F7F6F2 !important;
 }}
 @media (prefers-color-scheme: light) {{
-  {os_sel} {{
+  {unset_sel} {{
     --loop-fg: #171C25;
     --loop-page: #F7F6F2;
     --loop-surface: #E5EAF0;
@@ -166,12 +172,9 @@ html[data-loop-theme="dark"] .loop-glasses {{
     color: #171C25 !important;
     color-scheme: light;
   }}
-  .loop-wordmark-name, .loop-wordmark-desc, .loop-glasses {{
-    color: #171C25 !important;
-  }}
 }}
 @media (prefers-color-scheme: dark) {{
-  {os_sel} {{
+  {unset_sel} {{
     --loop-fg: #F7F6F2;
     --loop-page: #171C25;
     --loop-surface: #263B60;
@@ -181,9 +184,6 @@ html[data-loop-theme="dark"] .loop-glasses {{
     background-color: #171C25 !important;
     color: #F7F6F2 !important;
     color-scheme: dark;
-  }}
-  .loop-wordmark-name, .loop-wordmark-desc, .loop-glasses {{
-    color: #F7F6F2 !important;
   }}
 }}
 html[data-loop-theme="light"] [data-testid="stSelectbox"] .react-aria-ComboBox,
@@ -201,26 +201,6 @@ html[data-loop-theme="dark"] [data-testid="stSelectbox"] button {{
   background-color: #171C25 !important;
   color: #F7F6F2 !important;
   border-color: #263B60 !important;
-}}
-@media (prefers-color-scheme: light) {{
-  [data-testid="stSelectbox"] .react-aria-ComboBox,
-  [data-testid="stSelectbox"] [role="group"],
-  [data-testid="stSelectbox"] input,
-  [data-testid="stSelectbox"] button {{
-    background-color: #E5EAF0 !important;
-    color: #171C25 !important;
-    border-color: #E5EAF0 !important;
-  }}
-}}
-@media (prefers-color-scheme: dark) {{
-  [data-testid="stSelectbox"] .react-aria-ComboBox,
-  [data-testid="stSelectbox"] [role="group"],
-  [data-testid="stSelectbox"] input,
-  [data-testid="stSelectbox"] button {{
-    background-color: #171C25 !important;
-    color: #F7F6F2 !important;
-    border-color: #263B60 !important;
-  }}
 }}
 [data-testid="stMarkdownContainer"],
 [data-testid="stMarkdownContainer"] p,
@@ -326,6 +306,28 @@ button[kind="secondaryFormSubmit"] {{
   padding: 0.4rem 0 0.8rem;
   width: 100%;
 }}
+.loop-appearance {{
+  margin-left: auto;
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--loop-muted);
+}}
+.loop-appearance button {{
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--loop-muted);
+  cursor: pointer;
+}}
+.loop-appearance button[aria-pressed="true"] {{
+  color: var(--loop-fg);
+}}
 .loop-mark, .loop-glasses, .loop-wordmark {{
   color: inherit;
 }}
@@ -379,7 +381,7 @@ div[data-testid="stHtml"] {{
 
 
 def brand_theme_script() -> str:
-    """Mirror macOS prefers-color-scheme onto html[data-loop-theme]; no UI override."""
+    """Persist Light/Dark in localStorage; System follows prefers-color-scheme."""
     return """
 <script>
 (function () {
@@ -388,6 +390,7 @@ def brand_theme_script() -> str:
     if (window.parent && window.parent.document) doc = window.parent.document;
   } catch (err) {}
   var win = doc.defaultView || window;
+  var KEY = "loop-theme";
   var local = document.querySelector("style[data-loop-brand]");
   if (local && doc.head) {
     var style = doc.getElementById("loop-brand-css") || doc.createElement("style");
@@ -396,19 +399,49 @@ def brand_theme_script() -> str:
     style.textContent = local.textContent;
     if (!style.parentNode) doc.head.appendChild(style);
   }
-  function scheme() {
+  function osScheme() {
     return win.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  function choice() {
+    try {
+      var value = win.localStorage.getItem(KEY);
+      if (value === "light" || value === "dark" || value === "system") return value;
+    } catch (err) {}
+    return "system";
+  }
+  function resolved() {
+    var mode = choice();
+    return (mode === "light" || mode === "dark") ? mode : osScheme();
   }
   function paint() {
     var html = doc.documentElement;
     if (!html) return;
     if (html.style && html.style.removeProperty) html.style.removeProperty("color-scheme");
-    try { win.localStorage.removeItem("loop-theme"); } catch (err) {}
-    html.setAttribute("data-loop-theme", scheme());
+    var theme = resolved();
+    html.setAttribute("data-loop-theme", theme);
+    var selected = choice();
+    var buttons = doc.querySelectorAll("[data-loop-theme-set]");
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute(
+        "aria-pressed",
+        buttons[i].getAttribute("data-loop-theme-set") === selected ? "true" : "false"
+      );
+    }
     try {
       var skey = "stActiveTheme-" + ((win.location && win.location.pathname) || "/") + "-v2";
-      win.localStorage.setItem(skey, '"System"');
+      win.localStorage.setItem(skey, theme === "dark" ? '"Dark"' : '"Light"');
     } catch (err) {}
+  }
+  if (!doc.__loopThemeBound) {
+    doc.__loopThemeBound = true;
+    doc.addEventListener("click", function (event) {
+      var btn = event.target.closest ? event.target.closest("[data-loop-theme-set]") : null;
+      if (!btn) return;
+      event.preventDefault();
+      var next = btn.getAttribute("data-loop-theme-set");
+      try { win.localStorage.setItem(KEY, next); } catch (err) {}
+      paint();
+    }, true);
   }
   paint();
   var media = win.matchMedia("(prefers-color-scheme: dark)");

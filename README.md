@@ -1,6 +1,6 @@
 # LOOP: AI Market Briefing
 
-**Active version: v4.1.** LOOP branding, pastel tag chips, a left header with vertically centered glasses + wordmark, ink type in light mode, mock RSS still fetched live, and 2026-scale market closes (Dow ~52k). Loop.app stays responsive while a briefing generates in the background. Live pipeline runs still need a gitignored `.env` in the project root.
+**Active version: v4.1.1.** Streamlit ⋮ Light/Dark/System paints LOOP ivory, ink, or macOS. Daily Loop date picker, every-day 8:00 launchd, and full RSS in `loop.db`. Loop.app stays responsive while a briefing generates in the background. Live pipeline runs still need a gitignored `.env` in the project root.
 
 ## Purpose
 
@@ -38,6 +38,7 @@ No paid news API, database, website, or automated email yet.
 | 2026-10-21 | Use eight public feeds, including Bloomberg, Reuters markets, Politico, and a narrower AP policy search | Broader AI market and policy coverage from still-free RSS. |
 | 2026-10-21 | Rebrand to Loop: AI Market Briefing; daily files use `# Looping... (YYYY-MM-DD)`; historical reports use `# The Loop` | One product name for the daily habit and a separate title for the archive. |
 | 2026-10-21 | Put a Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow) above story sections; failed quotes say fetch failed | The brief should open with observable market context, never invented numbers. |
+| 2026-10-30 | v4.1.1: Streamlit ⋮ Light/Dark/System is the only appearance control; Daily Loop date picker; launchd every morning; store all RSS in `loop.db` | Header Light/Dark/System was redundant with the hamburger menu. |
 | 2026-10-24 | v4.1: LOOP wordmark/glasses, pastel `#Tag` chips, ink-on-ivory light UI, same-day RSS preferred over the 48h leftover pool, Yahoo latest session close, mock Dow ~52k | `--mock` still collects live feeds and skips Gemini. |
 | 2026-10-24 | v4.0.1: login `RunAtLoad` plus skip-if-today’s-brief-exists; Streamlit shows the latest brief while a lockfile run finishes; mock Fed Funds is `4.33%`; user-facing tags unhyphenate | Internal YAML/SQL keys stay hyphenated; the app never blocks on Gemini. |
 | 2026-10-23 | Place each story in one weighted tag section; glance uses three-word RSS links to section anchors; only headline chips are colored Streamlit links | Section titles stay plain headings; multi-tag stories are not duplicated. |
@@ -167,6 +168,10 @@ ai-market-briefing/
 ```
 
 Raw inputs and generated outputs are separate so we can inspect what the program received before trusting what it produced.
+
+## v4.1.1: Streamlit appearance, date picker, daily RSS
+
+Same branding as v4.1. Appearance is Streamlit’s ⋮ Light / Dark / System only: Light is ivory `#F7F6F2` with ink type, Dark is ink `#171C25` with ivory type, System follows macOS. The Daily Loop date select matches that theme (mist on light, ink on dark, 10px, Inter). LaunchAgent runs every day at 8:00 AM. Enriched RSS is stored in `loop.db` with `is_selected`.
 
 ## v4.1: LOOP branding, same-day RSS, 2026 market close
 

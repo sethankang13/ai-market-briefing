@@ -9,6 +9,8 @@ Run from the project folder:
 
 from __future__ import annotations
 
+LOOP_VERSION = "4.1.1"
+
 import html
 import json
 import os
@@ -53,12 +55,6 @@ LOOP_HEADER_HTML = """
   <div class="loop-wordmark">
     <div class="loop-wordmark-name">LOOP</div>
     <div class="loop-wordmark-desc">AI Market Briefing</div>
-  </div>
-  <div class="loop-appearance" role="group" aria-label="Appearance">
-    <button type="button" data-loop-theme-set="light">Light</button>
-    <span aria-hidden="true">/</span>
-    <button type="button" data-loop-theme-set="dark">Dark</button>
-    <button type="button" data-loop-theme-set="system">System</button>
   </div>
 </div>
 """
@@ -306,28 +302,6 @@ button[kind="secondaryFormSubmit"] {{
   padding: 0.4rem 0 0.8rem;
   width: 100%;
 }}
-.loop-appearance {{
-  margin-left: auto;
-  display: flex;
-  align-items: baseline;
-  gap: 0.4rem;
-  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
-  color: var(--loop-muted);
-}}
-.loop-appearance button {{
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  font: inherit;
-  color: var(--loop-muted);
-  cursor: pointer;
-}}
-.loop-appearance button[aria-pressed="true"] {{
-  color: var(--loop-fg);
-}}
 .loop-mark, .loop-glasses, .loop-wordmark {{
   color: inherit;
 }}
@@ -381,7 +355,7 @@ div[data-testid="stHtml"] {{
 
 
 def brand_theme_script() -> str:
-    """Keep LOOP header and Streamlit ⋮ Light/Dark/System on one localStorage choice."""
+    """Follow Streamlit ⋮ Light/Dark/System; paint LOOP ivory/ink from that choice."""
     return """
 <script>
 (function () {
@@ -444,17 +418,9 @@ def brand_theme_script() -> str:
     var html = doc.documentElement;
     if (!html) return;
     if (html.style && html.style.removeProperty) html.style.removeProperty("color-scheme");
-    var selected = choice();
     var theme = resolved();
     html.setAttribute("data-loop-theme", theme);
     html.setAttribute("data-theme", theme);
-    var buttons = doc.querySelectorAll("[data-loop-theme-set]");
-    for (var i = 0; i < buttons.length; i++) {
-      buttons[i].setAttribute(
-        "aria-pressed",
-        buttons[i].getAttribute("data-loop-theme-set") === selected ? "true" : "false"
-      );
-    }
   }
   if (!win.__loopStorageHooked) {
     win.__loopStorageHooked = true;
@@ -485,15 +451,6 @@ def brand_theme_script() -> str:
     doc.__loopThemeBound = true;
     doc.addEventListener("click", function (event) {
       var target = event.target;
-      var btn = target.closest ? target.closest("[data-loop-theme-set]") : null;
-      if (btn) {
-        event.preventDefault();
-        var next = btn.getAttribute("data-loop-theme-set");
-        try { win.localStorage.setItem(KEY, next); } catch (err) {}
-        persist(next);
-        paint();
-        return;
-      }
       var item = target.closest ? target.closest("[data-testid^='stMainMenuItem-theme-']") : null;
       if (!item) return;
       var id = item.getAttribute("data-testid") || "";

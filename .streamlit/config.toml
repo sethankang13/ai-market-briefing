@@ -7,7 +7,7 @@ headingFont = "sans-serif"
 linkUnderline = false
 showSidebarBorder = true
 showWidgetBorder = true
-baseRadius = "0.4rem"
+baseRadius = "0.6rem"
 headingFontWeights = [500, 500, 600, 600, 600, 600]
 
 [theme.light]

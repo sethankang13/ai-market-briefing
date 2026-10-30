@@ -78,35 +78,12 @@ def brand_css() -> str:
         f'a[href*="{urlencode({"tag": tag})}"] {{ color: {color}; }}'
         for tag, color in TAG_COLORS.items()
     )
-    light = """
-  --loop-fg: #171C25;
-  --loop-muted: #64748B;
-  --loop-page: #F7F6F2;
-  --loop-surface: #E5EAF0;
-  --loop-border: #E5EAF0;
-  --loop-accent: #263B60;
-  --text-color: #171C25;
-  --background-color: #F7F6F2;
-  --secondary-background-color: #E5EAF0;
-  --primary-color: #263B60;
-  color-scheme: light;
-"""
-    dark = """
-  --loop-fg: #F7F6F2;
-  --loop-muted: #64748B;
-  --loop-page: #171C25;
-  --loop-surface: #263B60;
-  --loop-border: #263B60;
-  --loop-accent: #A7C7E7;
-  --text-color: #F7F6F2;
-  --background-color: #171C25;
-  --secondary-background-color: #263B60;
-  --primary-color: #A7C7E7;
-  color-scheme: dark;
-"""
+    canvas = """
+html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
+[data-testid="stSidebar"], [data-testid="stHeader"], [data-testid="stBottomBlockContainer"]"""
     return f"""
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap">
 <style data-loop-brand="1">
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap");
 :root {{
   --loop-ink: #171C25;
   --loop-navy: #263B60;
@@ -114,33 +91,101 @@ def brand_css() -> str:
   --loop-ice: #A7C7E7;
   --loop-ivory: #F7F6F2;
   --loop-mist: #E5EAF0;
-{light}
+  --loop-radius: 10px;
+  --loop-fg: #171C25;
+  --loop-muted: #64748B;
+  --loop-page: #F7F6F2;
+  --loop-surface: #E5EAF0;
+  --loop-border: #E5EAF0;
+  --loop-accent: #263B60;
 }}
-html[data-theme="light"], body[data-theme="light"], .stApp[data-theme="light"] {{
-{light}
+{canvas} {{
+  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background-color: #F7F6F2;
+  color: #171C25;
+  color-scheme: light;
 }}
-html[data-theme="dark"], body[data-theme="dark"], .stApp[data-theme="dark"] {{
-{dark}
+@media (prefers-color-scheme: dark) {{
+  :root {{
+    --loop-fg: #F7F6F2;
+    --loop-muted: #64748B;
+    --loop-page: #171C25;
+    --loop-surface: #263B60;
+    --loop-border: #263B60;
+    --loop-accent: #A7C7E7;
+  }}
+  {canvas},
+  html[data-theme="light"], html[data-theme="dark"],
+  .stApp[data-theme="light"], .stApp[data-theme="dark"] {{
+    background-color: #171C25;
+    color: #F7F6F2;
+    color-scheme: dark;
+  }}
 }}
 @media (prefers-color-scheme: light) {{
-  :root, html, html[data-theme="light"], html[data-theme="dark"],
-  body, body[data-theme="light"], body[data-theme="dark"],
-  .stApp, .stApp[data-theme="light"], .stApp[data-theme="dark"] {{
-{light}
+  :root {{
+    --loop-fg: #171C25;
+    --loop-muted: #64748B;
+    --loop-page: #F7F6F2;
+    --loop-surface: #E5EAF0;
+    --loop-border: #E5EAF0;
+    --loop-accent: #263B60;
+  }}
+  {canvas},
+  html[data-theme="light"], html[data-theme="dark"],
+  .stApp[data-theme="light"], .stApp[data-theme="dark"] {{
+    background-color: #F7F6F2;
+    color: #171C25;
+    color-scheme: light;
+  }}
+}}
+html.loop-scheme-light, html.loop-scheme-light body, html.loop-scheme-light .stApp,
+html.loop-scheme-light [data-testid="stAppViewContainer"],
+html.loop-scheme-light [data-testid="stMain"],
+html.loop-scheme-light [data-testid="stHeader"] {{
+  --loop-fg: #171C25;
+  --loop-page: #F7F6F2;
+  --loop-surface: #E5EAF0;
+  --loop-border: #E5EAF0;
+  --loop-accent: #263B60;
+  background-color: #F7F6F2;
+  color: #171C25;
+  color-scheme: light;
+}}
+html.loop-scheme-dark, html.loop-scheme-dark body, html.loop-scheme-dark .stApp,
+html.loop-scheme-dark [data-testid="stAppViewContainer"],
+html.loop-scheme-dark [data-testid="stMain"],
+html.loop-scheme-dark [data-testid="stHeader"] {{
+  --loop-fg: #F7F6F2;
+  --loop-page: #171C25;
+  --loop-surface: #263B60;
+  --loop-border: #263B60;
+  --loop-accent: #A7C7E7;
+  background-color: #171C25;
+  color: #F7F6F2;
+  color-scheme: dark;
+}}
+@media (prefers-color-scheme: light) {{
+  html.loop-scheme-dark, html.loop-scheme-dark body, html.loop-scheme-dark .stApp,
+  html.loop-scheme-dark [data-testid="stAppViewContainer"],
+  html.loop-scheme-dark [data-testid="stMain"] {{
+    --loop-fg: #171C25;
+    --loop-page: #F7F6F2;
+    background-color: #F7F6F2;
+    color: #171C25;
+    color-scheme: light;
   }}
 }}
 @media (prefers-color-scheme: dark) {{
-  :root, html, html[data-theme="light"], html[data-theme="dark"],
-  body, body[data-theme="light"], body[data-theme="dark"],
-  .stApp, .stApp[data-theme="light"], .stApp[data-theme="dark"] {{
-{dark}
+  html.loop-scheme-light, html.loop-scheme-light body, html.loop-scheme-light .stApp,
+  html.loop-scheme-light [data-testid="stAppViewContainer"],
+  html.loop-scheme-light [data-testid="stMain"] {{
+    --loop-fg: #F7F6F2;
+    --loop-page: #171C25;
+    background-color: #171C25;
+    color: #F7F6F2;
+    color-scheme: dark;
   }}
-}}
-html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
-[data-testid="stSidebar"], [data-testid="stHeader"], [data-testid="stBottomBlockContainer"] {{
-  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
-  background-color: var(--loop-page);
-  color: var(--loop-fg);
 }}
 [data-testid="stMarkdownContainer"],
 [data-testid="stMarkdownContainer"] p,
@@ -198,17 +243,26 @@ button[role="tab"][aria-selected="true"] {{
   background-color: var(--loop-surface);
   color: var(--loop-fg);
   border-color: var(--loop-border);
+  border-radius: 10px;
 }}
 [data-testid="stForm"] {{
   background-color: var(--loop-page);
   border-color: var(--loop-border);
   color: var(--loop-fg);
+  border-radius: 10px;
 }}
 [data-testid="stExpander"],
-[data-testid="stVerticalBlockBorderWrapper"] {{
+[data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stPopover"] {{
   background-color: var(--loop-page);
   border-color: var(--loop-border);
   color: var(--loop-fg);
+  border-radius: 10px;
+}}
+[data-testid="stBaseButton-secondaryFormSubmit"],
+[data-testid="stFormSubmitButton"] button,
+button[kind="secondaryFormSubmit"] {{
+  border-radius: 10px;
 }}
 .loop-header {{
   display: flex;
@@ -273,7 +327,7 @@ div[data-testid="stHtml"] {{
 
 
 def brand_theme_script() -> str:
-    """Keep html/body/.stApp data-theme aligned with macOS prefers-color-scheme."""
+    """Mirror OS appearance with html.loop-scheme-* without locking color-scheme."""
     return """
 <script>
 (function () {
@@ -283,22 +337,22 @@ def brand_theme_script() -> str:
   } catch (err) {}
   var win = doc.defaultView || window;
   var local = document.querySelector("style[data-loop-brand]");
-  if (local && doc.head && !doc.getElementById("loop-brand-css")) {
-    var style = doc.createElement("style");
+  if (local && doc.head) {
+    var style = doc.getElementById("loop-brand-css") || doc.createElement("style");
     style.id = "loop-brand-css";
     style.textContent = local.textContent;
-    doc.head.appendChild(style);
+    if (!style.parentNode) doc.head.appendChild(style);
   }
   function scheme() {
     return win.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
   function paint() {
     var theme = scheme();
-    [doc.documentElement, doc.body, doc.querySelector(".stApp")].forEach(function (el) {
-      if (!el) return;
-      if (el.getAttribute("data-theme") !== theme) el.setAttribute("data-theme", theme);
-      if (el.style.colorScheme !== theme) el.style.colorScheme = theme;
-    });
+    var html = doc.documentElement;
+    if (!html) return;
+    html.classList.remove("loop-scheme-light", "loop-scheme-dark");
+    html.classList.add("loop-scheme-" + theme);
+    html.setAttribute("data-loop-scheme", theme);
     try {
       var key = "stActiveTheme-" + ((win.location && win.location.pathname) || "/") + "-v2";
       win.localStorage.setItem(key, '"System"');
@@ -308,29 +362,24 @@ def brand_theme_script() -> str:
   var media = win.matchMedia("(prefers-color-scheme: dark)");
   if (media.addEventListener) media.addEventListener("change", paint);
   else if (media.addListener) media.addListener(paint);
-  if (doc.documentElement && win.MutationObserver) {
-    new MutationObserver(paint).observe(doc.documentElement, {
-      attributes: true,
-      attributeFilter: ["data-theme", "class"]
-    });
-  }
 })();
 </script>
 """
 
 
 def inject_brand_chrome() -> None:
-    """Inject CSS+JS through st.html so Streamlit does not print the stylesheet."""
-    payload = brand_css() + brand_theme_script()
+    """Apply stylesheet via markdown (Safari-stable) and a small st.html script."""
+    st.markdown(brand_css(), unsafe_allow_html=True)
     html_fn = getattr(st, "html", None)
+    script = brand_theme_script()
     if callable(html_fn):
         try:
-            html_fn(payload, unsafe_allow_javascript=True)
+            html_fn(script, unsafe_allow_javascript=True)
             return
         except TypeError:
-            html_fn(payload)
+            html_fn(script)
             return
-    st.markdown(payload, unsafe_allow_html=True)
+    st.markdown(script, unsafe_allow_html=True)
 
 
 def ensure_project_root() -> Path:

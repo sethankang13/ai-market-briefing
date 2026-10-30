@@ -1,6 +1,7 @@
 [theme]
 # Streamlit 1.66 has no base="auto". Pair [theme.light] + [theme.dark]
-# so the client builds Custom Theme Auto from prefers-color-scheme.
+# so the client can build Custom Theme Auto. LOOP still paints tokens
+# from prefers-color-scheme so a stuck data-theme="light" cannot freeze ink.
 font = "sans-serif"
 headingFont = "sans-serif"
 linkUnderline = false

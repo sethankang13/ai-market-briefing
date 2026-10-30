@@ -186,10 +186,7 @@ def glance_tag_label(tag: str) -> str:
     """Italic section jump using LOOP foreground. Not a hashtag chip."""
     href = html.escape(f"#{tag_section_id(tag)}", quote=True)
     label = html.escape(humanize_tag(tag))
-    return (
-        f'<a href="{href}" style="color:var(--loop-fg, inherit);font-style:italic;'
-        f'text-decoration:none">{label}</a>'
-    )
+    return f'<a class="loop-glance" href="{href}">{label}</a>'
 
 
 def render_at_a_glance(

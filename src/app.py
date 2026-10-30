@@ -73,14 +73,40 @@ from write_brief import (
 
 
 def brand_css() -> str:
-    """Editorial tokens plus the same pastel map used in Daily Loop markdown."""
+    """macOS light/dark tokens for the whole Streamlit app, including widgets."""
     chip_colors = "\n".join(
-        f'a[href*="{urlencode({"tag": tag})}"] {{ color: {color} !important; }}'
+        f'a[href*="{urlencode({"tag": tag})}"] {{ color: {color}; }}'
         for tag, color in TAG_COLORS.items()
     )
+    light = """
+  --loop-fg: #171C25;
+  --loop-muted: #64748B;
+  --loop-page: #F7F6F2;
+  --loop-surface: #E5EAF0;
+  --loop-border: #E5EAF0;
+  --loop-accent: #263B60;
+  --text-color: #171C25;
+  --background-color: #F7F6F2;
+  --secondary-background-color: #E5EAF0;
+  --primary-color: #263B60;
+  color-scheme: light;
+"""
+    dark = """
+  --loop-fg: #F7F6F2;
+  --loop-muted: #64748B;
+  --loop-page: #171C25;
+  --loop-surface: #263B60;
+  --loop-border: #263B60;
+  --loop-accent: #A7C7E7;
+  --text-color: #F7F6F2;
+  --background-color: #171C25;
+  --secondary-background-color: #263B60;
+  --primary-color: #A7C7E7;
+  color-scheme: dark;
+"""
     return f"""
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap">
-<style>
+<style data-loop-brand="1">
 :root {{
   --loop-ink: #171C25;
   --loop-navy: #263B60;
@@ -88,65 +114,101 @@ def brand_css() -> str:
   --loop-ice: #A7C7E7;
   --loop-ivory: #F7F6F2;
   --loop-mist: #E5EAF0;
-  --loop-fg: #171C25;
-  --loop-page: var(--loop-ivory);
-  --loop-surface: var(--loop-mist);
+{light}
+}}
+html[data-theme="light"], body[data-theme="light"], .stApp[data-theme="light"] {{
+{light}
+}}
+html[data-theme="dark"], body[data-theme="dark"], .stApp[data-theme="dark"] {{
+{dark}
 }}
 @media (prefers-color-scheme: light) {{
-  :root {{
-    --loop-fg: #171C25;
-    --loop-page: var(--loop-ivory);
-    --loop-surface: var(--loop-mist);
+  :root, html, html[data-theme="light"], html[data-theme="dark"],
+  body, body[data-theme="light"], body[data-theme="dark"],
+  .stApp, .stApp[data-theme="light"], .stApp[data-theme="dark"] {{
+{light}
   }}
 }}
 @media (prefers-color-scheme: dark) {{
-  :root {{
-    --loop-fg: #F7F6F2;
-    --loop-page: var(--loop-ink);
-    --loop-surface: var(--loop-navy);
+  :root, html, html[data-theme="light"], html[data-theme="dark"],
+  body, body[data-theme="light"], body[data-theme="dark"],
+  .stApp, .stApp[data-theme="light"], .stApp[data-theme="dark"] {{
+{dark}
   }}
 }}
-html[data-theme="light"], [data-theme="light"] {{
-  --loop-fg: #171C25;
-  --loop-page: var(--loop-ivory);
-  --loop-surface: var(--loop-mist);
-}}
-html[data-theme="dark"], [data-theme="dark"] {{
-  --loop-fg: #F7F6F2;
-  --loop-page: var(--loop-ink);
-  --loop-surface: var(--loop-navy);
-}}
-html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
-.stMarkdown, .stCaption, .stText, .stSelectbox, .stTextInput {{
-  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
-  color: var(--loop-fg, inherit);
-}}
 html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
-[data-testid="stSidebar"], [data-testid="stHeader"] {{
-  background-color: var(--loop-page) !important;
-}}
-a[id], h1, h2, h3, [id] {{ scroll-margin-top: 90px; }}
-h1, h2, h3,
-[data-testid="stMarkdownContainer"] h1,
-[data-testid="stMarkdownContainer"] h2,
-[data-testid="stMarkdownContainer"] h3 {{
-  color: var(--loop-fg, inherit) !important;
-  font-weight: 500;
-  letter-spacing: 0.01em;
+[data-testid="stSidebar"], [data-testid="stHeader"], [data-testid="stBottomBlockContainer"] {{
+  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background-color: var(--loop-page);
+  color: var(--loop-fg);
 }}
 [data-testid="stMarkdownContainer"],
 [data-testid="stMarkdownContainer"] p,
 [data-testid="stMarkdownContainer"] li,
-[data-testid="stMarkdownContainer"] span {{
-  color: var(--loop-fg, inherit);
+[data-testid="stMarkdownContainer"] span,
+[data-testid="stMarkdownContainer"] h1,
+[data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3,
+[data-testid="stCaptionContainer"],
+[data-testid="stWidgetLabel"],
+[data-testid="stMetricValue"],
+[data-testid="stMetricLabel"],
+[data-testid="stAlert"] {{
+  color: var(--loop-fg);
 }}
-[data-testid="stMarkdownContainer"] a[href^="#"] {{
-  color: var(--loop-fg, inherit) !important;
+h1, h2, h3 {{
+  color: var(--loop-fg);
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }}
-hr {{ border: none; border-top: 1px solid var(--loop-surface); }}
-[data-testid="stHeader"] {{ background: transparent; }}
+a[id], h1, h2, h3, [id] {{ scroll-margin-top: 90px; }}
+.stApp a.loop-glance,
+.stApp [data-testid="stMarkdownContainer"] a.loop-glance,
+.stApp [data-testid="stMarkdownContainer"] a[href^="#"] {{
+  color: var(--loop-fg);
+  font-style: italic;
+  text-decoration: none;
+}}
+.stCaption, small, [data-testid="stCaptionContainer"] p {{
+  color: var(--loop-muted);
+}}
+hr {{ border: none; border-top: 1px solid var(--loop-border); }}
+[data-testid="stHeader"], [data-testid="stToolbar"] {{
+  background: var(--loop-page);
+  color: var(--loop-fg);
+}}
 [data-testid="stSidebar"] {{
-  color: var(--loop-fg, inherit) !important;
+  background-color: var(--loop-page);
+  color: var(--loop-fg);
+  border-color: var(--loop-border);
+}}
+[data-testid="stTabs"] button,
+button[role="tab"] {{
+  color: var(--loop-muted);
+  background: transparent;
+}}
+[data-testid="stTabs"] button[aria-selected="true"],
+button[role="tab"][aria-selected="true"] {{
+  color: var(--loop-fg);
+}}
+[data-testid="stSelectbox"] > div,
+[data-testid="stTextInput"] input,
+[data-baseweb="select"] > div,
+[data-baseweb="input"] {{
+  background-color: var(--loop-surface);
+  color: var(--loop-fg);
+  border-color: var(--loop-border);
+}}
+[data-testid="stForm"] {{
+  background-color: var(--loop-page);
+  border-color: var(--loop-border);
+  color: var(--loop-fg);
+}}
+[data-testid="stExpander"],
+[data-testid="stVerticalBlockBorderWrapper"] {{
+  background-color: var(--loop-page);
+  border-color: var(--loop-border);
+  color: var(--loop-fg);
 }}
 .loop-header {{
   display: flex;
@@ -155,11 +217,13 @@ hr {{ border: none; border-top: 1px solid var(--loop-surface); }}
   justify-content: flex-start;
   text-align: left;
   gap: 1rem;
-  color: var(--loop-fg, inherit) !important;
+  color: var(--loop-fg);
   padding: 0.4rem 0 0.8rem;
 }}
-.loop-mark {{
+.loop-mark, .loop-glasses, .loop-wordmark {{
   color: inherit;
+}}
+.loop-mark {{
   width: 88px;
   flex: 0 0 auto;
 }}
@@ -168,18 +232,13 @@ hr {{ border: none; border-top: 1px solid var(--loop-surface); }}
   height: 44px;
   display: block;
   margin: 0;
-  color: inherit;
-}}
-.loop-wordmark {{
-  padding-top: 0;
-  color: inherit !important;
 }}
 .loop-wordmark-name {{
   font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 2.35rem;
   font-weight: 400;
   letter-spacing: 0.32em;
-  color: var(--loop-fg, inherit) !important;
+  color: var(--loop-fg);
   line-height: 1.05;
   text-transform: uppercase;
 }}
@@ -188,28 +247,25 @@ hr {{ border: none; border-top: 1px solid var(--loop-surface); }}
   font-size: 0.92rem;
   font-weight: 400;
   letter-spacing: 0.14em;
-  color: var(--loop-fg, inherit) !important;
+  color: var(--loop-fg);
   margin-top: 0.25rem;
 }}
 a[href*="?tag="] {{
-  font-weight: 500 !important;
-  background: none !important;
-  border: none !important;
-  border-radius: 0 !important;
-  padding: 0 !important;
+  font-weight: 500;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
   margin: 0 0.35rem 0 0;
   display: inline;
-  text-decoration: underline !important;
+  text-decoration: underline;
   text-underline-offset: 0.18em;
   font-size: 0.92rem;
 }}
 {chip_colors}
-[data-testid="stVerticalBlockBorderWrapper"] {{
-  border-color: var(--loop-surface) !important;
-}}
 div[data-testid="stHtml"] {{
-  height: 0 !important;
-  min-height: 0 !important;
+  height: 0;
+  min-height: 0;
   overflow: hidden;
 }}
 </style>
@@ -217,61 +273,64 @@ div[data-testid="stHtml"] {{
 
 
 def brand_theme_script() -> str:
-    """Track macOS/browser appearance and keep Streamlit on Custom Theme Auto."""
+    """Keep html/body/.stApp data-theme aligned with macOS prefers-color-scheme."""
     return """
 <script>
 (function () {
-  var media = window.matchMedia("(prefers-color-scheme: dark)");
-  function scheme() {
-    return media.matches ? "dark" : "light";
+  var doc = document;
+  try {
+    if (window.parent && window.parent.document) doc = window.parent.document;
+  } catch (err) {}
+  var win = doc.defaultView || window;
+  var local = document.querySelector("style[data-loop-brand]");
+  if (local && doc.head && !doc.getElementById("loop-brand-css")) {
+    var style = doc.createElement("style");
+    style.id = "loop-brand-css";
+    style.textContent = local.textContent;
+    doc.head.appendChild(style);
   }
-  function apply(theme) {
-    var nodes = [document.documentElement, document.body];
-    var app = document.querySelector(".stApp");
-    if (app) nodes.push(app);
-    nodes.forEach(function (el) {
+  function scheme() {
+    return win.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  function paint() {
+    var theme = scheme();
+    [doc.documentElement, doc.body, doc.querySelector(".stApp")].forEach(function (el) {
       if (!el) return;
-      el.setAttribute("data-theme", theme);
-      el.style.colorScheme = theme;
+      if (el.getAttribute("data-theme") !== theme) el.setAttribute("data-theme", theme);
+      if (el.style.colorScheme !== theme) el.style.colorScheme = theme;
+    });
+    try {
+      var key = "stActiveTheme-" + ((win.location && win.location.pathname) || "/") + "-v2";
+      win.localStorage.setItem(key, '"System"');
+    } catch (err) {}
+  }
+  paint();
+  var media = win.matchMedia("(prefers-color-scheme: dark)");
+  if (media.addEventListener) media.addEventListener("change", paint);
+  else if (media.addListener) media.addListener(paint);
+  if (doc.documentElement && win.MutationObserver) {
+    new MutationObserver(paint).observe(doc.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme", "class"]
     });
   }
-  function preferSystemTheme() {
-    var key = "stActiveTheme-" + (window.location.pathname || "/") + "-v2";
-    try {
-      if (window.localStorage.getItem(key) !== '"System"') {
-        window.localStorage.setItem(key, '"System"');
-        if (!window.sessionStorage.getItem("loop-system-theme")) {
-          window.sessionStorage.setItem("loop-system-theme", "1");
-          window.location.reload();
-          return false;
-        }
-      }
-    } catch (err) {}
-    return true;
-  }
-  if (!preferSystemTheme()) return;
-  apply(scheme());
-  var onChange = function () { apply(scheme()); };
-  if (media.addEventListener) media.addEventListener("change", onChange);
-  else if (media.addListener) media.addListener(onChange);
 })();
 </script>
 """
 
 
 def inject_brand_chrome() -> None:
-    """CSS via markdown; JS via st.html so Streamlit does not strip the script."""
-    st.markdown(brand_css(), unsafe_allow_html=True)
+    """Inject CSS+JS through st.html so Streamlit does not print the stylesheet."""
+    payload = brand_css() + brand_theme_script()
     html_fn = getattr(st, "html", None)
-    script = brand_theme_script()
     if callable(html_fn):
         try:
-            html_fn(script, unsafe_allow_javascript=True)
+            html_fn(payload, unsafe_allow_javascript=True)
             return
         except TypeError:
-            html_fn(script)
+            html_fn(payload)
             return
-    st.markdown(script, unsafe_allow_html=True)
+    st.markdown(payload, unsafe_allow_html=True)
 
 
 def ensure_project_root() -> Path:

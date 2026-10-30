@@ -381,7 +381,7 @@ div[data-testid="stHtml"] {{
 
 
 def brand_theme_script() -> str:
-    """Persist Light/Dark in localStorage; System follows prefers-color-scheme."""
+    """Keep LOOP header and Streamlit ⋮ Light/Dark/System on one localStorage choice."""
     return """
 <script>
 (function () {
@@ -402,24 +402,52 @@ def brand_theme_script() -> str:
   function osScheme() {
     return win.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
+  function stThemeKey() {
+    return "stActiveTheme-" + ((win.location && win.location.pathname) || "/") + "-v2";
+  }
+  function parseChoice(raw) {
+    if (raw == null) return null;
+    var value = raw;
+    try { value = JSON.parse(raw); } catch (err) {}
+    if (typeof value !== "string") return null;
+    var mode = value.replace(/^"+|"+$/g, "").toLowerCase();
+    if (mode === "light" || mode === "dark" || mode === "system") return mode;
+    return null;
+  }
+  function readSt() {
+    try { return parseChoice(win.localStorage.getItem(stThemeKey())); } catch (err) {}
+    try { return parseChoice(win.localStorage.getItem("stActiveTheme")); } catch (err) {}
+    return null;
+  }
   function choice() {
     try {
-      var value = win.localStorage.getItem(KEY);
-      if (value === "light" || value === "dark" || value === "system") return value;
+      var loop = parseChoice(win.localStorage.getItem(KEY));
+      if (loop) return loop;
     } catch (err) {}
-    return "system";
+    return readSt() || "system";
   }
   function resolved() {
     var mode = choice();
     return (mode === "light" || mode === "dark") ? mode : osScheme();
   }
+  function persist(mode) {
+    var label = mode === "light" ? "Light" : mode === "dark" ? "Dark" : "System";
+    win.__loopWriting = true;
+    try {
+      win.localStorage.setItem(KEY, mode);
+      win.localStorage.setItem(stThemeKey(), JSON.stringify(label));
+      win.localStorage.setItem("stActiveTheme", JSON.stringify(label));
+    } catch (err) {}
+    win.__loopWriting = false;
+  }
   function paint() {
     var html = doc.documentElement;
     if (!html) return;
     if (html.style && html.style.removeProperty) html.style.removeProperty("color-scheme");
+    var selected = choice();
     var theme = resolved();
     html.setAttribute("data-loop-theme", theme);
-    var selected = choice();
+    html.setAttribute("data-theme", theme);
     var buttons = doc.querySelectorAll("[data-loop-theme-set]");
     for (var i = 0; i < buttons.length; i++) {
       buttons[i].setAttribute(
@@ -427,22 +455,55 @@ def brand_theme_script() -> str:
         buttons[i].getAttribute("data-loop-theme-set") === selected ? "true" : "false"
       );
     }
-    try {
-      var skey = "stActiveTheme-" + ((win.location && win.location.pathname) || "/") + "-v2";
-      win.localStorage.setItem(skey, theme === "dark" ? '"Dark"' : '"Light"');
-    } catch (err) {}
+  }
+  if (!win.__loopStorageHooked) {
+    win.__loopStorageHooked = true;
+    var origSet = win.localStorage.setItem.bind(win.localStorage);
+    win.localStorage.setItem = function (key, value) {
+      origSet(key, value);
+      if (win.__loopWriting) return;
+      if (String(key).indexOf("stActiveTheme") === 0 || key === KEY) {
+        var parsed = key === KEY ? parseChoice(value) : parseChoice(value);
+        if (parsed) {
+          win.__loopWriting = true;
+          try {
+            origSet(KEY, parsed);
+            var label = parsed === "light" ? "Light" : parsed === "dark" ? "Dark" : "System";
+            origSet(stThemeKey(), JSON.stringify(label));
+          } catch (err) {}
+          win.__loopWriting = false;
+          paint();
+        }
+      }
+    };
+    win.addEventListener("storage", function (event) {
+      if (!event || !event.key) return;
+      if (event.key === KEY || String(event.key).indexOf("stActiveTheme") === 0) paint();
+    });
   }
   if (!doc.__loopThemeBound) {
     doc.__loopThemeBound = true;
     doc.addEventListener("click", function (event) {
-      var btn = event.target.closest ? event.target.closest("[data-loop-theme-set]") : null;
-      if (!btn) return;
-      event.preventDefault();
-      var next = btn.getAttribute("data-loop-theme-set");
-      try { win.localStorage.setItem(KEY, next); } catch (err) {}
+      var target = event.target;
+      var btn = target.closest ? target.closest("[data-loop-theme-set]") : null;
+      if (btn) {
+        event.preventDefault();
+        var next = btn.getAttribute("data-loop-theme-set");
+        try { win.localStorage.setItem(KEY, next); } catch (err) {}
+        persist(next);
+        paint();
+        return;
+      }
+      var item = target.closest ? target.closest("[data-testid^='stMainMenuItem-theme-']") : null;
+      if (!item) return;
+      var id = item.getAttribute("data-testid") || "";
+      var fromMenu = id.indexOf("theme-Dark") >= 0 ? "dark" : id.indexOf("theme-Light") >= 0 ? "light" : id.indexOf("theme-System") >= 0 ? "system" : null;
+      if (!fromMenu) return;
+      persist(fromMenu);
       paint();
     }, true);
   }
+  persist(choice());
   paint();
   var media = win.matchMedia("(prefers-color-scheme: dark)");
   if (media.addEventListener) media.addEventListener("change", paint);

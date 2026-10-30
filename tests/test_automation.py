@@ -36,3 +36,12 @@ class DailyAutomationTests(unittest.TestCase):
         self.assertIn("logs/briefing.lock", script)
         self.assertIn("python3 src/run_briefing.py", script)
         self.assertIn("Python.framework/Versions/Current/bin", script)
+        self.assertIn("display notification", script)
+        self.assertIn("Briefing in progress", script)
+        self.assertIn("Today's briefing is ready.", script)
+
+    def test_start_app_kicks_catchup_when_todays_brief_is_missing(self):
+        start = (PROJECT_ROOT / "scripts" / "start_app.sh").read_text(encoding="utf-8")
+        self.assertIn("kick_catchup", start)
+        self.assertIn("bash scripts/run_daily.sh", start)
+        self.assertIn("briefs/${TODAY}.md", start)

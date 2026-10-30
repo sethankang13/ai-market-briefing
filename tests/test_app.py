@@ -373,12 +373,15 @@ class AppImportTests(unittest.TestCase):
         today = "2026-10-24"
         self.assertEqual(
             self.app.generating_banner(today),
-            "⏳ Today's briefing (2026-10-24) is currently generating in the background. Showing latest available brief.",
+            "Briefing in progress… Today's briefing (2026-10-24) is generating in the background.",
         )
         self.assertEqual(
             self.app.ready_banner(today),
-            "🎉 A new briefing for 2026-10-24 is now ready!",
+            "Today's briefing (2026-10-24) is ready. Refresh to load it.",
         )
+        source = Path(self.app.__file__).read_text(encoding="utf-8")
+        self.assertIn('st.button("Refresh", key="loop_refresh_briefing")', source)
+        self.assertIn("awaiting_refresh", source)
         with TemporaryDirectory() as temp_dir:
             lock = Path(temp_dir) / "briefing.lock"
             lock.write_text(str(os.getpid()), encoding="utf-8")

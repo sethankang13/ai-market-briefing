@@ -12,6 +12,18 @@ bash scripts/apply_loop_icon.sh >/dev/null 2>&1 || true
 
 URL="http://127.0.0.1:8501"
 
+# Catch up if 8:00 AM was missed (sleep). run_daily.sh no-ops when today's
+# brief exists or a live lock is held. Login RunAtLoad does the same.
+kick_catchup() {
+  TODAY="$(date +%F)"
+  if [ -f "briefs/${TODAY}.md" ]; then
+    return 0
+  fi
+  nohup bash scripts/run_daily.sh >/dev/null 2>&1 &
+}
+
+kick_catchup
+
 if lsof -nP -iTCP:8501 -sTCP:LISTEN 2>/dev/null | grep -qi streamlit; then
   echo "Streamlit is already running on port 8501."
   open "$URL"

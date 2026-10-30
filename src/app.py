@@ -735,14 +735,11 @@ def today_iso() -> str:
 
 
 def generating_banner(today: str) -> str:
-    return (
-        f"⏳ Today's briefing ({today}) is currently generating in the background. "
-        "Showing latest available brief."
-    )
+    return f"Briefing in progress… Today's briefing ({today}) is generating in the background."
 
 
 def ready_banner(today: str) -> str:
-    return f"🎉 A new briefing for {today} is now ready!"
+    return f"Today's briefing ({today}) is ready. Refresh to load it."
 
 
 def arm_generation_poll(generating: bool) -> None:
@@ -1042,7 +1039,15 @@ def render_daily_loop() -> None:
         st.info(generating_banner(today))
     elif st.session_state.get("was_generating") and today_exists:
         st.session_state["was_generating"] = False
+        st.session_state["awaiting_refresh"] = True
+    if st.session_state.get("awaiting_refresh") and today_exists:
         st.success(ready_banner(today))
+        if st.button("Refresh", key="loop_refresh_briefing"):
+            st.session_state["awaiting_refresh"] = False
+            st.session_state["daily_loop_date"] = today
+            rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
+            if callable(rerun):
+                rerun()
     elif st.session_state.get("briefing_just_ready") == today:
         st.session_state.pop("briefing_just_ready", None)
         st.success(ready_banner(today))
@@ -1052,7 +1057,8 @@ def render_daily_loop() -> None:
         arm_generation_poll(generating)
         return
 
-    default = default_briefing_date(dates, today, generating)
+    hold_latest = generating or bool(st.session_state.get("awaiting_refresh"))
+    default = default_briefing_date(dates, today, hold_latest)
     index = dates.index(default) if default in dates else 0
     selected = st.selectbox("Briefing date", dates, index=index, key="daily_loop_date")
 

@@ -171,7 +171,7 @@ Raw inputs and generated outputs are separate so we can inspect what the program
 
 ## v4.1.1: Streamlit appearance, date picker, daily RSS
 
-Same branding as v4.1. Appearance is Streamlit’s ⋮ Light / Dark / System only: Light is ivory `#F7F6F2` with ink type, Dark is ink `#171C25` with ivory type, System follows macOS. The Daily Loop date select matches that theme (mist on light, ink on dark, 10px, Inter). LaunchAgent runs every day at 8:00 AM. Enriched RSS is stored in `loop.db` with `is_selected`.
+Same branding as v4.1. Appearance is Streamlit’s ⋮ Light / Dark / System only: Light is ivory `#F7F6F2` with ink type, Dark is ink `#171C25` with ivory type, System follows macOS. The Daily Loop date select matches that theme (mist on light, ink on dark, 10px, Inter). LaunchAgent runs every day at 8:00 AM. Opening Loop.app kicks `run_daily.sh` if today’s brief is missing. Enriched RSS is stored in `loop.db` with `is_selected`.
 
 ## v4.1: LOOP branding, same-day RSS, 2026 market close
 
@@ -182,7 +182,7 @@ Same pipeline as v4.0.1. The Streamlit header is glasses + LOOP + AI Market Brie
 Same local Streamlit app as v4.0, with a non-blocking Daily Loop tab and a search → In Focus explorer.
 
 - **Login auto-generate:** `scripts/com.loop.dailybriefing.plist` runs every day at 8:00 AM and sets `RunAtLoad` true. `scripts/run_daily.sh` sources a gitignored `.env` when present, timestamps `logs/launchd.log`, and exits 0 when `briefs/YYYY-MM-DD.md` already exists for today; otherwise it writes `logs/briefing.lock`, runs live `python3 src/run_briefing.py`, and clears the lock in a trap. Reinstall with `bash scripts/install_automation.sh` (load, not `launchctl start`).
-- **Non-blocking UI:** Loop.app never runs the pipeline. If today’s file is missing or still being written, it shows the latest complete brief. A generating lock shows `⏳ Today's briefing (YYYY-MM-DD) is currently generating in the background. Showing latest available brief.` When the file appears while the app is open, it shows `🎉 A new briefing for YYYY-MM-DD is now ready!`
+- **Non-blocking UI:** Loop.app opens Streamlit and kicks `run_daily.sh` if today’s brief is missing (catch-up after a missed 8:00 AM). A generating lock shows `Briefing in progress…`. When the file appears, the page prompts **Refresh** to load it. `run_daily.sh` may fire one macOS notification on start and one on complete.
 - **Fed Funds:** `--mock` always prints a realistic rate such as `4.33%`, never `fetch failed`. Live runs use `https://markets.newyorkfed.org/api/rates/all/latest.json` with an explicit User-Agent, then the unsecured EFFR fallback, and say `fetch failed` only if every attempt fails.
 - **Tag display:** User-facing labels turn hyphens into spaces and `-&-` into ` & ` (`Market Valuations`, `Legislation & Policy`, `Copyright & IP`, `Foundation Models`). Internal keys in YAML, SQLite, and `?tag=` URLs stay unchanged.
 - **Layout:** Header logo + banner from `static/`. Sidebar: stored briefing count, latest briefing date, active feed names from YAML. Tab **Daily Loop** has a briefing-date select (newest `briefs/YYYY-MM-DD.md` first; default today or latest) then titles `Daily Loop: YYYY-MM-DD` (not Looping...), Market Snapshot, At a Glance (section anchors use `scroll-margin-top: 90px`), topic sections, Daily Summary & Research Topics. Tab **The Loop** wraps Tag, Source, Year/Month/Day, and Keyword in a Search form; changing a widget does not query until **Search**. Results open an In Focus view with `← Back to Search`.
@@ -210,7 +210,7 @@ Phase 1 only: no generate-brief button, no new Gemini calls, no writes to the da
 
 ## v3.5: Local Automation & Passive Ingestion
 
-A user LaunchAgent runs `python3 src/run_briefing.py` at **8:00 AM every day** and on login (`RunAtLoad`). If `briefs/YYYY-MM-DD.md` already exists for today, the wrapper exits 0. Otherwise it holds `logs/briefing.lock` for the live run. The Mac must be on (and logged in) at 8:00 AM, or that day's interval is skipped. `run_daily.sh` sources a gitignored `.env` (exporting `GEMINI_API_KEY` into the launchd environment) and writes timestamped start/skip/failure/complete lines to `logs/launchd.log`. Do not put API keys in the plist or shell scripts.
+A user LaunchAgent runs `python3 src/run_briefing.py` at **8:00 AM every day** and on login (`RunAtLoad`). If `briefs/YYYY-MM-DD.md` already exists for today, the wrapper exits 0. Otherwise it holds `logs/briefing.lock` for the live run. The Mac must be on (and logged in) at 8:00 AM, or that day's interval is skipped until login `RunAtLoad` or opening Loop.app kicks `run_daily.sh`. `run_daily.sh` sources a gitignored `.env` (exporting `GEMINI_API_KEY` into the launchd environment) and writes timestamped start/skip/failure/complete lines to `logs/launchd.log`. Do not put API keys in the plist or shell scripts.
 
 Install (or reinstall) the job:
 

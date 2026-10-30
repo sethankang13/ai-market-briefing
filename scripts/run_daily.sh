@@ -16,6 +16,11 @@ log_line() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"
 }
 
+# Best-effort Notification Center. Ignore TCC / osascript failures.
+notify() {
+  /usr/bin/osascript -e "display notification \"$1\" with title \"LOOP\"" >/dev/null 2>&1 || true
+}
+
 if [ -f .env ]; then
   set -a
   # shellcheck disable=SC1091
@@ -44,6 +49,7 @@ fi
 cleanup() { rm -f "$LOCK"; }
 trap cleanup EXIT INT TERM HUP
 echo "$$" > "$LOCK"
+notify "Briefing in progress…"
 
 set +e
 python3 src/run_briefing.py >> "$LOG" 2>&1
@@ -52,6 +58,7 @@ set -e
 
 if [ "$status" -eq 0 ]; then
   log_line "complete: daily briefing"
+  notify "Today's briefing is ready."
 else
   log_line "failure: daily briefing exit ${status}"
   exit "$status"

@@ -54,6 +54,11 @@ LOOP_HEADER_HTML = """
     <div class="loop-wordmark-name">LOOP</div>
     <div class="loop-wordmark-desc">AI Market Briefing</div>
   </div>
+  <div class="loop-theme-toggle" role="group" aria-label="Appearance">
+    <button type="button" data-loop-theme-set="light">Light</button>
+    <button type="button" data-loop-theme-set="dark">Dark</button>
+    <button type="button" data-loop-theme-set="system">System</button>
+  </div>
 </div>
 """
 
@@ -72,15 +77,30 @@ from write_brief import (
 )
 
 
+def _loop_prefixed(prefix: str) -> str:
+    """Prefix every canvas selector so comma lists stay under the html theme."""
+    parts = [
+        prefix,
+        f"{prefix} body",
+        f"{prefix} .stApp",
+        f"{prefix} [data-testid='stAppViewContainer']",
+        f"{prefix} [data-testid='stMain']",
+        f"{prefix} [data-testid='stSidebar']",
+        f"{prefix} [data-testid='stHeader']",
+        f"{prefix} [data-testid='stBottomBlockContainer']",
+    ]
+    return ",\n".join(parts)
+
+
 def brand_css() -> str:
-    """macOS light/dark tokens for the whole Streamlit app, including widgets."""
+    """Light/Dark/System tokens. Explicit Light/Dark beat Streamlit and OS."""
     chip_colors = "\n".join(
         f'a[href*="{urlencode({"tag": tag})}"] {{ color: {color}; }}'
         for tag, color in TAG_COLORS.items()
     )
-    canvas = """
-html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
-[data-testid="stSidebar"], [data-testid="stHeader"], [data-testid="stBottomBlockContainer"]"""
+    light_sel = _loop_prefixed('html[data-loop-theme="light"]')
+    dark_sel = _loop_prefixed('html[data-loop-theme="dark"]')
+    system_sel = _loop_prefixed('html[data-loop-theme="system"]')
     return f"""
 <style data-loop-brand="1">
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap");
@@ -99,92 +119,79 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
   --loop-border: #E5EAF0;
   --loop-accent: #263B60;
 }}
-{canvas} {{
+html {{ color-scheme: light dark; }}
+body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
+[data-testid="stSidebar"], [data-testid="stHeader"] {{
   font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
-  background-color: #F7F6F2;
-  color: #171C25;
-  color-scheme: light;
 }}
-@media (prefers-color-scheme: dark) {{
-  :root {{
-    --loop-fg: #F7F6F2;
-    --loop-muted: #64748B;
-    --loop-page: #171C25;
-    --loop-surface: #263B60;
-    --loop-border: #263B60;
-    --loop-accent: #A7C7E7;
-  }}
-  {canvas},
-  html[data-theme="light"], html[data-theme="dark"],
-  .stApp[data-theme="light"], .stApp[data-theme="dark"] {{
-    background-color: #171C25;
-    color: #F7F6F2;
-    color-scheme: dark;
-  }}
-}}
-@media (prefers-color-scheme: light) {{
-  :root {{
-    --loop-fg: #171C25;
-    --loop-muted: #64748B;
-    --loop-page: #F7F6F2;
-    --loop-surface: #E5EAF0;
-    --loop-border: #E5EAF0;
-    --loop-accent: #263B60;
-  }}
-  {canvas},
-  html[data-theme="light"], html[data-theme="dark"],
-  .stApp[data-theme="light"], .stApp[data-theme="dark"] {{
-    background-color: #F7F6F2;
-    color: #171C25;
-    color-scheme: light;
-  }}
-}}
-html.loop-scheme-light, html.loop-scheme-light body, html.loop-scheme-light .stApp,
-html.loop-scheme-light [data-testid="stAppViewContainer"],
-html.loop-scheme-light [data-testid="stMain"],
-html.loop-scheme-light [data-testid="stHeader"] {{
+{light_sel} {{
   --loop-fg: #171C25;
+  --loop-muted: #64748B;
   --loop-page: #F7F6F2;
   --loop-surface: #E5EAF0;
   --loop-border: #E5EAF0;
   --loop-accent: #263B60;
-  background-color: #F7F6F2;
-  color: #171C25;
+  background-color: #F7F6F2 !important;
+  color: #171C25 !important;
   color-scheme: light;
 }}
-html.loop-scheme-dark, html.loop-scheme-dark body, html.loop-scheme-dark .stApp,
-html.loop-scheme-dark [data-testid="stAppViewContainer"],
-html.loop-scheme-dark [data-testid="stMain"],
-html.loop-scheme-dark [data-testid="stHeader"] {{
+{dark_sel} {{
   --loop-fg: #F7F6F2;
+  --loop-muted: #64748B;
   --loop-page: #171C25;
   --loop-surface: #263B60;
   --loop-border: #263B60;
   --loop-accent: #A7C7E7;
-  background-color: #171C25;
-  color: #F7F6F2;
+  background-color: #171C25 !important;
+  color: #F7F6F2 !important;
   color-scheme: dark;
 }}
 @media (prefers-color-scheme: light) {{
-  html.loop-scheme-dark, html.loop-scheme-dark body, html.loop-scheme-dark .stApp,
-  html.loop-scheme-dark [data-testid="stAppViewContainer"],
-  html.loop-scheme-dark [data-testid="stMain"] {{
+  {system_sel} {{
     --loop-fg: #171C25;
     --loop-page: #F7F6F2;
-    background-color: #F7F6F2;
-    color: #171C25;
+    --loop-surface: #E5EAF0;
+    --loop-border: #E5EAF0;
+    --loop-accent: #263B60;
+    background-color: #F7F6F2 !important;
+    color: #171C25 !important;
     color-scheme: light;
   }}
 }}
 @media (prefers-color-scheme: dark) {{
-  html.loop-scheme-light, html.loop-scheme-light body, html.loop-scheme-light .stApp,
-  html.loop-scheme-light [data-testid="stAppViewContainer"],
-  html.loop-scheme-light [data-testid="stMain"] {{
+  {system_sel} {{
     --loop-fg: #F7F6F2;
     --loop-page: #171C25;
-    background-color: #171C25;
-    color: #F7F6F2;
+    --loop-surface: #263B60;
+    --loop-border: #263B60;
+    --loop-accent: #A7C7E7;
+    background-color: #171C25 !important;
+    color: #F7F6F2 !important;
     color-scheme: dark;
+  }}
+}}
+html[data-loop-theme="light"] .loop-wordmark-name,
+html[data-loop-theme="light"] .loop-wordmark-desc,
+html[data-loop-theme="light"] .loop-glasses {{
+  color: #171C25 !important;
+}}
+html[data-loop-theme="dark"] .loop-wordmark-name,
+html[data-loop-theme="dark"] .loop-wordmark-desc,
+html[data-loop-theme="dark"] .loop-glasses {{
+  color: #F7F6F2 !important;
+}}
+@media (prefers-color-scheme: light) {{
+  html[data-loop-theme="system"] .loop-wordmark-name,
+  html[data-loop-theme="system"] .loop-wordmark-desc,
+  html[data-loop-theme="system"] .loop-glasses {{
+    color: #171C25 !important;
+  }}
+}}
+@media (prefers-color-scheme: dark) {{
+  html[data-loop-theme="system"] .loop-wordmark-name,
+  html[data-loop-theme="system"] .loop-wordmark-desc,
+  html[data-loop-theme="system"] .loop-glasses {{
+    color: #F7F6F2 !important;
   }}
 }}
 [data-testid="stMarkdownContainer"],
@@ -198,12 +205,12 @@ html.loop-scheme-dark [data-testid="stHeader"] {{
 [data-testid="stWidgetLabel"],
 [data-testid="stMetricValue"],
 [data-testid="stMetricLabel"],
-[data-testid="stAlert"] {{
-  color: var(--loop-fg);
-}}
+[data-testid="stAlert"],
 h1, h2, h3 {{
   color: var(--loop-fg);
   font-weight: 500;
+}}
+h1, h2, h3 {{
   letter-spacing: 0.01em;
 }}
 a[id], h1, h2, h3, [id] {{ scroll-margin-top: 90px; }}
@@ -273,6 +280,25 @@ button[kind="secondaryFormSubmit"] {{
   gap: 1rem;
   color: var(--loop-fg);
   padding: 0.4rem 0 0.8rem;
+  width: 100%;
+}}
+.loop-theme-toggle {{
+  margin-left: auto;
+  display: flex;
+  gap: 0.35rem;
+}}
+.loop-theme-toggle button {{
+  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 0.8rem;
+  padding: 0.28rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--loop-border);
+  background: var(--loop-surface);
+  color: var(--loop-fg);
+  cursor: pointer;
+}}
+.loop-theme-toggle button[aria-pressed="true"] {{
+  outline: 1px solid var(--loop-accent);
 }}
 .loop-mark, .loop-glasses, .loop-wordmark {{
   color: inherit;
@@ -327,7 +353,7 @@ div[data-testid="stHtml"] {{
 
 
 def brand_theme_script() -> str:
-    """Mirror OS appearance with html.loop-scheme-* without locking color-scheme."""
+    """Install LOOP CSS on documentElement and honor Light/Dark/System."""
     return """
 <script>
 (function () {
@@ -336,27 +362,46 @@ def brand_theme_script() -> str:
     if (window.parent && window.parent.document) doc = window.parent.document;
   } catch (err) {}
   var win = doc.defaultView || window;
+  var KEY = "loop-theme";
   var local = document.querySelector("style[data-loop-brand]");
   if (local && doc.head) {
     var style = doc.getElementById("loop-brand-css") || doc.createElement("style");
     style.id = "loop-brand-css";
+    style.setAttribute("data-loop-brand", "1");
     style.textContent = local.textContent;
     if (!style.parentNode) doc.head.appendChild(style);
   }
-  function scheme() {
-    return win.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  function stored() {
+    try {
+      var value = win.localStorage.getItem(KEY);
+      if (value === "light" || value === "dark" || value === "system") return value;
+    } catch (err) {}
+    return "system";
   }
   function paint() {
-    var theme = scheme();
     var html = doc.documentElement;
     if (!html) return;
-    html.classList.remove("loop-scheme-light", "loop-scheme-dark");
-    html.classList.add("loop-scheme-" + theme);
-    html.setAttribute("data-loop-scheme", theme);
+    if (html.style && html.style.removeProperty) html.style.removeProperty("color-scheme");
+    var mode = stored();
+    html.setAttribute("data-loop-theme", mode);
+    var buttons = doc.querySelectorAll("[data-loop-theme-set]");
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute("aria-pressed", buttons[i].getAttribute("data-loop-theme-set") === mode ? "true" : "false");
+    }
     try {
-      var key = "stActiveTheme-" + ((win.location && win.location.pathname) || "/") + "-v2";
-      win.localStorage.setItem(key, '"System"');
+      var skey = "stActiveTheme-" + ((win.location && win.location.pathname) || "/") + "-v2";
+      win.localStorage.setItem(skey, '"System"');
     } catch (err) {}
+  }
+  if (!doc.__loopThemeBound) {
+    doc.__loopThemeBound = true;
+    doc.addEventListener("click", function (event) {
+      var btn = event.target.closest ? event.target.closest("[data-loop-theme-set]") : null;
+      if (!btn) return;
+      event.preventDefault();
+      try { win.localStorage.setItem(KEY, btn.getAttribute("data-loop-theme-set")); } catch (err) {}
+      paint();
+    }, true);
   }
   paint();
   var media = win.matchMedia("(prefers-color-scheme: dark)");
@@ -368,7 +413,7 @@ def brand_theme_script() -> str:
 
 
 def inject_brand_chrome() -> None:
-    """Apply stylesheet via markdown (Safari-stable) and a small st.html script."""
+    """Put LOOP CSS in the page markdown and a click handler in st.html."""
     st.markdown(brand_css(), unsafe_allow_html=True)
     html_fn = getattr(st, "html", None)
     script = brand_theme_script()

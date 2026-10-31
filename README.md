@@ -50,6 +50,8 @@ Names and URLs live in `config/config.yaml` `feeds`. Collection writes every ite
 
 ## How to run
 
+Checkout: `/Users/ethankang/Documents/ai-market-briefing`. LaunchAgent, Loop.app, and start/stop/run_daily scripts `cd` there.
+
 From the project folder:
 
 ```bash
@@ -95,7 +97,7 @@ Per-article HTML scrape lives in `src/archived_article_summarizer.py` and is not
 ## Workspace
 
 ```text
-ai-market-briefing/
+/Users/ethankang/Documents/ai-market-briefing/
 ├── README.md
 ├── VERSION                 # 4.1.1
 ├── config/config.yaml      # feeds, taxonomy, tag_weights, models, paths

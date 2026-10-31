@@ -4,7 +4,7 @@ set -e
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
-PROJECT="/Users/ethankang/Documents/Codex/ai-market-briefing"
+PROJECT="/Users/ethankang/Documents/ai-market-briefing"
 APP_DIR="$HOME/Applications"
 APP_PATH="$APP_DIR/Loop.app"
 

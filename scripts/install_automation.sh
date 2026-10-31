@@ -3,7 +3,7 @@
 # RunAtLoad is true in the plist; run_daily.sh exits 0 if today's brief already exists.
 set -e
 
-PROJECT="/Users/ethankang/Documents/Codex/ai-market-briefing"
+PROJECT="/Users/ethankang/Documents/ai-market-briefing"
 PLIST_SRC="$PROJECT/scripts/com.loop.dailybriefing.plist"
 PLIST_DEST="$HOME/Library/LaunchAgents/com.loop.dailybriefing.plist"
 LABEL="com.loop.dailybriefing"

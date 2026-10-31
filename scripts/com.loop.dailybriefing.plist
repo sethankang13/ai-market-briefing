@@ -7,10 +7,10 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>/bin/bash</string>
-		<string>/Users/ethankang/Documents/Codex/ai-market-briefing/scripts/run_daily.sh</string>
+		<string>/Users/ethankang/Documents/ai-market-briefing/scripts/run_daily.sh</string>
 	</array>
 	<key>WorkingDirectory</key>
-	<string>/Users/ethankang/Documents/Codex/ai-market-briefing</string>
+	<string>/Users/ethankang/Documents/ai-market-briefing</string>
 	<key>RunAtLoad</key>
 	<true/>
 	<key>StartCalendarInterval</key>
@@ -21,8 +21,8 @@
 		<integer>0</integer>
 	</dict>
 	<key>StandardOutPath</key>
-	<string>/Users/ethankang/Documents/Codex/ai-market-briefing/logs/launchd_stdout.log</string>
+	<string>/Users/ethankang/Documents/ai-market-briefing/logs/launchd_stdout.log</string>
 	<key>StandardErrorPath</key>
-	<string>/Users/ethankang/Documents/Codex/ai-market-briefing/logs/launchd_stderr.log</string>
+	<string>/Users/ethankang/Documents/ai-market-briefing/logs/launchd_stderr.log</string>
 </dict>
 </plist>

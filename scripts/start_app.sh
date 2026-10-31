@@ -6,7 +6,7 @@ set -e
 # framework bin, not Homebrew, so include that first.
 export PATH="/Library/Frameworks/Python.framework/Versions/3.13/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
-cd /Users/ethankang/Documents/Codex/ai-market-briefing
+cd /Users/ethankang/Documents/ai-market-briefing
 mkdir -p logs
 bash scripts/apply_loop_icon.sh >/dev/null 2>&1 || true
 

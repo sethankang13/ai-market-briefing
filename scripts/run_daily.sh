@@ -8,7 +8,7 @@ if [ -d "/Library/Frameworks/Python.framework/Versions/Current/bin" ]; then
   export PATH="/Library/Frameworks/Python.framework/Versions/Current/bin:$PATH"
 fi
 
-cd /Users/ethankang/Documents/Codex/ai-market-briefing
+cd /Users/ethankang/Documents/ai-market-briefing
 mkdir -p logs briefs
 
 LOG="logs/launchd.log"

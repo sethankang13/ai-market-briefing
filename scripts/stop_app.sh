@@ -4,7 +4,7 @@ set -e
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
-cd /Users/ethankang/Documents/Codex/ai-market-briefing
+cd /Users/ethankang/Documents/ai-market-briefing
 mkdir -p logs
 
 PID_FILE="logs/streamlit.pid"

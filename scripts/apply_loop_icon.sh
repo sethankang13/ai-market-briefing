@@ -2,7 +2,7 @@
 # Copy the light or dark glasses tile onto Loop.app from system appearance.
 set -e
 
-PROJECT="${PROJECT:-/Users/ethankang/Documents/Codex/ai-market-briefing}"
+PROJECT="${PROJECT:-/Users/ethankang/Documents/ai-market-briefing}"
 APP_PATH="${APP_PATH:-$HOME/Applications/Loop.app}"
 
 png_for_appearance() {

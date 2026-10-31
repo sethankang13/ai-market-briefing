@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -15,6 +16,16 @@ import summarize_stories
 
 
 class RunBriefingTests(unittest.TestCase):
+    def setUp(self):
+        self._briefs_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._briefs_dir.cleanup)
+        self.briefs_directory = Path(self._briefs_dir.name)
+        patcher = patch.object(
+            run_briefing.write_brief, "BRIEFS_DIRECTORY", self.briefs_directory
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_steps_run_in_order_and_pass_the_previous_file(self):
         order = []
 
@@ -284,7 +295,69 @@ class RunBriefingTests(unittest.TestCase):
     def test_main_passes_open_and_mock_flags(self):
         with patch.object(run_briefing, "run_briefing") as run:
             run_briefing.main(["--mock", "--open"])
-        run.assert_called_once_with(mock=True, open_after=True)
+        run.assert_called_once_with(mock=True, open_after=True, force=False)
+
+    def test_mock_without_force_exits_when_todays_brief_exists(self):
+        day = date.today().isoformat()
+        brief = self.briefs_directory / f"{day}.md"
+        original = "KEEP THE LIVE BRIEF\n"
+        brief.write_text(original, encoding="utf-8")
+        db_path = self.briefs_directory / "loop.db"
+        db_path.write_bytes(b"untouched-db")
+        stdout = io.StringIO()
+        with (
+            patch.object(run_briefing.db, "DEFAULT_DB_PATH", db_path),
+            patch.object(run_briefing, "collect_step") as collect,
+            patch.object(run_briefing, "persist_step") as persist,
+            patch.object(run_briefing, "write_brief_step") as write_step,
+            patch("sys.stdout", stdout),
+        ):
+            with self.assertRaises(SystemExit) as caught:
+                run_briefing.main(["--mock"])
+        self.assertEqual(caught.exception.code, 1)
+        collect.assert_not_called()
+        persist.assert_not_called()
+        write_step.assert_not_called()
+        self.assertEqual(brief.read_text(encoding="utf-8"), original)
+        self.assertEqual(db_path.read_bytes(), b"untouched-db")
+        self.assertEqual(
+            stdout.getvalue(),
+            (
+                f"⚠️ A briefing for {day} already exists. "
+                "To overwrite it with mock data, run: "
+                "python3 src/run_briefing.py --mock --force\n"
+            ),
+        )
+
+    def test_mock_force_overwrites_existing_brief(self):
+        day = date.today().isoformat()
+        brief = self.briefs_directory / f"{day}.md"
+        brief.write_text("OLD BRIEF\n", encoding="utf-8")
+        selected = {"stories": [], "failed_sources": []}
+
+        def write_brief_step(summarized_path):
+            del summarized_path
+            brief.write_text("NEW MOCK BRIEF\n", encoding="utf-8")
+            return brief
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with (
+                patch.object(run_briefing, "collect_step", return_value=Path("raw.json")),
+                patch.object(run_briefing, "enrich_step", return_value=Path("enriched.json")),
+                patch.object(run_briefing, "select_step", return_value=Path("selected.json")),
+                patch.object(run_briefing, "write_brief_step", write_brief_step),
+                patch.object(run_briefing, "market_step", return_value={}),
+                patch.object(run_briefing, "attach_market", lambda path, snap: selected),
+                patch.object(run_briefing, "persist_step", return_value=Path("data/loop.db")),
+                patch.object(summarize_stories, "load_selected_run", return_value=selected),
+                patch.object(
+                    summarize_stories, "SUMMARIZED_DATA_DIRECTORY", Path(temp_dir)
+                ),
+            ):
+                result = run_briefing.main(["--mock", "--force"])
+
+        self.assertIsNone(result)
+        self.assertEqual(brief.read_text(encoding="utf-8"), "NEW MOCK BRIEF\n")
 
     def test_stories_for_loop_db_keeps_unselected_collected_rss(self):
         enriched = {

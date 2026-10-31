@@ -3,6 +3,7 @@
 Run from the project folder:
     python3 src/run_briefing.py
     python3 src/run_briefing.py --mock
+    python3 src/run_briefing.py --mock --force
     python3 src/run_briefing.py --mock --open
 """
 
@@ -10,6 +11,7 @@ import argparse
 import json
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
 import collect_stories
@@ -31,6 +33,30 @@ class StepFailed(Exception):
         self.step = step
         self.error = error
         super().__init__(f"{step} failed: {error}")
+
+
+def todays_brief_path() -> Path:
+    """``briefs/YYYY-MM-DD.md`` for the local calendar day."""
+    return write_brief.BRIEFS_DIRECTORY / f"{date.today().isoformat()}.md"
+
+
+def mock_overwrite_warning(brief_path: Path) -> str:
+    """Exact CLI copy when ``--mock`` would replace today's brief."""
+    return (
+        f"⚠️ A briefing for {brief_path.stem} already exists. "
+        "To overwrite it with mock data, run: python3 src/run_briefing.py --mock --force"
+    )
+
+
+def refuse_mock_overwrite(mock: bool, force: bool) -> None:
+    """Exit 1 before collect/persist when mock would replace today's brief."""
+    if not mock or force:
+        return
+    brief_path = todays_brief_path()
+    if not brief_path.is_file():
+        return
+    print(mock_overwrite_warning(brief_path))
+    raise SystemExit(1)
 
 
 def collect_step() -> Path:
@@ -204,12 +230,14 @@ def open_briefing_file(brief_path: Path) -> None:
         print(f"Could not open {brief_path}: {error}")
 
 
-def run_briefing(mock: bool = False, open_after: bool = False) -> Path:
+def run_briefing(mock: bool = False, open_after: bool = False, force: bool = False) -> Path:
     """Collect, enrich, select, snapshot markets, summarize, write, and store.
 
     ``mock`` still collects the RSS feeds, but writes offline mock macro
-    sections and does not call Gemini or OpenAI.
+    sections and does not call Gemini or OpenAI. Without ``force``, mock
+    refuses to replace today's ``briefs/YYYY-MM-DD.md``.
     """
+    refuse_mock_overwrite(mock, force)
     if not mock:
         summarize_stories.load_project_env()
     print("Loop: AI Market Briefing")
@@ -246,6 +274,11 @@ def main(argv: list[str] | None = None) -> None:
         help="Write offline mock macro sections and do not call Gemini or OpenAI.",
     )
     parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Allow --mock to overwrite today's briefs/YYYY-MM-DD.md.",
+    )
+    parser.add_argument(
         "--open",
         action="store_true",
         dest="open_after",
@@ -253,7 +286,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
     try:
-        run_briefing(mock=args.mock, open_after=args.open_after)
+        run_briefing(mock=args.mock, open_after=args.open_after, force=args.force)
     except StepFailed as error:
         print(error, file=sys.stderr)
         raise SystemExit(1) from error

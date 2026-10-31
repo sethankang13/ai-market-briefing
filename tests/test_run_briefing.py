@@ -119,7 +119,7 @@ class RunBriefingTests(unittest.TestCase):
         story = {
             "headline": "AI bill advances",
             "link": "https://example.com/ai-bill",
-            "tags": ["Legislation-&-Policy"],
+            "tags": ["US Politics"],
         }
         selected = {"stories": [story], "failed_sources": []}
 
@@ -160,7 +160,7 @@ class RunBriefingTests(unittest.TestCase):
         self.assertNotIn("ai_headline", payload["stories"][0])
         self.assertNotIn("ai_summary", payload["stories"][0])
         self.assertIn("tag_notes", payload)
-        self.assertIn("Legislation-&-Policy", payload["tag_notes"])
+        self.assertIn("US Politics", payload["tag_notes"])
         self.assertIn("daily_summary", payload)
         self.assertIn("research_radar", payload)
         self.assertIn("tag_notes", payload["macro_report"])
@@ -293,13 +293,13 @@ class RunBriefingTests(unittest.TestCase):
                     "headline": "Selected bill",
                     "link": "https://example.com/selected",
                     "source": "Wire",
-                    "tags": ["Legislation-&-Policy"],
+                    "tags": ["US Politics"],
                 },
                 {
                     "headline": "Skipped item",
                     "link": "https://example.com/skipped",
                     "source": "Wire",
-                    "tags": ["Foundation-Models"],
+                    "tags": ["Tech & Innovation"],
                 },
             ]
         }
@@ -311,7 +311,7 @@ class RunBriefingTests(unittest.TestCase):
                     "link": "https://example.com/selected",
                     "source": "Wire",
                     "ai_summary": "Why it matters.",
-                    "tags": ["Legislation-&-Policy"],
+                    "tags": ["US Politics"],
                 }
             ],
         }
@@ -336,14 +336,14 @@ class RunBriefingTests(unittest.TestCase):
                                 "link": "https://example.com/selected",
                                 "source": "Wire",
                                 "published_at": "2026-10-30",
-                                "tags": ["Legislation-&-Policy"],
+                                "tags": ["US Politics"],
                             },
                             {
                                 "headline": "Skipped item",
                                 "link": "https://example.com/skipped",
                                 "source": "Wire",
                                 "published_at": "2026-10-30",
-                                "tags": ["Foundation-Models"],
+                                "tags": ["Tech & Innovation"],
                             },
                         ]
                     }
@@ -360,7 +360,7 @@ class RunBriefingTests(unittest.TestCase):
                         "link": "https://example.com/selected",
                         "source": "Wire",
                         "published_at": "2026-10-30",
-                        "tags": ["Legislation-&-Policy"],
+                        "tags": ["US Politics"],
                     }
                 ],
             }

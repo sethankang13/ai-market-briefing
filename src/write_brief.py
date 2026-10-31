@@ -30,15 +30,12 @@ SECTION_ORDER = TAG_LABELS + ("Other",)
 TAG_ARCHIVE_BASE = "http://127.0.0.1:8501/"
 # Muted pastels (not neon). Shared by Daily Loop markdown, The Loop, and app CSS.
 TAG_COLORS = {
-    "Market-Valuations": "#7D9A6F",
-    "Venture-&-M&A": "#D4A07A",
-    "Legislation-&-Policy": "#9B8AB8",
-    "Antitrust-&-Compliance": "#D08C4E",
-    "Copyright-&-IP": "#D08A9C",
-    "Geopolitics-&-Trade": "#C45C5C",
-    "Labor-&-Economy": "#6FA08A",
-    "Enterprise-Adoption": "#7A9CC4",
-    "Foundation-Models": "#C4846A",
+    "US Politics": "#9B8AB8",
+    "Market Valuations": "#7D9A6F",
+    "Labor & Economy": "#6FA08A",
+    "Geopolitics & Trade": "#C45C5C",
+    "Tech & Innovation": "#7A9CC4",
+    "Venture & M&A": "#D4A07A",
 }
 PENDING_MARKERS = (
     "AI Summary Pending",

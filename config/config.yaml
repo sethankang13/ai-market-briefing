@@ -4,16 +4,6 @@ pipeline:
   output_dir: briefs
   db_path: data/loop.db
 
-feeds:
-  FT, WSJ & Bloomberg Proxy: "https://news.google.com/rss/search?q=(site:ft.com+OR+site:wsj.com+OR+site:bloomberg.com)+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en"
-  Reuters Business & Markets: "https://news.google.com/rss/search?q=site:reuters.com+(AI+OR+%22artificial+intelligence%22)+market&hl=en-US&gl=US&ceid=US:en"
-  CNBC Tech & Markets: "https://news.google.com/rss/search?q=site:cnbc.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en"
-  Politico AI Policy: "https://news.google.com/rss/search?q=site:politico.com+(AI+OR+%22artificial+intelligence%22)&hl=en-US&gl=US&ceid=US:en"
-  AP News Policy: "https://news.google.com/rss/search?q=site:apnews.com+(AI+OR+%22artificial+intelligence%22)+(policy+OR+government+OR+law)&hl=en-US&gl=US&ceid=US:en"
-  TechCrunch AI: "https://techcrunch.com/category/artificial-intelligence/feed/"
-  OpenAI News: "https://openai.com/news/rss.xml"
-  Google AI Blog: "https://blog.google/technology/ai/rss/"
-
 models:
   gemini:
     - gemini-3.8-flash
@@ -22,70 +12,237 @@ models:
     - gemini-2.5-flash
   openai_fallback: gpt-4o-mini
 
+tag_weights:
+  "US Politics": 100
+  "Market Valuations": 80
+  "Labor & Economy": 70
+  "Geopolitics & Trade": 60
+  "Tech & Innovation": 50
+  "Venture & M&A": 40
+
+feeds:
+  # 🏛️ US Politics & Government (5 Feeds)
+  "Politico Elections & Campaigns": "https://news.google.com/rss/search?q=site:politico.com+(elections+OR+campaign+OR+primary+OR+debate+OR+candidates)&hl=en-US&gl=US&ceid=US:en"
+  "Politico Congress & Policy": "https://news.google.com/rss/search?q=site:politico.com+(Congress+OR+Senate+OR+House+OR+bill+OR+law+OR+White+House)&hl=en-US&gl=US&ceid=US:en"
+  "AP News Politics": "https://news.google.com/rss/search?q=site:apnews.com+(politics+OR+election+OR+Senate+OR+House+OR+supreme+court)&hl=en-US&gl=US&ceid=US:en"
+  "Washington Post Politics": "https://news.google.com/rss/search?q=site:washingtonpost.com+(politics+OR+election+OR+legislation+OR+policy)&hl=en-US&gl=US&ceid=US:en"
+  "CBS News Politics": "https://www.cbsnews.com/latest/rss/main"
+
+  # 📈 Markets & Wall Street (4 Feeds)
+  "WSJ, Bloomberg & FT Markets": "https://news.google.com/rss/search?q=(site:wsj.com+OR+site:bloomberg.com+OR+site:ft.com)+(earnings+OR+markets+OR+stocks+OR+Wall+Street)&hl=en-US&gl=US&ceid=US:en"
+  "Reuters Business & Markets": "https://news.google.com/rss/search?q=site:reuters.com+(business+OR+markets+OR+stocks+OR+S%26P+500)&hl=en-US&gl=US&ceid=US:en"
+  "CNBC Markets": "https://news.google.com/rss/search?q=site:cnbc.com+(markets+OR+earnings+OR+stocks+OR+Wall+Street)&hl=en-US&gl=US&ceid=US:en"
+  "MarketWatch Top Stories": "https://feeds.marketwatch.com/marketwatch/topstories"
+
+  # 🏦 Fed & Central Banks / Economy (3 Feeds)
+  "CNBC Economy & Fed": "https://news.google.com/rss/search?q=site:cnbc.com+(economy+OR+Federal+Reserve+OR+inflation+OR+interest+rates+OR+jobs)&hl=en-US&gl=US&ceid=US:en"
+  "Reuters Economy & Labor": "https://news.google.com/rss/search?q=site:reuters.com+(economy+OR+Fed+OR+inflation+OR+payrolls+OR+GDP+OR+unemployment)&hl=en-US&gl=US&ceid=US:en"
+  "Federal Reserve Press Releases": "https://www.federalreserve.gov/feeds/press_all.xml"
+
+  # 🌍 Geopolitics & Foreign Affairs (3 Feeds)
+  "FT & WSJ Geopolitics": "https://news.google.com/rss/search?q=(site:ft.com+OR+site:wsj.com)+(geopolitics+OR+trade+OR+tariffs+OR+sanctions+OR+China)&hl=en-US&gl=US&ceid=US:en"
+  "Reuters Geopolitics": "https://news.google.com/rss/search?q=site:reuters.com+(geopolitics+OR+sanctions+OR+tariffs+OR+trade+war+OR+national+security)&hl=en-US&gl=US&ceid=US:en"
+  "BBC World News": "https://feeds.bbci.co.uk/news/world/rss.xml"
+
+  # 💻 Technology & Infrastructure (3 Feeds)
+  "TechCrunch General": "https://techcrunch.com/feed/"
+  "Reuters Tech & Hardware": "https://news.google.com/rss/search?q=site:reuters.com+(technology+OR+chips+OR+semiconductors+OR+artificial+intelligence+OR+cloud)&hl=en-US&gl=US&ceid=US:en"
+  "CNBC Tech & Enterprise": "https://news.google.com/rss/search?q=site:cnbc.com+(technology+OR+enterprise+OR+AI+OR+software)&hl=en-US&gl=US&ceid=US:en"
+
+  # 🤝 Venture Capital & M&A (2 Feeds)
+  "Reuters M&A & Private Equity": "https://news.google.com/rss/search?q=site:reuters.com+(buyout+OR+acquisition+OR+merger+OR+funding+OR+venture+capital)&hl=en-US&gl=US&ceid=US:en"
+  "Axios Feed": "https://www.axios.com/feeds/feed.rss"
+
 taxonomy:
-  Market-Valuations:
-    - earnings
-    - stock
-    - market cap
-    - valuation
-  Venture-&-M&A:
-    - funding
-    - venture
-    - acquisition
-    - seed
-    - valuation
-  Legislation-&-Policy:
+  "US Politics":
     - bill
     - law
-    - government
+    - legislation
+    - statute
     - executive order
-    - policy
-  Antitrust-&-Compliance:
-    - FTC
+    - congress
+    - senate
+    - house of representatives
+    - supreme court
+    - white house
+    - capitol hill
     - regulation
-    - EU AI Act
+    - regulatory
     - probe
     - investigation
-  Copyright-&-IP:
-    - copyright
-    - lawsuit
-    - licensing
-    - data scraping
-    - IP
-  Geopolitics-&-Trade:
-    - export controls
-    - chips
-    - sanctions
-    - China
-    - national security
-  Labor-&-Economy:
-    - jobs
-    - workforce
-    - productivity
-    - economy
-    - lay-offs
-  Enterprise-Adoption:
-    - enterprise
-    - ROI
-    - corporate
-    - B2B
-    - SaaS
-  Foundation-Models:
-    - LLM
-    - GPT
-    - Claude
-    - Gemini
-    - weights
-    - benchmark
+    - ftc
+    - doj
+    - sec
+    - commission
+    - policy
+    - veto
+    - bipartisan
+    - filibuster
+    - ordinance
+    - compliance
+    - antitrust
+    - monopoly
+    - ruling
+    - injunction
+    - subcommittee
+    - judiciary
+    - lawmaker
+    - lawmakers
+    - election
+    - elections
+    - campaign
+    - candidate
+    - candidates
+    - primary
+    - caucus
+    - debate
+    - poll
+    - polling
+    - voter
+    - voters
+    - ballot
+    - electoral
+    - dem
+    - democrat
+    - democratic
+    - gop
+    - republican
+    - swing state
+    - midterms
+    - presidential
+    - nominee
+    - nomination
+    - party
+    - turnout
+    - endorsement
+    - fundraising
+    - pac
+    - super pac
+    - governor
+    - white house race
 
-# Higher weight wins when a story has several tags (one brief section per story).
-tag_weights:
-  Market-Valuations: 90
-  Venture-&-M&A: 80
-  Legislation-&-Policy: 70
-  Antitrust-&-Compliance: 60
-  Copyright-&-IP: 50
-  Geopolitics-&-Trade: 40
-  Labor-&-Economy: 30
-  Enterprise-Adoption: 20
-  Foundation-Models: 10
+  "Market Valuations":
+    - earnings
+    - revenue
+    - profit
+    - loss
+    - eps
+    - stock
+    - stocks
+    - market cap
+    - valuation
+    - shares
+    - dividend
+    - buyback
+    - wall street
+    - s&p 500
+    - dow
+    - nasdaq
+    - rally
+    - slump
+    - quarterly
+    - guidance
+    - bull
+    - bear
+    - treasury yield
+    - market close
+    - ipo
+    - listing
+    - market rally
+    - sell-off
+
+  "Labor & Economy":
+    - fed
+    - federal reserve
+    - inflation
+    - cpi
+    - ppi
+    - interest rates
+    - rate cut
+    - rate hike
+    - powell
+    - jobs
+    - employment
+    - unemployment
+    - payrolls
+    - gdp
+    - recession
+    - wage
+    - wages
+    - labor
+    - workforce
+    - layoffs
+    - lay-offs
+    - hiring
+    - manufacturing
+    - consumer spending
+    - housing market
+    - stagflation
+    - retail sales
+
+  "Geopolitics & Trade":
+    - tariff
+    - tariffs
+    - sanctions
+    - trade war
+    - china
+    - export controls
+    - taiwan
+    - us-china
+    - nato
+    - foreign policy
+    - national security
+    - supply chain
+    - embargo
+    - semiconductor war
+    - g7
+    - summit
+    - protectionism
+    - trade deal
+    - bilateral
+    - sovereignty
+
+  "Tech & Innovation":
+    - technology
+    - tech
+    - ai
+    - artificial intelligence
+    - llm
+    - gpt
+    - claude
+    - gemini
+    - chips
+    - semiconductor
+    - nvidia
+    - cloud
+    - computing
+    - hardware
+    - software
+    - app
+    - platform
+    - cybersecurity
+    - quantum
+    - robotics
+    - automation
+    - saas
+    - data center
+
+  "Venture & M&A":
+    - acquisition
+    - acquire
+    - acquired
+    - merger
+    - m&a
+    - buyout
+    - funding
+    - venture capital
+    - seed round
+    - series a
+    - series b
+    - valuation
+    - private equity
+    - startup
+    - exit
+    - dealmaking
+    - unicorn
+    - term sheet

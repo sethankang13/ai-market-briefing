@@ -20,7 +20,7 @@ def sample_row(**overrides):
         "source": "Example News",
         "full_text": "",
         "ai_summary": "The bill can change compliance.",
-        "tags": json.dumps(["Legislation-&-Policy"]),
+        "tags": json.dumps(["US Politics"]),
         "market_snapshot_json": json.dumps(
             {
                 "fetched_at": "2026-10-20T12:00:00+00:00",
@@ -48,11 +48,11 @@ def sample_row(**overrides):
 class WriteTheLoopCliTests(unittest.TestCase):
     def test_argparse_converts_days_and_tag_types(self):
         args = write_the_loop.parse_arguments(
-            ["--days", "14", "--tag", "Copyright-&-IP", "--limit", "8"]
+            ["--days", "14", "--tag", "US Politics", "--limit", "8"]
         )
         self.assertEqual(args.days, 14)
         self.assertIsInstance(args.days, int)
-        self.assertEqual(args.tag, "Copyright-&-IP")
+        self.assertEqual(args.tag, "US Politics")
         self.assertIsInstance(args.tag, str)
         self.assertEqual(args.limit, 8)
         self.assertFalse(args.open_after)
@@ -73,7 +73,7 @@ class WriteTheLoopCliTests(unittest.TestCase):
         with patch.object(write_the_loop.sqlite3, "connect", return_value=connection) as connect:
             rows = write_the_loop.query_stories(
                 days=14,
-                tag="Copyright-&-IP",
+                tag="US Politics",
                 limit=15,
                 db_path=Path("/tmp/loop-test.db"),
             )
@@ -84,9 +84,9 @@ class WriteTheLoopCliTests(unittest.TestCase):
         sql, params = query_call.args[0], query_call.args[1]
         self.assertIn("date('now', ?)", sql)
         self.assertIn("LIMIT ?", sql)
-        self.assertNotIn("Copyright-&-IP", sql)
+        self.assertNotIn("US Politics", sql)
         self.assertNotIn("-14 days", sql)
-        self.assertEqual(params, ["-14 days", "%Copyright-&-IP%", 15])
+        self.assertEqual(params, ["-14 days", "%US Politics%", 15])
 
     def test_render_includes_glance_groups_and_honest_market_copy(self):
         duplicate = sample_row(
@@ -99,20 +99,20 @@ class WriteTheLoopCliTests(unittest.TestCase):
         report = write_the_loop.render_the_loop(
             [sample_row(), duplicate],
             days=14,
-            tag="Legislation-&-Policy",
+            tag="US Politics",
         )
         self.assertTrue(report.startswith("# The Loop: Macro Summary (Last 14 Days)\n"))
-        self.assertIn("Filtered to tag `Legislation & Policy`.", report)
+        self.assertIn("Filtered to tag `US Politics`.", report)
         self.assertIn("## At a Glance", report)
         self.assertIn("[Policy bill advances](https://example.com/bill)", report)
         self.assertIn("[Policy bill advances…](https://example.com/bill)", report)
         self.assertIn(
-            'href="#legislation-policy">Legislation &amp; Policy</a>:',
+            'href="#us-politics">US Politics</a>:',
             report,
         )
         self.assertNotIn("### [#Legislation", report)
         self.assertIn("also covered by [Second Desk]", report)
-        self.assertIn("## Legislation & Policy", report)
+        self.assertIn("## US Politics", report)
         self.assertNotIn("Why It Matters:", report)
         self.assertNotIn("*Tags:", report)
         self.assertIn("## Market Snapshot Trends", report)
@@ -153,12 +153,12 @@ class WriteTheLoopCliTests(unittest.TestCase):
     def test_main_passes_cli_filters_to_save(self):
         with patch.object(write_the_loop, "save_the_loop", return_value=Path("out.md")) as save:
             write_the_loop.main(
-                ["--days", "14", "--tag", "Copyright-&-IP", "--limit", "4", "--out", "out.md"]
+                ["--days", "14", "--tag", "US Politics", "--limit", "4", "--out", "out.md"]
             )
         save.assert_called_once_with(
             output_path=Path("out.md"),
             days=14,
-            tag="Copyright-&-IP",
+            tag="US Politics",
             limit=4,
         )
 

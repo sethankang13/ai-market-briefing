@@ -1,8 +1,7 @@
 """Select consequential stories from an enriched run, with one story per tag.
 
-Audited against the nine Loop tags: Market-Valuations, Venture-&-M&A,
-Legislation-&-Policy, Antitrust-&-Compliance, Copyright-&-IP,
-Geopolitics-&-Trade, Labor-&-Economy, Enterprise-Adoption, Foundation-Models.
+Audited against the six Loop tags: US Politics, Market Valuations,
+Labor & Economy, Geopolitics & Trade, Tech & Innovation, Venture & M&A.
 
 Run from the project folder:
     python3 src/select_stories.py
@@ -193,7 +192,7 @@ def recency_score(story: dict[str, object], now: datetime | None = None) -> floa
 
 
 def tag_density(stories: list[dict[str, object]]) -> dict[str, object]:
-    """Count how often each of the nine Loop tags appears."""
+    """Count how often each of the six Loop tags appears."""
     counts = {label: 0 for label in LOOP_TAGS}
     tagged_stories = 0
     total_tags = 0

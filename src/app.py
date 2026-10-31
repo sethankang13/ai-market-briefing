@@ -626,6 +626,11 @@ def humanize_brief_markdown(markdown: str) -> str:
         if escaped != human_escaped:
             rewritten = rewritten.replace(f">{escaped}</a>", f">{human_escaped}</a>")
             rewritten = rewritten.replace(f"#{escaped}", human_escaped)
+
+    def _humanize_heading(match: re.Match[str]) -> str:
+        return f"## {humanize_tag(match.group(1))}"
+
+    rewritten = re.sub(r"^## (.+)$", _humanize_heading, rewritten, flags=re.M)
     return rewritten
 
 

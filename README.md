@@ -120,15 +120,12 @@ If a feed is unavailable, continue with the other feeds. The eventual email will
 
 Keyword matching looks at the headline and the RSS description. A story can receive several of these labels:
 
-- `Market-Valuations`: earnings, stock, market cap, valuation
-- `Venture-&-M&A`: funding, venture, acquisition, seed, valuation
-- `Legislation-&-Policy`: bill, law, government, executive order, policy
-- `Antitrust-&-Compliance`: FTC, regulation, EU AI Act, probe, investigation
-- `Copyright-&-IP`: copyright, lawsuit, licensing, data scraping, IP
-- `Geopolitics-&-Trade`: export controls, chips, sanctions, China, national security
-- `Labor-&-Economy`: jobs, workforce, productivity, economy, lay-offs
-- `Enterprise-Adoption`: enterprise, ROI, corporate, B2B, SaaS
-- `Foundation-Models`: LLM, GPT, Claude, Gemini, weights, benchmark
+- `US Politics`: bill, law, congress, election, campaign, policy
+- `Market Valuations`: earnings, stock, market cap, valuation
+- `Labor & Economy`: fed, inflation, jobs, layoffs, workforce
+- `Geopolitics & Trade`: tariff, sanctions, trade war, China, export controls
+- `Tech & Innovation`: AI, chips, cloud, SaaS, technology
+- `Venture & M&A`: acquisition, merger, funding, venture capital
 
 Tags are a list of those strings. A word such as “valuation” can match more than one label. When nothing matches, the list is empty.
 
@@ -184,7 +181,7 @@ Same local Streamlit app as v4.0, with a non-blocking Daily Loop tab and a searc
 - **Login auto-generate:** `scripts/com.loop.dailybriefing.plist` runs every day at 8:00 AM and sets `RunAtLoad` true. `scripts/run_daily.sh` sources a gitignored `.env` when present, timestamps `logs/launchd.log`, and exits 0 when `briefs/YYYY-MM-DD.md` already exists for today; otherwise it writes `logs/briefing.lock`, runs live `python3 src/run_briefing.py`, and clears the lock in a trap. Reinstall with `bash scripts/install_automation.sh` (load, not `launchctl start`).
 - **Non-blocking UI:** Loop.app opens Streamlit and kicks `run_daily.sh` if today’s brief is missing (catch-up after a missed 8:00 AM). A generating lock shows `Briefing in progress…`. When the file appears, the page prompts **Refresh** to load it. `run_daily.sh` may fire one macOS notification on start and one on complete.
 - **Fed Funds:** `--mock` always prints a realistic rate such as `4.33%`, never `fetch failed`. Live runs use `https://markets.newyorkfed.org/api/rates/all/latest.json` with an explicit User-Agent, then the unsecured EFFR fallback, and say `fetch failed` only if every attempt fails.
-- **Tag display:** User-facing labels turn hyphens into spaces and `-&-` into ` & ` (`Market Valuations`, `Legislation & Policy`, `Copyright & IP`, `Foundation Models`). Internal keys in YAML, SQLite, and `?tag=` URLs stay unchanged.
+- **Tag display:** Taxonomy labels are unhyphenated (`US Politics`, `Labor & Economy`). Legacy hyphenated keys still humanize (`Legislation-&-Policy` → `Legislation & Policy`). Internal keys in YAML, SQLite, and `?tag=` URLs stay unchanged.
 - **Layout:** Header logo + banner from `static/`. Sidebar: stored briefing count, latest briefing date, active feed names from YAML. Tab **Daily Loop** has a briefing-date select (newest `briefs/YYYY-MM-DD.md` first; default today or latest) then titles `Daily Loop: YYYY-MM-DD` (not Looping...), Market Snapshot, At a Glance (section anchors use `scroll-margin-top: 90px`), topic sections, Daily Summary & Research Topics. Tab **The Loop** wraps Tag, Source, Year/Month/Day, and Keyword in a Search form; changing a widget does not query until **Search**. Results open an In Focus view with `← Back to Search`.
 
 ## v4.0: Local web UI (Phase 1)
@@ -204,7 +201,7 @@ The app resolves the project root from `src/app.py`, so `config/`, `briefs/`, an
 | --- | --- |
 | Daily Loop | Date select at the top, title `Daily Loop: YYYY-MM-DD`, logo/banner, Market Snapshot, At a Glance (italic humanized tag jumps with `scroll-margin-top: 90px`), topic sections, Daily Summary & Research Topics. If today is generating, the default date is the latest complete brief. |
 | The Loop | Search form (tag, source, year/month/day, keyword). Submit **Search** to query every stored RSS row in `loop.db` and open In Focus with `← Back to Search`, story cards, humanized chips, and source popovers. |
-| Tag archive (`?tag=`) | All `loop.db` rows whose stored tags contain that internal label (`tags LIKE ?`), grouped by date, newest first. Example: `http://127.0.0.1:8501/?tag=Legislation-%26-Policy`. Local Streamlit only; not a public website. |
+| Tag archive (`?tag=`) | All `loop.db` rows whose stored tags contain that internal label (`tags LIKE ?`), grouped by date, newest first. Example: `http://127.0.0.1:8501/?tag=US+Politics`. Local Streamlit only; not a public website. |
 
 Phase 1 only: no generate-brief button, no new Gemini calls, no writes to the database from the UI.
 
@@ -258,7 +255,7 @@ Create up to five briefing candidates from the latest enriched run with:
 python3 src/select_stories.py
 ```
 
-Each assigned tag is worth one point, and a story's score is the count of its tags. Ties retain the original feed order. The selected copy includes both the score and a short rule-based reason. The selected set is the top five by that score, plus the highest-scoring story for each of the nine Loop tags that appears that day. One story can cover more than one tag, a missing tag is skipped, and the list can be longer than five. An untagged story still cannot take a top-five slot from a tagged story, and the whole set keeps at most one untagged story. The step prints how many stories were evaluated, tag density across the nine labels, and a recency score.
+Each assigned tag is worth one point, and a story's score is the count of its tags. Ties retain the original feed order. The selected copy includes both the score and a short rule-based reason. The selected set is the top five by that score, plus the highest-scoring story for each of the six Loop tags that appears that day. One story can cover more than one tag, a missing tag is skipped, and the list can be longer than five. An untagged story still cannot take a top-five slot from a tagged story, and the whole set keeps at most one untagged story. The step prints how many stories were evaluated, tag density across the six labels, and a recency score.
 
 ## Current summarization step (headline-based macro inference)
 
@@ -282,7 +279,7 @@ python3 src/write_brief.py
 
 The briefing file title is `# Looping... (YYYY-MM-DD)` (the app shows `Daily Loop: YYYY-MM-DD`). A Market Snapshot (Fed Funds, S&P 500, Nasdaq, Dow previous close and percent change) sits above **At a Glance**. Each glance line is a white italic humanized tag label (HTML, no `#`, no underline) that jumps to the later plain `##` section, then the first three words of each RSS headline in that section, with an ellipsis, comma-separated and linked to the article URL. The RSS headline is the only title; Gemini does not write an AI headline.
 
-Stories are grouped under the **highest-weight** tag from `config/config.yaml` `tag_weights` (one section per story). Section titles are plain humanized Markdown headings (`Legislation & Policy`) and are not colored or linked. Full RSS headline links sit under the heading, with color-coded `#Tag-Name` chips beside the headline that open the local Streamlit tag archive at `http://127.0.0.1:8501/?tag=...` (for example `?tag=Legislation-%26-Policy`). Exact-headline duplicates add `also covered by [Source B]`. After those links, one **Why it might matter / pattern** paragraph for the tag (today’s headlines in that section plus 14-day `loop.db` history). There is no italic tags line and no per-story Why It Matters.
+Stories are grouped under the **highest-weight** tag from `config/config.yaml` `tag_weights` (one section per story). Section titles are plain humanized Markdown headings (`US Politics`) and are not colored or linked. Full RSS headline links sit under the heading, with color-coded `#Tag-Name` chips beside the headline that open the local Streamlit tag archive at `http://127.0.0.1:8501/?tag=...` (for example `?tag=US+Politics`). Exact-headline duplicates add `also covered by [Source B]`. After those links, one **Why it might matter / pattern** paragraph for the tag (today’s headlines in that section plus 14-day `loop.db` history). There is no italic tags line and no per-story Why It Matters.
 
 **Daily Summary** follows the tag sections: what happened today across all headlines, what it could mean, then research topics to look into more. Historical reports from `data/loop.db` are titled `# The Loop: Macro Summary (Last N Days)`.
 
@@ -296,10 +293,10 @@ Shared settings live in YAML and are loaded with `src/config_loader.py` (`yaml.s
 | `pipeline.top_selected_stories` | Top tagged slots in selection (5). |
 | `pipeline.output_dir` | Daily briefs and `THE_LOOP.md` (default `briefs`). |
 | `pipeline.db_path` | SQLite history file (default `data/loop.db`). |
-| `feeds` | The eight public RSS names and URLs. |
+| `feeds` | The twenty public RSS names and URLs. |
 | `models.gemini` | Cascade order (`gemini-3.8-flash` down through `gemini-2.5-flash`). |
 | `models.openai_fallback` | OpenAI model after Gemini (`gpt-4o-mini`). |
-| `taxonomy` | The nine Loop tags and their keyword lists. |
+| `taxonomy` | The six Loop tags and their keyword lists. |
 | `tag_weights` | Integer weights; the highest assigned tag chooses the brief section. |
 
 Changing a feed, tag keyword, cutoff, or model name here is enough; the Python modules do not keep a second copy of those values as the source of truth.
@@ -310,7 +307,7 @@ Write a windowed archive from `data/loop.db` (no new model calls):
 
 ```bash
 python3 src/write_the_loop.py
-python3 src/write_the_loop.py --days 14 --tag Copyright-&-IP --limit 15
+python3 src/write_the_loop.py --days 14 --tag "US Politics" --limit 15
 python3 src/write_the_loop.py --out briefs/THE_LOOP.md --open
 ```
 

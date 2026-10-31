@@ -53,7 +53,7 @@ class EnrichStoriesTests(unittest.TestCase):
         self.assertEqual(saved_run["failed_sources"], ["NPR Economy"])
         self.assertEqual(
             saved_run["stories"][0]["tags"],
-            ["Legislation-&-Policy", "Enterprise-Adoption"],
+            ["US Politics"],
         )
         self.assertEqual(saved_run["stories"][0]["headline"], original_story["headline"])
 

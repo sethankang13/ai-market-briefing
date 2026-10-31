@@ -5,7 +5,7 @@ Daily briefs use ``# Looping... (YYYY-MM-DD)``. Aggregated history uses
 
 Run from the project folder:
     python3 src/write_the_loop.py
-    python3 src/write_the_loop.py --days 14 --tag Copyright-&-IP --limit 15
+    python3 src/write_the_loop.py --days 14 --tag "US Politics" --limit 15
     python3 src/write_the_loop.py --open
 """
 
@@ -43,7 +43,7 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "--tag",
         type=str,
         default=None,
-        help="Keep rows whose stored tags contain this label, e.g. Legislation-&-Policy.",
+        help='Keep rows whose stored tags contain this label, e.g. "US Politics".',
     )
     parser.add_argument(
         "--limit",

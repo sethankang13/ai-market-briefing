@@ -186,17 +186,41 @@ def append_stories(
                     ),
                 )
             else:
-                connection.execute(
-                    """
-                    INSERT INTO stories (
-                        published_date, headline, url, source, full_text,
-                        ai_summary, tags, market_snapshot_json, macro_report,
-                        is_selected
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    values,
-                )
-                inserted += 1
+                try:
+                    connection.execute(
+                        """
+                        INSERT INTO stories (
+                            published_date, headline, url, source, full_text,
+                            ai_summary, tags, market_snapshot_json, macro_report,
+                            is_selected
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        values,
+                    )
+                    inserted += 1
+                except sqlite3.IntegrityError:
+                    connection.execute(
+                        """
+                        UPDATE stories SET
+                            headline = ?, url = ?, source = ?, full_text = ?,
+                            ai_summary = ?, tags = ?, market_snapshot_json = ?,
+                            macro_report = ?, is_selected = ?
+                        WHERE published_date IS ? AND url = ?
+                        """,
+                        (
+                            headline,
+                            url_text,
+                            source,
+                            snippet,
+                            ai_summary,
+                            tags,
+                            snapshot_json,
+                            macro,
+                            is_selected,
+                            published,
+                            url_text,
+                        ),
+                    )
         connection.commit()
         return inserted
     finally:

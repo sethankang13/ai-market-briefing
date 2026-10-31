@@ -20,9 +20,9 @@ def sample_story(headline: str = "Oil prices jump") -> dict[str, object]:
         "link": "https://example.com/story",
         "published_at": "Today",
         "description": "Inventory report showed a tighter crude market.",
-        "tags": ["Market-Valuations"],
+        "tags": ["Market Valuations"],
         "selection_score": 8,
-        "selection_reason": "Matched: Market-Valuations.",
+        "selection_reason": "Matched: Market Valuations.",
     }
 
 
@@ -32,7 +32,7 @@ def sample_history() -> list[dict[str, object]]:
             "published_date": "2026-10-20",
             "headline": "Chip export rules tighten",
             "source": "Other Source",
-            "tags": json.dumps(["Geopolitics-&-Trade"]),
+            "tags": json.dumps(["Geopolitics & Trade"]),
             "full_text": "Trade controls affect supply.",
         }
     ]
@@ -42,7 +42,7 @@ def sample_macro() -> str:
     return (
         "{\n"
         '  "tag_notes": {\n'
-        '    "Market-Valuations": "Energy headlines cluster around supply constraints."\n'
+        '    "Market Valuations": "Energy headlines cluster around supply constraints."\n'
         "  },\n"
         '  "daily_summary": "Energy and trade headlines cluster around supply constraints.",\n'
         '  "research_radar": ["Crude inventories.", "Chip export licenses.", "Policy follow-through."]\n'
@@ -89,8 +89,8 @@ class SummarizeStoriesTests(unittest.TestCase):
     def test_mock_macro_writes_required_sections_without_pending_copy(self):
         report = summarize_stories.mock_macro_report([sample_story()], [])
         notes, daily, radar = summarize_stories.parse_briefing_copy(report)
-        self.assertIn("Market-Valuations", notes)
-        self.assertIn("Oil prices jump", notes["Market-Valuations"])
+        self.assertIn("Market Valuations", notes)
+        self.assertIn("Oil prices jump", notes["Market Valuations"])
         self.assertIn("Oil prices jump", daily)
         self.assertGreaterEqual(len(radar), 3)
         self.assertNotIn("AI Summary Pending", report)
@@ -105,14 +105,14 @@ class SummarizeStoriesTests(unittest.TestCase):
                 '{"daily_summary": "AI Summary Pending", "tag_notes": {}, "research_radar": []}'
             )
         notes, daily, radar = summarize_stories.parse_briefing_copy(
-            "## Legislation-&-Policy\n\n"
+            "## US Politics\n\n"
             "Policy pattern from today's bill.\n\n"
             "## Daily Summary\n\n"
             "What happened today across the selected headlines.\n\n"
             "## Research Radar\n\n"
             "1. Follow the bill markup.\n"
         )
-        self.assertEqual(notes["Legislation-&-Policy"], "Policy pattern from today's bill.")
+        self.assertEqual(notes["US Politics"], "Policy pattern from today's bill.")
         self.assertIn("What happened today", daily)
         self.assertEqual(radar, ["Follow the bill markup."])
 
@@ -157,8 +157,8 @@ class SummarizeStoriesTests(unittest.TestCase):
         self.assertIn("Chip export rules tighten", prompt)
         self.assertIn("Trade controls affect supply", prompt)
         self.assertIn("LAST 14 DAYS", prompt)
-        self.assertIn("[Market-Valuations]", prompt)
-        self.assertIn("[Geopolitics-&-Trade]", prompt)
+        self.assertIn("[Market Valuations]", prompt)
+        self.assertIn("[Geopolitics & Trade]", prompt)
         self.assertNotIn("Article text:", prompt)
         self.assertNotIn("one call per story", prompt.lower())
         self.assertIn("generativelanguage.googleapis.com", post_json.call_args.args[0])
@@ -314,7 +314,7 @@ class SummarizeStoriesTests(unittest.TestCase):
             self.assertEqual(saved["summarizer"], "mock")
             self.assertNotIn("ai_headline", saved["stories"][0])
             self.assertNotIn("ai_summary", saved["stories"][0])
-            self.assertIn("Market-Valuations", saved["tag_notes"])
+            self.assertIn("Market Valuations", saved["tag_notes"])
             self.assertIn("Oil prices jump", saved["daily_summary"])
             self.assertGreaterEqual(len(saved["research_radar"]), 3)
             self.assertIn("tag_notes", saved["macro_report"])

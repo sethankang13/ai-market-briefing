@@ -47,57 +47,62 @@ def story(
 class WriteBriefTests(unittest.TestCase):
     def test_multi_tag_story_uses_one_highest_weight_section(self):
         self.assertGreater(
-            TAG_WEIGHTS["Legislation-&-Policy"],
-            TAG_WEIGHTS["Enterprise-Adoption"],
+            TAG_WEIGHTS["US Politics"],
+            TAG_WEIGHTS["Tech & Innovation"],
         )
         self.assertEqual(
-            primary_tag(["Enterprise-Adoption", "Legislation-&-Policy"]),
-            "Legislation-&-Policy",
+            primary_tag(["Tech & Innovation", "US Politics"]),
+            "US Politics",
         )
         self.assertEqual(
             section_for_story(
-                story("Adoption and policy", ["Enterprise-Adoption", "Legislation-&-Policy"])
+                story("Adoption and policy", ["Tech & Innovation", "US Politics"])
             ),
-            "Legislation-&-Policy",
+            "US Politics",
         )
         self.assertEqual(
-            section_for_story(story("New model", ["Foundation-Models"])),
-            "Foundation-Models",
+            section_for_story(story("New model", ["Tech & Innovation"])),
+            "Tech & Innovation",
         )
 
-    def test_tag_archive_url_encodes_ampersand_for_local_streamlit(self):
-        url = tag_archive_url("Legislation-&-Policy")
+    def test_tag_archive_url_encodes_spaces_and_ampersands_for_local_streamlit(self):
+        url = tag_archive_url("US Politics")
         self.assertTrue(url.startswith(TAG_ARCHIVE_BASE))
         parsed = urlparse(url)
         self.assertEqual(parsed.hostname, "127.0.0.1")
         self.assertEqual(parsed.port, 8501)
-        self.assertEqual(parse_qs(parsed.query)["tag"], ["Legislation-&-Policy"])
-        self.assertIn("Legislation-%26-Policy", url)
-        chip = tag_hashtag_html("Legislation-&-Policy")
-        self.assertIn("#Legislation &amp; Policy", chip)
-        self.assertNotIn("#Legislation-&amp;-Policy", chip)
-        self.assertIn(TAG_COLORS["Legislation-&-Policy"], chip)
+        self.assertEqual(parse_qs(parsed.query)["tag"], ["US Politics"])
+        self.assertIn("US+Politics", url)
+        self.assertEqual(slugify("US Politics"), "us-politics")
+        chip = tag_hashtag_html("US Politics")
+        self.assertIn("#US Politics", chip)
+        self.assertNotIn("#US-Politics", chip)
+        self.assertIn(TAG_COLORS["US Politics"], chip)
         self.assertIn("text-decoration:underline", chip)
-        self.assertIn('href="http://127.0.0.1:8501/?tag=Legislation-%26-Policy"', chip)
+        self.assertIn('href="http://127.0.0.1:8501/?tag=US+Politics"', chip)
+        labor = tag_archive_url("Labor & Economy")
+        self.assertEqual(parse_qs(urlparse(labor).query)["tag"], ["Labor & Economy"])
+        self.assertIn("Labor+%26+Economy", labor)
+        self.assertIn("#Labor &amp; Economy", tag_hashtag_html("Labor & Economy"))
 
     def test_section_titles_are_plain_headings_not_colored_links(self):
-        heading = tag_heading_markdown("Legislation-&-Policy")
-        self.assertIn("## Legislation & Policy", heading)
-        self.assertIn(f'<a id="{tag_section_id("Legislation-&-Policy")}"></a>', heading)
+        heading = tag_heading_markdown("US Politics")
+        self.assertIn("## US Politics", heading)
+        self.assertIn(f'<a id="{tag_section_id("US Politics")}"></a>', heading)
         self.assertNotIn("style=", heading)
         self.assertNotIn("127.0.0.1:8501", heading)
-        self.assertNotIn(TAG_COLORS["Legislation-&-Policy"], heading)
+        self.assertNotIn(TAG_COLORS["US Politics"], heading)
 
     def test_brief_groups_stories_and_keeps_the_source_link(self):
         briefing = render_brief(
             {
                 "stories": [
-                    story("Bill advances", ["Legislation-&-Policy"], "The bill can change compliance."),
-                    story("Model release", ["Foundation-Models"], "Benchmarks may shift adoption."),
+                    story("Bill advances", ["US Politics"], "The bill can change compliance."),
+                    story("Model release", ["Tech & Innovation"], "Benchmarks may shift adoption."),
                 ],
                 "tag_notes": {
-                    "Legislation-&-Policy": "Policy pattern from today's bill headline.",
-                    "Foundation-Models": "Model pattern from today's release headline.",
+                    "US Politics": "Policy pattern from today's bill headline.",
+                    "Tech & Innovation": "Model pattern from today's release headline.",
                 },
                 "daily_summary": "A policy bill and a model release landed the same day.",
                 "research_radar": ["Bill markup", "Model evals"],
@@ -108,15 +113,15 @@ class WriteBriefTests(unittest.TestCase):
         self.assertIn("# Looping... (2026-09-20)", briefing)
         self.assertIn("## Market Snapshot", briefing)
         snapshot_at = briefing.index("## Market Snapshot")
-        policy_at = briefing.index("## Legislation & Policy")
+        policy_at = briefing.index("## US Politics")
         self.assertLess(snapshot_at, policy_at)
         self.assertIn("- Fed Funds:", briefing)
         self.assertIn("- S&P 500:", briefing)
         self.assertIn("- Nasdaq:", briefing)
         self.assertIn("- Dow:", briefing)
         self.assertLess(
-            briefing.index("## Legislation & Policy"),
-            briefing.index("## Foundation Models"),
+            briefing.index("## US Politics"),
+            briefing.index("## Tech & Innovation"),
         )
         glance_at = briefing.index("## At a Glance")
         summary_at = briefing.index("## Daily Summary & Research Topics")
@@ -134,14 +139,13 @@ class WriteBriefTests(unittest.TestCase):
             "Why it might matter / pattern: Model pattern from today's release headline.",
             briefing,
         )
-        self.assertNotIn("## Enterprise-Adoption", briefing)
         bill_line = next(
             line for line in briefing.splitlines() if line.startswith("- [Bill advances](")
         )
-        self.assertIn("tag=Legislation-%26-Policy", bill_line)
-        self.assertIn(TAG_COLORS["Legislation-&-Policy"], bill_line)
+        self.assertIn("tag=US+Politics", bill_line)
+        self.assertIn(TAG_COLORS["US Politics"], bill_line)
         policy_heading = next(
-            line for line in briefing.splitlines() if line == "## Legislation & Policy"
+            line for line in briefing.splitlines() if line == "## US Politics"
         )
         self.assertNotIn("style=", policy_heading)
         self.assertNotIn("127.0.0.1", policy_heading)
@@ -152,14 +156,14 @@ class WriteBriefTests(unittest.TestCase):
                 "stories": [
                     story(
                         "Bill advances",
-                        ["Legislation-&-Policy", "Enterprise-Adoption"],
+                        ["US Politics", "Tech & Innovation"],
                         "The bill can change compliance.",
                         ai_headline="A policy shift for enterprise AI",
                     )
                 ],
                 "tag_notes": {
-                    "Legislation-&-Policy": "Shared policy pattern.",
-                    "Enterprise-Adoption": "Shared adoption pattern.",
+                    "US Politics": "Shared policy pattern.",
+                    "Tech & Innovation": "Shared adoption pattern.",
                 },
                 "daily_summary": "One story, two tags.",
             },
@@ -174,27 +178,26 @@ class WriteBriefTests(unittest.TestCase):
         self.assertNotIn("*Tags:", briefing)
         self.assertNotIn("Why It Matters:", briefing)
         self.assertEqual(briefing.count("- [Bill advances](https://example.com/story)"), 1)
-        self.assertIn("## Legislation & Policy", briefing)
-        self.assertNotIn("## Enterprise-Adoption", briefing)
-        self.assertNotIn("## Enterprise Adoption", briefing)
-        self.assertIn("tag=Legislation-%26-Policy", title_line)
-        self.assertIn("tag=Enterprise-Adoption", title_line)
-        self.assertIn(TAG_COLORS["Enterprise-Adoption"], title_line)
+        self.assertIn("## US Politics", briefing)
+        self.assertNotIn("## Tech & Innovation", briefing)
+        self.assertIn("tag=US+Politics", title_line)
+        self.assertIn("tag=Tech+%26+Innovation", title_line)
+        self.assertIn(TAG_COLORS["Tech & Innovation"], title_line)
         self.assertLess(
             briefing.index("- [Bill advances](https://example.com/story)"),
             briefing.index("Why it might matter / pattern: Shared policy pattern."),
         )
-        glance = briefing[briefing.index("## At a Glance"):briefing.index("## Legislation & Policy")]
+        glance = briefing[briefing.index("## At a Glance"):briefing.index("## US Politics")]
         self.assertIn(
-            'href="#legislation-policy">Legislation &amp; Policy</a>:',
+            'href="#us-politics">US Politics</a>:',
             glance,
         )
-        self.assertNotIn("Enterprise-Adoption", glance)
+        self.assertNotIn("Tech & Innovation", glance)
         self.assertNotIn("### [#", glance)
 
     def test_missing_ai_summary_does_not_write_pending_placeholder(self):
         briefing = render_brief(
-            {"stories": [story("Bill advances", ["Legislation-&-Policy"])]},
+            {"stories": [story("Bill advances", ["US Politics"])]},
             "2026-09-20",
         )
         self.assertNotIn("AI Summary Pending", briefing)
@@ -207,7 +210,7 @@ class WriteBriefTests(unittest.TestCase):
     def test_market_snapshot_uses_explicit_failure_not_fake_numbers(self):
         briefing = render_brief(
             {
-                "stories": [story("Bill advances", ["Legislation-&-Policy"], "Policy copy.")],
+                "stories": [story("Bill advances", ["US Politics"], "Policy copy.")],
                 "market_snapshot": {
                     "fed_funds": {"status": "ok", "rate": 4.33},
                     "indexes": {
@@ -241,9 +244,9 @@ class WriteBriefTests(unittest.TestCase):
     def test_daily_summary_follows_tag_sections_and_does_not_need_ai_summary(self):
         briefing = render_brief(
             {
-                "stories": [story("Bill advances", ["Legislation-&-Policy"])],
+                "stories": [story("Bill advances", ["US Politics"])],
                 "tag_notes": {
-                    "Legislation-&-Policy": "The bill continues a 14-day policy cluster."
+                    "US Politics": "The bill continues a 14-day policy cluster."
                 },
                 "daily_summary": "Policy cluster from RSS headlines.",
                 "research_radar": ["Follow the bill markup."],
@@ -252,7 +255,7 @@ class WriteBriefTests(unittest.TestCase):
         )
         snapshot_at = briefing.index("## Market Snapshot")
         glance_at = briefing.index("## At a Glance")
-        policy_at = briefing.index("## Legislation & Policy")
+        policy_at = briefing.index("## US Politics")
         summary_at = briefing.index("## Daily Summary & Research Topics")
         self.assertLess(snapshot_at, glance_at)
         self.assertLess(glance_at, policy_at)
@@ -286,15 +289,15 @@ class WriteBriefTests(unittest.TestCase):
         briefing = render_brief(
             {
                 "stories": [
-                    story("Bill advances today in committee", ["Legislation-&-Policy"], "Policy copy."),
-                    story("Model release", ["Foundation-Models"], "Model copy."),
+                    story("Bill advances today in committee", ["US Politics"], "Policy copy."),
+                    story("Model release", ["Tech & Innovation"], "Model copy."),
                 ]
             },
             "2026-10-21",
         )
         glance_at = briefing.index("## At a Glance")
         snapshot_at = briefing.index("## Market Snapshot")
-        policy_at = briefing.index("## Legislation & Policy")
+        policy_at = briefing.index("## US Politics")
         glance = briefing[glance_at:policy_at]
         self.assertLess(snapshot_at, glance_at)
         self.assertLess(glance_at, policy_at)
@@ -303,15 +306,15 @@ class WriteBriefTests(unittest.TestCase):
         self.assertNotIn("- [Bill advances today in committee](https://example.com/story)", glance)
         self.assertIn("- [Bill advances today in committee](https://example.com/story)", briefing[policy_at:])
         self.assertNotIn('<a id="bill-advances"></a>', briefing)
-        self.assertEqual(slugify("Legislation-&-Policy"), "legislation-policy")
+        self.assertEqual(slugify("US Politics"), "us-politics")
         policy_line = next(
             line
             for line in glance.splitlines()
-            if "legislation-policy" in line and "Bill advances today…" in line
+            if "us-politics" in line and "Bill advances today…" in line
         )
-        self.assertTrue(policy_line.startswith('<a class="loop-glance" href="#legislation-policy"'))
-        self.assertIn(">Legislation &amp; Policy</a>:", policy_line)
-        self.assertNotIn("#Legislation", policy_line)
+        self.assertTrue(policy_line.startswith('<a class="loop-glance" href="#us-politics"'))
+        self.assertIn(">US Politics</a>:", policy_line)
+        self.assertNotIn("#US Politics", policy_line)
         self.assertNotIn("### ", glance)
         self.assertNotIn("8501", policy_line)
         self.assertNotIn("text-decoration:underline", policy_line)
@@ -322,16 +325,16 @@ class WriteBriefTests(unittest.TestCase):
         self.assertIn("[Model release…](https://example.com/story)", model_line)
 
     def test_duplicate_headlines_are_grouped_as_also_covered_by(self):
-        first = story("Rates rise", ["Market-Valuations"], "Primary copy.")
+        first = story("Rates rise", ["Market Valuations"], "Primary copy.")
         first["source"] = "Reuters"
-        second = story("  RATES   rise ", ["Market-Valuations"], "Duplicate copy.")
+        second = story("  RATES   rise ", ["Market Valuations"], "Duplicate copy.")
         second["source"] = "CNBC"
-        third = story("Rates rise", ["Market-Valuations"], "Same source again.")
+        third = story("Rates rise", ["Market Valuations"], "Same source again.")
         third["source"] = "Reuters"
         briefing = render_brief(
             {
                 "stories": [first, second, third],
-                "tag_notes": {"Market-Valuations": "Valuation pattern from the rates cluster."},
+                "tag_notes": {"Market Valuations": "Valuation pattern from the rates cluster."},
                 "daily_summary": "Rates were the market story.",
             },
             "2026-10-21",

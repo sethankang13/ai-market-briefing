@@ -17,17 +17,30 @@ class LoadConfigTests(unittest.TestCase):
         self.assertEqual(config["pipeline"]["top_selected_stories"], 5)
         self.assertEqual(config["pipeline"]["output_dir"], "briefs")
         self.assertEqual(config["pipeline"]["db_path"], "data/loop.db")
+        self.assertEqual(len(config["feeds"]), 20)
         self.assertEqual(
             list(config["feeds"]),
             [
-                "FT, WSJ & Bloomberg Proxy",
+                "Politico Elections & Campaigns",
+                "Politico Congress & Policy",
+                "AP News Politics",
+                "Washington Post Politics",
+                "CBS News Politics",
+                "WSJ, Bloomberg & FT Markets",
                 "Reuters Business & Markets",
-                "CNBC Tech & Markets",
-                "Politico AI Policy",
-                "AP News Policy",
-                "TechCrunch AI",
-                "OpenAI News",
-                "Google AI Blog",
+                "CNBC Markets",
+                "MarketWatch Top Stories",
+                "CNBC Economy & Fed",
+                "Reuters Economy & Labor",
+                "Federal Reserve Press Releases",
+                "FT & WSJ Geopolitics",
+                "Reuters Geopolitics",
+                "BBC World News",
+                "TechCrunch General",
+                "Reuters Tech & Hardware",
+                "CNBC Tech & Enterprise",
+                "Reuters M&A & Private Equity",
+                "Axios Feed",
             ],
         )
         self.assertEqual(
@@ -40,15 +53,23 @@ class LoadConfigTests(unittest.TestCase):
             ],
         )
         self.assertEqual(config["models"]["openai_fallback"], "gpt-4o-mini")
-        self.assertEqual(len(config["taxonomy"]), 9)
+        self.assertEqual(len(config["taxonomy"]), 6)
         self.assertEqual(
-            config["taxonomy"]["Copyright-&-IP"],
-            ["copyright", "lawsuit", "licensing", "data scraping", "IP"],
+            list(config["taxonomy"]),
+            [
+                "US Politics",
+                "Market Valuations",
+                "Labor & Economy",
+                "Geopolitics & Trade",
+                "Tech & Innovation",
+                "Venture & M&A",
+            ],
         )
-        self.assertEqual(config["tag_weights"]["Legislation-&-Policy"], 70)
+        self.assertIn("bill", config["taxonomy"]["US Politics"])
+        self.assertEqual(config["tag_weights"]["US Politics"], 100)
         self.assertGreater(
-            config["tag_weights"]["Legislation-&-Policy"],
-            config["tag_weights"]["Enterprise-Adoption"],
+            config["tag_weights"]["US Politics"],
+            config["tag_weights"]["Tech & Innovation"],
         )
 
     def test_missing_file_returns_the_same_internal_defaults(self):
@@ -88,7 +109,8 @@ class LoadConfigTests(unittest.TestCase):
             )
             config = config_loader.load_config(path)
         self.assertEqual(config["pipeline"]["recency_cutoff_hours"], 24)
-        self.assertEqual(config["feeds"]["Example"], "https://example.com/rss")
+        self.assertEqual(config["feeds"], {"Example": "https://example.com/rss"})
+        self.assertNotIn("CBS News Politics", config["feeds"])
         self.assertEqual(config["models"]["openai_fallback"], "gpt-4o-mini")
 
 

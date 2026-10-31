@@ -88,7 +88,7 @@ class AppImportTests(unittest.TestCase):
                         "https://example.com/bill",
                         "Example News",
                         "The bill can change compliance.",
-                        '["Legislation-&-Policy"]',
+                        '["US Politics"]',
                     ),
                     (
                         "2026-10-14",
@@ -96,7 +96,7 @@ class AppImportTests(unittest.TestCase):
                         "https://example.com/chips",
                         "Other Source",
                         "Trade controls affect supply.",
-                        '["Geopolitics-&-Trade"]',
+                        '["Geopolitics & Trade"]',
                     ),
                 ],
             )
@@ -104,7 +104,7 @@ class AppImportTests(unittest.TestCase):
             connection.close()
 
             by_tag = self.app.search_stories(
-                str(path), "Legislation-&-Policy", "", ""
+                str(path), "US Politics", "", ""
             )
             by_source = self.app.search_stories(str(path), "", "Other Source", "")
             by_query = self.app.search_stories(str(path), "", "", "compliance")
@@ -120,7 +120,7 @@ class AppImportTests(unittest.TestCase):
         self.assertEqual(len(by_tag), 1)
         self.assertEqual(by_tag[0]["headline"], "Policy bill advances")
         self.assertEqual(by_tag[0]["url"], "https://example.com/bill")
-        self.assertEqual(by_tag[0]["tags"], ["Legislation-&-Policy"])
+        self.assertEqual(by_tag[0]["tags"], ["US Politics"])
         self.assertEqual(len(by_source), 1)
         self.assertEqual(by_source[0]["source"], "Other Source")
         self.assertEqual(len(by_query), 1)
@@ -142,12 +142,12 @@ class AppImportTests(unittest.TestCase):
 
     def test_tag_query_param_and_date_grouped_archive_helpers(self):
         self.assertEqual(
-            self.app.read_query_tag({"tag": "Legislation-&-Policy"}),
-            "Legislation-&-Policy",
+            self.app.read_query_tag({"tag": "US Politics"}),
+            "US Politics",
         )
         self.assertEqual(
-            self.app.read_query_tag({"tag": ["Foundation-Models"]}),
-            "Foundation-Models",
+            self.app.read_query_tag({"tag": ["Tech & Innovation"]}),
+            "Tech & Innovation",
         )
         self.assertIsNone(self.app.read_query_tag({}))
         rows = [
@@ -156,7 +156,7 @@ class AppImportTests(unittest.TestCase):
                 "headline": "Newer bill",
                 "url": "https://example.com/new",
                 "source": "Example News",
-                "tags": ["Legislation-&-Policy"],
+                "tags": ["US Politics"],
                 "ai_summary": "",
             },
             {
@@ -164,7 +164,7 @@ class AppImportTests(unittest.TestCase):
                 "headline": "Same-day bill",
                 "url": "https://example.com/same",
                 "source": "Other Source",
-                "tags": ["Legislation-&-Policy"],
+                "tags": ["US Politics"],
                 "ai_summary": "",
             },
             {
@@ -172,17 +172,17 @@ class AppImportTests(unittest.TestCase):
                 "headline": "Older bill",
                 "url": "https://example.com/old",
                 "source": "Example News",
-                "tags": ["Legislation-&-Policy"],
+                "tags": ["US Politics"],
                 "ai_summary": "",
             },
         ]
         grouped = self.app.group_stories_by_date(rows)
         self.assertEqual([date for date, _rows in grouped], ["2026-10-15", "2026-10-14"])
         self.assertEqual(len(grouped[0][1]), 2)
-        chips = self.app.tag_chips_html(["Legislation-&-Policy", "Foundation-Models"])
-        self.assertIn("http://127.0.0.1:8501/?tag=Legislation-%26-Policy", chips)
-        self.assertIn("#Foundation Models", chips)
-        self.assertNotIn("#Foundation-Models", chips)
+        chips = self.app.tag_chips_html(["US Politics", "Tech & Innovation"])
+        self.assertIn("http://127.0.0.1:8501/?tag=US+Politics", chips)
+        self.assertIn("#Tech &amp; Innovation", chips)
+        self.assertNotIn("#Tech & Innovation", chips)
 
     def test_stories_for_tag_uses_parameterized_like(self):
         with TemporaryDirectory() as temp_dir:
@@ -213,7 +213,7 @@ class AppImportTests(unittest.TestCase):
                         "https://example.com/bill",
                         "Example News",
                         "",
-                        '["Legislation-&-Policy"]',
+                        '["US Politics"]',
                     ),
                     (
                         "2026-10-14",
@@ -221,7 +221,7 @@ class AppImportTests(unittest.TestCase):
                         "https://example.com/chips",
                         "Other Source",
                         "",
-                        '["Geopolitics-&-Trade"]',
+                        '["Geopolitics & Trade"]',
                     ),
                     (
                         "2026-10-13",
@@ -229,13 +229,13 @@ class AppImportTests(unittest.TestCase):
                         "https://example.com/older",
                         "Example News",
                         "",
-                        '["Legislation-&-Policy"]',
+                        '["US Politics"]',
                     ),
                 ],
             )
             connection.commit()
             connection.close()
-            rows = self.app.stories_for_tag(str(path), "Legislation-&-Policy")
+            rows = self.app.stories_for_tag(str(path), "US Politics")
 
         self.assertEqual(
             [row["headline"] for row in rows],
@@ -245,18 +245,19 @@ class AppImportTests(unittest.TestCase):
         self.assertEqual(dates, ["2026-10-15", "2026-10-13"])
 
     def test_humanize_tag_unhyphenates_user_facing_labels(self):
+        self.assertEqual(self.app.humanize_tag("US Politics"), "US Politics")
         self.assertEqual(self.app.humanize_tag("Market-Valuations"), "Market Valuations")
         self.assertEqual(self.app.humanize_tag("Legislation-&-Policy"), "Legislation & Policy")
-        self.assertEqual(self.app.humanize_tag("Copyright-&-IP"), "Copyright & IP")
-        self.assertEqual(self.app.humanize_tag("Foundation-Models"), "Foundation Models")
+        self.assertEqual(self.app.humanize_tag("Tech & Innovation"), "Tech & Innovation")
         displayed = self.app.humanize_brief_markdown(
             "# Looping... (2026-10-24)\n\n"
             "Loop: AI Market Briefing. Selected public reporting, organized by topic. "
             "Links lead to the original source.\n\n"
-            "## Legislation-&-Policy\n\n## Daily Summary\n"
+            "## US Politics\n\n## Legislation-&-Policy\n\n## Daily Summary\n"
         )
         self.assertNotIn("Looping...", displayed)
         self.assertNotIn("Selected public reporting", displayed)
+        self.assertIn("## US Politics", displayed)
         self.assertIn("## Legislation & Policy", displayed)
         self.assertIn("## Daily Summary & Research Topics", displayed)
 
@@ -349,8 +350,8 @@ class AppImportTests(unittest.TestCase):
         self.assertIn('"loop-glasses.png"', source)
         self.assertNotIn('"loop-icon-light.png"', source)
         colors = list(self.app.TAG_COLORS.values())
-        self.assertEqual(len(self.app.TAG_COLORS), 9)
-        self.assertEqual(len(set(colors)), 9)
+        self.assertEqual(len(self.app.TAG_COLORS), 6)
+        self.assertEqual(len(set(colors)), 6)
         for tag, color in self.app.TAG_COLORS.items():
             self.assertIn(color, css)
             self.assertIn(color, self.app.tag_hashtag_html(tag))
@@ -427,7 +428,7 @@ class AppImportTests(unittest.TestCase):
                         "https://example.com/oct",
                         "Example News",
                         "",
-                        '["Legislation-&-Policy"]',
+                        '["US Politics"]',
                     ),
                     (
                         "2026-09-15",
@@ -435,7 +436,7 @@ class AppImportTests(unittest.TestCase):
                         "https://example.com/sep",
                         "Example News",
                         "",
-                        '["Legislation-&-Policy"]',
+                        '["US Politics"]',
                     ),
                     (
                         "2025-10-15",
@@ -443,7 +444,7 @@ class AppImportTests(unittest.TestCase):
                         "https://example.com/prior",
                         "Example News",
                         "",
-                        '["Legislation-&-Policy"]',
+                        '["US Politics"]',
                     ),
                 ],
             )
@@ -530,7 +531,7 @@ class HeadlineAndPopoverTests(unittest.TestCase):
                 "headline": "Rates rise",
                 "url": "https://example.com/reuters",
                 "source": "Reuters",
-                "tags": ["Market-Valuations"],
+                "tags": ["Market Valuations"],
                 "ai_summary": "Primary copy.",
             },
             {
@@ -538,7 +539,7 @@ class HeadlineAndPopoverTests(unittest.TestCase):
                 "headline": "  RATES   rise ",
                 "url": "https://example.com/cnbc",
                 "source": "CNBC",
-                "tags": ["Market-Valuations"],
+                "tags": ["Market Valuations"],
                 "ai_summary": "Duplicate copy.",
             },
             {
@@ -546,7 +547,7 @@ class HeadlineAndPopoverTests(unittest.TestCase):
                 "headline": "Rates rise",
                 "url": "https://example.com/reuters",
                 "source": "Reuters",
-                "tags": ["Market-Valuations"],
+                "tags": ["Market Valuations"],
                 "ai_summary": "Same source again.",
             },
             {
@@ -586,7 +587,7 @@ class HeadlineAndPopoverTests(unittest.TestCase):
             "\n"
             "- [Rates rise](#rates-rise)\n"
             "\n"
-            "## Market-Valuations\n"
+            "## Market Valuations\n"
             "\n"
             '<a id="rates-rise"></a>\n'
             "- [Rates rise](https://example.com/rates)\n"

@@ -18,36 +18,48 @@ def google_article_link(publisher_url: str) -> str:
 
 
 class CollectStoriesTests(unittest.TestCase):
-    def test_sources_are_the_eight_feeds(self):
+    def test_sources_are_the_twenty_feeds(self):
+        self.assertEqual(len(collect_stories.SOURCES), 20)
         self.assertEqual(
             list(collect_stories.SOURCES),
             [
-                "FT, WSJ & Bloomberg Proxy",
+                "Politico Elections & Campaigns",
+                "Politico Congress & Policy",
+                "AP News Politics",
+                "Washington Post Politics",
+                "CBS News Politics",
+                "WSJ, Bloomberg & FT Markets",
                 "Reuters Business & Markets",
-                "CNBC Tech & Markets",
-                "Politico AI Policy",
-                "AP News Policy",
-                "TechCrunch AI",
-                "OpenAI News",
-                "Google AI Blog",
+                "CNBC Markets",
+                "MarketWatch Top Stories",
+                "CNBC Economy & Fed",
+                "Reuters Economy & Labor",
+                "Federal Reserve Press Releases",
+                "FT & WSJ Geopolitics",
+                "Reuters Geopolitics",
+                "BBC World News",
+                "TechCrunch General",
+                "Reuters Tech & Hardware",
+                "CNBC Tech & Enterprise",
+                "Reuters M&A & Private Equity",
+                "Axios Feed",
             ],
         )
-        self.assertIn(
-            "site:bloomberg.com",
-            collect_stories.SOURCES["FT, WSJ & Bloomberg Proxy"],
+        self.assertEqual(
+            collect_stories.SOURCES["CBS News Politics"],
+            "https://www.cbsnews.com/latest/rss/main",
         )
-        self.assertIn(
-            "site:reuters.com",
-            collect_stories.SOURCES["Reuters Business & Markets"],
+        self.assertEqual(
+            collect_stories.SOURCES["TechCrunch General"],
+            "https://techcrunch.com/feed/",
+        )
+        self.assertEqual(
+            collect_stories.SOURCES["Axios Feed"],
+            "https://www.axios.com/feeds/feed.rss",
         )
         self.assertIn(
             "site:politico.com",
-            collect_stories.SOURCES["Politico AI Policy"],
-        )
-        self.assertIn("policy+OR+government+OR+law", collect_stories.SOURCES["AP News Policy"])
-        self.assertEqual(
-            collect_stories.SOURCES["TechCrunch AI"],
-            "https://techcrunch.com/category/artificial-intelligence/feed/",
+            collect_stories.SOURCES["Politico Elections & Campaigns"],
         )
 
     def test_google_news_token_resolves_without_a_second_request(self):

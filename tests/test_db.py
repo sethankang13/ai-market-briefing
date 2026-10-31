@@ -23,7 +23,7 @@ class LoopDatabaseTests(unittest.TestCase):
                 "source": "Example News",
                 "full_text": "The full article body.",
                 "ai_summary": "The bill can change compliance.",
-                "tags": ["Legislation-&-Policy"],
+                "tags": ["US Politics"],
             }
         ]
         with TemporaryDirectory() as temp_dir:
@@ -57,7 +57,7 @@ class LoopDatabaseTests(unittest.TestCase):
         self.assertEqual(row["url"], "https://example.com/bill")
         self.assertEqual(row["published_date"], "2026-10-06")
         self.assertEqual(row["full_text"], "The full article body.")
-        self.assertEqual(json.loads(row["tags"]), ["Legislation-&-Policy"])
+        self.assertEqual(json.loads(row["tags"]), ["US Politics"])
         self.assertEqual(json.loads(row["market_snapshot_json"])["fed_funds"]["rate"], 4.33)
         self.assertIsNone(row["macro_report"])
 
@@ -69,7 +69,7 @@ class LoopDatabaseTests(unittest.TestCase):
                     "headline": "Policy bill advances",
                     "url": "https://example.com/bill",
                     "source": "Example News",
-                    "tags": json.dumps(["Legislation-&-Policy"]),
+                    "tags": json.dumps(["US Politics"]),
                     "ai_summary": "The bill can change compliance.",
                 }
             ]
@@ -97,7 +97,7 @@ class LoopDatabaseTests(unittest.TestCase):
                         "link": "https://example.com/recent",
                         "source": "Example News",
                         "description": "Snippet only.",
-                        "tags": ["Legislation-&-Policy"],
+                        "tags": ["US Politics"],
                     }
                 ],
                 snapshot,
@@ -111,7 +111,7 @@ class LoopDatabaseTests(unittest.TestCase):
                         "headline": "Old bill",
                         "link": "https://example.com/old",
                         "source": "Example News",
-                        "tags": ["Legislation-&-Policy"],
+                        "tags": ["US Politics"],
                     }
                 ],
                 snapshot,
@@ -132,7 +132,7 @@ class LoopDatabaseTests(unittest.TestCase):
                 "headline": "Policy bill advances",
                 "link": "https://example.com/bill",
                 "source": "Example News",
-                "tags": ["Legislation-&-Policy"],
+                "tags": ["US Politics"],
                 "is_selected": 1,
             },
             {
@@ -140,7 +140,7 @@ class LoopDatabaseTests(unittest.TestCase):
                 "headline": "Other RSS item",
                 "link": "https://example.com/other",
                 "source": "Wire",
-                "tags": ["Foundation-Models"],
+                "tags": ["Tech & Innovation"],
                 "is_selected": 0,
             },
         ]

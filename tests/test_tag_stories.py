@@ -12,24 +12,24 @@ class TagStoriesTests(unittest.TestCase):
     def test_valuation_matches_market_and_venture_tags(self):
         self.assertEqual(
             tags_for_text("Startup valuation jumps after earnings"),
-            ["Market-Valuations", "Venture-&-M&A"],
+            ["Market Valuations", "Venture & M&A"],
         )
 
     def test_description_can_add_a_tag_the_headline_misses(self):
         self.assertEqual(
             tags_for_text("Company update", "Regulators opened an FTC probe."),
-            ["Antitrust-&-Compliance"],
+            ["US Politics"],
         )
 
     def test_foundation_models_match_model_names(self):
         self.assertEqual(
             tags_for_text("Claude benchmark beats a Gemini model"),
-            ["Foundation-Models"],
+            ["Tech & Innovation"],
         )
 
     def test_layoffs_match_the_labor_tag(self):
-        self.assertIn("Labor-&-Economy", tags_for_text("AI layoffs hit the workforce"))
-        self.assertIn("Labor-&-Economy", tags_for_text("Company announces lay-offs"))
+        self.assertIn("Labor & Economy", tags_for_text("AI layoffs hit the workforce"))
+        self.assertIn("Labor & Economy", tags_for_text("Company announces lay-offs"))
 
     def test_unmatched_text_gets_an_empty_tag_list(self):
         self.assertEqual(tags_for_text("A remarkable art installation opens"), [])
@@ -49,7 +49,7 @@ class TagStoriesTests(unittest.TestCase):
         self.assertEqual(enriched_story["description"], raw_story["description"])
         self.assertEqual(
             enriched_story["tags"],
-            ["Legislation-&-Policy", "Enterprise-Adoption"],
+            ["US Politics", "Tech & Innovation"],
         )
         self.assertNotIn("tags", raw_story)
 
@@ -61,8 +61,8 @@ class TagStoriesTests(unittest.TestCase):
             }
         )
 
-        self.assertTrue(has_all_topics(story, {"Copyright-&-IP", "Antitrust-&-Compliance"}))
-        self.assertFalse(has_all_topics(story, {"Copyright-&-IP", "Foundation-Models"}))
+        self.assertTrue(has_all_topics(story, {"US Politics", "Tech & Innovation"}))
+        self.assertFalse(has_all_topics(story, {"US Politics", "Venture & M&A"}))
 
 
 if __name__ == "__main__":

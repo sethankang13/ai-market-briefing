@@ -39,6 +39,10 @@ _BRIEF_INTRO = re.compile(
     r"Links lead to the original source\.\s*\n+",
     re.M,
 )
+_ASK_GEMINI_HEADING = re.compile(
+    r"^(?:Research topics to look into more|\*\*Ask Gemini:\*\*|Ask Gemini:)\s*$"
+)
+_PLAIN_NUMBERED_TOPIC = re.compile(r"^(\d+)\.\s+(?!<a )(?!\[)(.+)$")
 TAB_DAILY = "Daily Loop"
 TAB_LOOP = "The Loop"
 LOOP_HEADER_HTML = """
@@ -68,6 +72,7 @@ from write_brief import (
     TAG_ARCHIVE_BASE,
     TAG_COLORS,
     TAG_LABELS,
+    ask_gemini_topic_html,
     humanize_tag,
     tag_archive_url,
     tag_hashtag_html,
@@ -634,6 +639,54 @@ def humanize_brief_markdown(markdown: str) -> str:
     return rewritten
 
 
+def rewrite_ask_gemini_topics(markdown: str) -> str:
+    """Turn numbered research topics into **Ask Gemini:** labels with Gemini URLs."""
+    lines = markdown.splitlines()
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        if not _ASK_GEMINI_HEADING.match(lines[i].strip()):
+            out.append(lines[i])
+            i += 1
+            continue
+        context_chunks: list[str] = []
+        for prior in reversed(out):
+            stripped = prior.strip()
+            if not stripped:
+                if context_chunks:
+                    break
+                continue
+            if stripped.startswith("#") or stripped == "---":
+                break
+            context_chunks.append(stripped)
+        context = " ".join(reversed(context_chunks))
+        out.append("**Ask Gemini:**")
+        i += 1
+        while i < len(lines) and not lines[i].strip():
+            i += 1
+        out.append("")
+        while i < len(lines) and not lines[i].startswith("#"):
+            stripped = lines[i].strip()
+            if not stripped:
+                i += 1
+                continue
+            plain = _PLAIN_NUMBERED_TOPIC.match(stripped)
+            if plain:
+                out.append(
+                    ask_gemini_topic_html(
+                        plain.group(2).strip(), context, int(plain.group(1))
+                    )
+                )
+                i += 1
+                continue
+            if "gemini.google.com" in stripped:
+                out.append(lines[i])
+                i += 1
+                continue
+            break
+    return "\n".join(out)
+
+
 def display_brief_markdown(markdown: str) -> str:
     """Hyperlink At a Glance / titles to RSS URLs; drop standalone URL lines."""
     markdown = humanize_brief_markdown(markdown)
@@ -658,7 +711,7 @@ def display_brief_markdown(markdown: str) -> str:
 
     rewritten = _GLANCE_SLUG_LINK.sub(replace_glance, markdown)
     rewritten = _BARE_URL_LINE.sub("", rewritten)
-    return rewritten
+    return rewrite_ask_gemini_topics(rewritten)
 
 
 def source_popover_items(rows: list[dict]) -> list[dict]:

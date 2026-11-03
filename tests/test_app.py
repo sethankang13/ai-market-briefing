@@ -261,6 +261,22 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("## Legislation & Policy", displayed)
         self.assertIn("## Daily Summary & Research Topics", displayed)
 
+    def test_display_rewrites_research_topics_into_ask_gemini_links(self):
+        displayed = self.app.display_brief_markdown(
+            "# Looping... (2026-10-23)\n\n"
+            "## Daily Summary & Research Topics\n\n"
+            "Policy cluster from RSS headlines.\n\n"
+            "Research topics to look into more\n\n"
+            "1. Follow the bill markup.\n"
+            "2. Model evals\n"
+        )
+        self.assertIn("**Ask Gemini:**", displayed)
+        self.assertNotIn("Research topics to look into more", displayed)
+        self.assertIn("https://gemini.google.com/app?q=", displayed)
+        self.assertIn("Follow the bill markup", displayed)
+        self.assertIn("Model evals", displayed)
+        self.assertIn("target=\"_blank\"", displayed)
+
     def test_static_svgs_are_utf8_and_bad_assets_are_skipped(self):
         static = Path(self.app.__file__).resolve().parents[1] / "static"
         for name in (

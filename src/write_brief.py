@@ -14,7 +14,7 @@ import html
 import json
 import re
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import fetch_market
 from config_loader import load_config, project_path
@@ -101,6 +101,58 @@ def humanize_tag(tag: str) -> str:
     if not isinstance(tag, str) or not tag:
         return ""
     return tag.replace("-&-", " & ").replace("-", " ")
+
+
+GEMINI_APP_URL = "https://gemini.google.com/app"
+
+
+def concise_topic_label(topic_title: str) -> str:
+    """Short UI label: collapse whitespace, drop a trailing period."""
+    text = " ".join(str(topic_title or "").split()).rstrip(".")
+    if len(text) <= 72:
+        return text or "Research topic"
+    cut = text[:72].rsplit(" ", 1)[0].rstrip(",;:")
+    return cut or text[:72]
+
+
+def gemini_research_prompt(topic_title: str, topic_context: str = "") -> str:
+    """Full prompt: executive summary, timeline, technical details, citations."""
+    title = " ".join(str(topic_title or "").split()) or "this topic"
+    context = str(topic_context or "").strip()
+    parts = [
+        "Prepare a research briefing for a LOOP: AI Market Briefing reader.",
+        f"Topic: {title}",
+    ]
+    if context:
+        parts.append(f"Context from today's briefing:\n{context}")
+    parts.append(
+        "Cover all of the following:\n"
+        "1. Executive summary\n"
+        "2. Timeline of key developments\n"
+        "3. Technical details\n"
+        "4. Citations to primary sources and official reporting"
+    )
+    return "\n\n".join(parts)
+
+
+def create_gemini_research_url(topic_title: str, topic_context: str = "") -> str:
+    """Gemini app URL with ``q`` set to the encoded research prompt."""
+    return f"{GEMINI_APP_URL}?q={quote(gemini_research_prompt(topic_title, topic_context), safe='')}"
+
+
+createGeminiResearchUrl = create_gemini_research_url
+
+
+def ask_gemini_topic_html(
+    topic_title: str, topic_context: str = "", index: int | None = None
+) -> str:
+    """Numbered UI label linking to Gemini with the full research prompt."""
+    href = html.escape(create_gemini_research_url(topic_title, topic_context), quote=True)
+    label = html.escape(concise_topic_label(topic_title))
+    prefix = f"{index}. " if index is not None else ""
+    return (
+        f'{prefix}<a href="{href}" target="_blank" rel="noopener noreferrer">{label}</a>'
+    )
 
 
 def tag_archive_url(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:
@@ -334,10 +386,10 @@ def render_daily_summary(summary: str, radar: list[str]) -> list[str]:
     if radar:
         if summary:
             lines.append("")
-        lines.append("Research topics to look into more")
+        lines.append("**Ask Gemini:**")
         lines.append("")
         for index, topic in enumerate(radar, start=1):
-            lines.append(f"{index}. {topic}")
+            lines.append(ask_gemini_topic_html(topic, summary, index))
     return lines
 
 

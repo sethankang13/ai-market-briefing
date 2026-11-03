@@ -11,6 +11,9 @@ from tag_stories import TAG_WEIGHTS, primary_tag
 from write_brief import (
     TAG_ARCHIVE_BASE,
     TAG_COLORS,
+    concise_topic_label,
+    createGeminiResearchUrl,
+    create_gemini_research_url,
     glance_phrase,
     latest_briefing_source,
     normalize_headline,
@@ -261,8 +264,11 @@ class WriteBriefTests(unittest.TestCase):
         self.assertLess(glance_at, policy_at)
         self.assertLess(policy_at, summary_at)
         self.assertIn("- [Bill advances](https://example.com/story)", briefing)
-        self.assertIn("Research topics to look into more", briefing)
-        self.assertIn("1. Follow the bill markup.", briefing)
+        self.assertIn("**Ask Gemini:**", briefing)
+        self.assertNotIn("Research topics to look into more", briefing)
+        self.assertNotIn("1. Follow the bill markup.", briefing)
+        self.assertIn("gemini.google.com/app?q=", briefing)
+        self.assertIn("Follow the bill markup", briefing)
         self.assertNotIn("# The Loop: Macro Landscape", briefing)
         self.assertNotIn("Why It Matters:", briefing)
         self.assertNotIn("AI Summary Pending", briefing)
@@ -353,6 +359,27 @@ class WriteBriefTests(unittest.TestCase):
         )
         self.assertNotIn("- [Rates rise](#rates-rise)", briefing)
         self.assertNotIn("*Tags:", briefing)
+
+    def test_create_gemini_research_url_encodes_the_full_prompt(self):
+        from urllib.parse import unquote
+
+        self.assertIs(createGeminiResearchUrl, create_gemini_research_url)
+        self.assertEqual(concise_topic_label("Follow the bill markup."), "Follow the bill markup")
+        url = createGeminiResearchUrl(
+            "Follow the bill markup.",
+            "Policy cluster from RSS headlines.",
+        )
+        self.assertTrue(url.startswith("https://gemini.google.com/app?q="))
+        encoded = url.split("?q=", 1)[1]
+        self.assertIn("%20", encoded)
+        self.assertNotIn("+", encoded)
+        prompt = unquote(encoded)
+        self.assertIn("Follow the bill markup.", prompt)
+        self.assertIn("Policy cluster from RSS headlines.", prompt)
+        self.assertIn("Executive summary", prompt)
+        self.assertIn("Timeline", prompt)
+        self.assertIn("Technical details", prompt)
+        self.assertIn("Citations", prompt)
 
 
 if __name__ == "__main__":

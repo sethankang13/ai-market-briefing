@@ -89,7 +89,7 @@ Each day is a snapshot `YYYY-MM-DD.json`. Downstream steps never rewrite earlier
 3. **Select** `src/select_stories.py` → `data/selected/` — score = tag count; prefer same calendar day; top 5 plus the best remaining story per tag that appeared that day.
 4. **Market** `src/fetch_market.py` — Fed Funds + S&P 500, Nasdaq, Dow previous close. `--mock` uses a realistic offline snapshot (`4.33%`, 2026-scale indexes). Live failures say `fetch failed`.
 5. **Summarize** `src/summarize_stories.py` → `data/summarized/` — **one** Gemini Flash call: `tag_notes`, `daily_summary`, `research_radar`, plus 14-day `loop.db` history. Market-impact language is interpretation.
-6. **Write** `src/write_brief.py` → `briefs/YYYY-MM-DD.md` — Market Snapshot, At a Glance, one weighted-tag section per story, Daily Summary.
+6. **Write** `src/write_brief.py` → `briefs/YYYY-MM-DD.md` — Market Snapshot, At a Glance, one weighted-tag section per story, Daily Summary, then **Ask Gemini:** topic labels that open a Gemini research prompt.
 7. **Persist** `src/db.py` — upsert every collected RSS row into `data/loop.db`.
 
 Per-article HTML scrape lives in `src/archived_article_summarizer.py` and is not on the live path.

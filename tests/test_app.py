@@ -291,6 +291,32 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("Follow the bill markup", displayed)
         self.assertIn("Executive%20summary", displayed)
 
+    def test_display_splits_glance_clusters_and_rewrites_snapshot_deltas(self):
+        displayed = self.app.display_brief_markdown(
+            "# Looping... (2026-10-23)\n\n"
+            "## Market Snapshot\n\n"
+            '- S&P 500: 5,123.45 (<span style="color:#2F7D4F">+0.35%</span>)\n'
+            '- Dow: 42,000.00 (<span style="color:#C04545">-0.45%</span>)\n\n'
+            "## At a Glance\n\n"
+            '<a class="loop-glance" href="#us-politics">US Politics</a>: '
+            "[Apple may try…](https://example.com/a), "
+            "[States take steps…](https://example.com/b)\n\n"
+            "---\n"
+        )
+        self.assertIn('class="loop-delta loop-delta-up"', displayed)
+        self.assertIn('class="loop-delta loop-delta-down"', displayed)
+        self.assertNotIn("#2F7D4F", displayed)
+        self.assertNotIn("#C04545", displayed)
+        self.assertIn(
+            '- <a class="loop-glance" href="#us-politics">US Politics</a> [Apple may try…](https://example.com/a)',
+            displayed,
+        )
+        self.assertIn(
+            '- <a class="loop-glance" href="#us-politics">US Politics</a> [States take steps…](https://example.com/b)',
+            displayed,
+        )
+        self.assertNotIn("</a>: [Apple may try…]", displayed)
+
     def test_static_svgs_are_utf8_and_bad_assets_are_skipped(self):
         static = Path(self.app.__file__).resolve().parents[1] / "static"
         for name in (
@@ -319,9 +345,9 @@ class AppImportTests(unittest.TestCase):
         script = self.app.brand_theme_script()
         config = Path(self.app.__file__).resolve().parents[1] / ".streamlit" / "config.toml"
         toml = config.read_text(encoding="utf-8")
-        self.assertEqual(self.app.LOOP_VERSION, "4.1.1")
+        self.assertEqual(self.app.LOOP_VERSION, "4.1.2")
         version_file = Path(self.app.__file__).resolve().parents[1] / "VERSION"
-        self.assertEqual(version_file.read_text(encoding="utf-8").strip(), "4.1.1")
+        self.assertEqual(version_file.read_text(encoding="utf-8").strip(), "4.1.2")
         self.assertIn('data-loop-theme="light"', css)
         self.assertIn('data-loop-theme="dark"', css)
         self.assertNotIn('data-loop-theme="system"', css)
@@ -377,8 +403,25 @@ class AppImportTests(unittest.TestCase):
         source = Path(self.app.__file__).read_text(encoding="utf-8")
         self.assertEqual(source.count("    render_brand_header()"), 1)
         self.assertIn('initial_sidebar_state="collapsed"', source)
-        self.assertIn('"loop-glasses.png"', source)
+        self.assertIn('"loop-glasses-light.svg"', source)
+        self.assertNotIn('"loop-glasses.png"', source)
         self.assertNotIn('"loop-icon-light.png"', source)
+        self.assertIn("Open LOOP sidebar", source)
+        self.assertIn("stAppDeployButton", css)
+        self.assertIn("scale(0.97)", css)
+        self.assertIn("max-width: 760px", css)
+        self.assertIn("prefers-reduced-motion", css)
+        self.assertIn("prefers-reduced-transparency", css)
+        self.assertIn("prefers-contrast: more", css)
+        self.assertIn("letter-spacing: 0.18em", css)
+        self.assertIn("loop-tag-swatch", css)
+        self.assertIn("loop-delta-up", css)
+        self.assertIn('font = "Inter"', toml)
+        self.assertIn("st.header(selected)", source)
+        self.assertNotIn('st.title(f"Daily Loop: {selected}")', source)
+        self.assertIn('st.header("The Loop")', source)
+        self.assertIn("Search saved stories", source)
+        self.assertIn("**Filters**", source)
         colors = list(self.app.TAG_COLORS.values())
         self.assertEqual(len(self.app.TAG_COLORS), 6)
         self.assertEqual(len(set(colors)), 6)
@@ -425,7 +468,8 @@ class AppImportTests(unittest.TestCase):
         self.assertEqual(self.app.TAB_DAILY, "Daily Loop")
         self.assertEqual(self.app.TAB_LOOP, "The Loop")
         self.assertIn("st.tabs([TAB_DAILY, TAB_LOOP])", source)
-        self.assertIn("Daily Loop:", source)
+        self.assertIn("st.header(selected)", source)
+        self.assertIn('st.header("The Loop")', source)
         self.assertNotIn("Daily Briefings", source)
         self.assertNotIn("The Loop Explorer", source)
 
@@ -506,7 +550,7 @@ class AppImportTests(unittest.TestCase):
         self.assertIn('st.selectbox("Briefing date"', source)
         self.assertIn("key=\"daily_loop_date\"", source)
         self.assertIn('st.form("loop_search_form")', source)
-        self.assertIn('st.form_submit_button("Search")', source)
+        self.assertIn('st.form_submit_button("Search", type="primary")', source)
         self.assertNotIn("on_change=_enter_loop_focus", source)
         self.assertEqual(
             self.app.default_briefing_date(

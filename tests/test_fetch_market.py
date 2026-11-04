@@ -76,6 +76,10 @@ class FetchMarketTests(unittest.TestCase):
         self.assertIn("- S&P 500:", block)
         self.assertIn("- Nasdaq: fetch failed", block)
         self.assertIn("- Dow: fetch failed", block)
+        self.assertIn("loop-delta-down", block)
+        self.assertIn("-0.42%", block)
+        self.assertNotIn("#2F7D4F", block)
+        self.assertNotIn("#C04545", block)
 
     def test_failed_fed_funds_does_not_invent_a_rate(self):
         with patch.object(fetch_market, "_get_bytes", side_effect=URLError("fed down")):
@@ -117,8 +121,9 @@ class FetchMarketTests(unittest.TestCase):
                 "indexes": {"^GSPC": quote, "^IXIC": quote, "^DJI": quote},
             }
         )
-        self.assertIn('style="color:#C04545"', block)
+        self.assertIn("loop-delta-down", block)
         self.assertIn("-0.52%", block)
+        self.assertNotIn("#C04545", block)
 
     def test_mock_fed_funds_is_realistic_and_not_failed(self):
         with patch.object(fetch_market, "_get_bytes", side_effect=AssertionError("network")):

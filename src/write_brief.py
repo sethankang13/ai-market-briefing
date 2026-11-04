@@ -166,13 +166,14 @@ def tag_archive_url(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:
 
 
 def tag_hashtag_html(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:
-    """Color-coded chip with a humanized label; href still uses the internal key."""
+    """Ink label with a pastel swatch; href still uses the internal key."""
     color = TAG_COLORS.get(tag, "#334155")
     href = html.escape(tag_archive_url(tag, base), quote=True)
     label = html.escape(humanize_tag(tag))
+    swatch = html.escape(color, quote=True)
     return (
-        f'<a href="{href}" style="color:{color};font-weight:500;'
-        f'text-decoration:underline;text-underline-offset:0.18em;background:none">'
+        f'<a class="loop-tag" href="{href}">'
+        f'<span class="loop-tag-swatch" style="background-color:{swatch}"></span>'
         f"#{label}</a>"
     )
 
@@ -245,15 +246,15 @@ def glance_tag_label(tag: str) -> str:
 def render_at_a_glance(
     sections: list[tuple[str, list[tuple[dict[str, object], list[str]]]]],
 ) -> list[str]:
-    """One compact line per tag: italic label, then three-word RSS links."""
+    """One list row per story: section jump, then a three-word RSS link."""
     lines: list[str] = []
     for tag, items in sections:
         slug = tag_section_id(tag)
-        phrases = []
+        label = glance_tag_label(tag)
         for story, _extra in items:
             link = str(story.get("link") or story.get("url") or "").strip()
-            phrases.append(glance_markdown(story.get("headline"), link, slug))
-        lines.append(f"{glance_tag_label(tag)}: {', '.join(phrases)}")
+            phrase = glance_markdown(story.get("headline"), link, slug)
+            lines.append(f"- {label} {phrase}")
     return lines
 
 

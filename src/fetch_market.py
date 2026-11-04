@@ -20,7 +20,7 @@ from typing import Any
 
 
 USER_AGENT = (
-    "Loop-AI-Market-Briefing/4.1.1 "
+    "Loop-AI-Market-Briefing/4.1.2 "
     "(local briefing; https://github.com/sethankang13/ai-market-briefing)"
 )
 REQUEST_HEADERS = {
@@ -224,10 +224,6 @@ def fetch_market_snapshot() -> dict[str, Any]:
     }
 
 
-PERCENT_UP = "#2F7D4F"
-PERCENT_DOWN = "#C04545"
-
-
 def format_percent(value: float) -> str:
     sign = "+" if value > 0 else ""
     return f"{sign}{value:.2f}%"
@@ -236,12 +232,12 @@ def format_percent(value: float) -> str:
 def format_percent_html(value: float) -> str:
     text = html.escape(format_percent(value))
     if value > 0:
-        color = PERCENT_UP
+        kind = "up"
     elif value < 0:
-        color = PERCENT_DOWN
+        kind = "down"
     else:
         return text
-    return f'<span style="color:{color}">{text}</span>'
+    return f'<span class="loop-delta loop-delta-{kind}">{text}</span>'
 
 
 def format_fed_funds(entry: dict[str, Any]) -> str:

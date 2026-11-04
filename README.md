@@ -99,7 +99,7 @@ Per-article HTML scrape lives in `src/archived_article_summarizer.py` and is not
 ```text
 /Users/ethankang/Documents/ai-market-briefing/
 ├── README.md
-├── VERSION                 # 4.1.1
+├── VERSION                 # 4.1.2
 ├── config/config.yaml      # feeds, taxonomy, tag_weights, models, paths
 ├── src/run_briefing.py     # orchestrator
 ├── src/app.py              # Streamlit

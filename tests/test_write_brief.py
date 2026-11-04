@@ -80,8 +80,10 @@ class WriteBriefTests(unittest.TestCase):
         chip = tag_hashtag_html("US Politics")
         self.assertIn("#US Politics", chip)
         self.assertNotIn("#US-Politics", chip)
-        self.assertIn(TAG_COLORS["US Politics"], chip)
-        self.assertIn("text-decoration:underline", chip)
+        self.assertIn('class="loop-tag"', chip)
+        self.assertIn("loop-tag-swatch", chip)
+        self.assertIn(f"background-color:{TAG_COLORS['US Politics']}", chip)
+        self.assertNotIn('style="color:', chip)
         self.assertIn('href="http://127.0.0.1:8501/?tag=US+Politics"', chip)
         labor = tag_archive_url("Labor & Economy")
         self.assertEqual(parse_qs(urlparse(labor).query)["tag"], ["Labor & Economy"])
@@ -192,7 +194,7 @@ class WriteBriefTests(unittest.TestCase):
         )
         glance = briefing[briefing.index("## At a Glance"):briefing.index("## US Politics")]
         self.assertIn(
-            'href="#us-politics">US Politics</a>:',
+            'href="#us-politics">US Politics</a> [Bill advances…]',
             glance,
         )
         self.assertNotIn("Tech & Innovation", glance)
@@ -237,11 +239,13 @@ class WriteBriefTests(unittest.TestCase):
         self.assertIn("- Fed Funds: 4.33%", briefing)
         self.assertIn("- S&P 500: 5,123.45 (", briefing)
         self.assertIn("-0.42%", briefing)
-        self.assertIn('style="color:#C04545"', briefing)
+        self.assertIn("loop-delta-down", briefing)
         self.assertIn("- Nasdaq: fetch failed", briefing)
         self.assertIn("- Dow: 42,000.00 (", briefing)
         self.assertIn("+0.10%", briefing)
-        self.assertIn('style="color:#2F7D4F"', briefing)
+        self.assertIn("loop-delta-up", briefing)
+        self.assertNotIn("#C04545", briefing)
+        self.assertNotIn("#2F7D4F", briefing)
         self.assertNotIn("timeout", briefing)
 
     def test_daily_summary_follows_tag_sections_and_does_not_need_ai_summary(self):
@@ -319,8 +323,9 @@ class WriteBriefTests(unittest.TestCase):
             for line in glance.splitlines()
             if "us-politics" in line and "Bill advances today…" in line
         )
-        self.assertTrue(policy_line.startswith('<a class="loop-glance" href="#us-politics"'))
-        self.assertIn(">US Politics</a>:", policy_line)
+        self.assertTrue(policy_line.startswith('- <a class="loop-glance" href="#us-politics"'))
+        self.assertIn(">US Politics</a>", policy_line)
+        self.assertNotIn(">US Politics</a>:", policy_line)
         self.assertNotIn("#US Politics", policy_line)
         self.assertNotIn("### ", glance)
         self.assertNotIn("8501", policy_line)
@@ -328,8 +333,11 @@ class WriteBriefTests(unittest.TestCase):
         model_line = next(
             line for line in glance.splitlines() if "Model release…" in line
         )
+        self.assertTrue(model_line.startswith("- "))
         self.assertIn("[Bill advances today…](https://example.com/story)", policy_line)
+        self.assertNotIn("Model release", policy_line)
         self.assertIn("[Model release…](https://example.com/story)", model_line)
+        self.assertNotIn("Bill advances", model_line)
 
     def test_duplicate_headlines_are_grouped_as_also_covered_by(self):
         first = story("Rates rise", ["Market Valuations"], "Primary copy.")

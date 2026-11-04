@@ -9,7 +9,7 @@ Run from the project folder:
 
 from __future__ import annotations
 
-LOOP_VERSION = "4.1.1"
+LOOP_VERSION = "4.1.2"
 
 import html
 import json
@@ -45,6 +45,16 @@ _ASK_GEMINI_HEADING = re.compile(
 _PLAIN_NUMBERED_TOPIC = re.compile(r"^(\d+)\.\s+(?!<a )(?!\[)(.+)$")
 _NUMBERED_TOPIC_HTML = re.compile(
     r'^(\d+)\.\s+<a href="([^"]+)"[^>]*>(.*?)</a>\s*$'
+)
+_GLANCE_CLUSTER = re.compile(
+    r'^(<a class="loop-glance"[^>]*>.*?</a>):\s*(.+)$'
+)
+_GLANCE_MD_LINK = re.compile(r"\[[^\]]+\]\([^)]+\)")
+_PERCENT_UP_SPAN = re.compile(
+    r'<span style="color:\s*#2F7D4F">([^<]*)</span>', re.I
+)
+_PERCENT_DOWN_SPAN = re.compile(
+    r'<span style="color:\s*#C04545">([^<]*)</span>', re.I
 )
 TAB_DAILY = "Daily Loop"
 TAB_LOOP = "The Loop"
@@ -100,7 +110,8 @@ def _loop_prefixed(prefix: str) -> str:
 def brand_css() -> str:
     """Ivory/ink from data-loop-theme; Light/Dark beat OS, System follows it."""
     chip_colors = "\n".join(
-        f'a[href*="{urlencode({"tag": tag})}"] {{ color: {color}; }}'
+        f'a.loop-tag[href*="{urlencode({"tag": tag})}"] .loop-tag-swatch '
+        f"{{ background-color: {color}; }}"
         for tag, color in TAG_COLORS.items()
     )
     light_sel = _loop_prefixed('html[data-loop-theme="light"]')
@@ -118,21 +129,34 @@ def brand_css() -> str:
   --loop-mist: #E5EAF0;
   --loop-radius: 10px;
   --loop-fg: #171C25;
-  --loop-muted: #64748B;
+  --loop-muted: #4A5568;
   --loop-page: #F7F6F2;
   --loop-surface: #E5EAF0;
   --loop-border: #E5EAF0;
   --loop-accent: #263B60;
   --loop-input: #E5EAF0;
 }}
-html {{ color-scheme: light dark; }}
+html {{ color-scheme: light dark; overscroll-behavior: none; }}
 body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
-[data-testid="stSidebar"], [data-testid="stHeader"] {{
-  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+[data-testid="stSidebar"], [data-testid="stHeader"],
+[data-testid="stMarkdownContainer"], [data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li, [data-testid="stMarkdownContainer"] span,
+[data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3, [data-testid="stCaptionContainer"],
+[data-testid="stWidgetLabel"], h1, h2, h3, button, input, label, a {{
+  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+}}
+.stApp, [data-testid="stAppViewContainer"] {{
+  overscroll-behavior: none;
+}}
+[data-testid="stMainBlockContainer"] {{
+  max-width: 760px;
+  margin-left: auto;
+  margin-right: auto;
 }}
 {light_sel} {{
   --loop-fg: #171C25;
-  --loop-muted: #64748B;
+  --loop-muted: #4A5568;
   --loop-page: #F7F6F2;
   --loop-surface: #E5EAF0;
   --loop-border: #E5EAF0;
@@ -144,7 +168,7 @@ body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
 }}
 {dark_sel} {{
   --loop-fg: #F7F6F2;
-  --loop-muted: #64748B;
+  --loop-muted: #94A3B8;
   --loop-page: #171C25;
   --loop-surface: #263B60;
   --loop-border: #263B60;
@@ -167,6 +191,7 @@ html[data-loop-theme="dark"] .loop-glasses {{
 @media (prefers-color-scheme: light) {{
   {unset_sel} {{
     --loop-fg: #171C25;
+    --loop-muted: #4A5568;
     --loop-page: #F7F6F2;
     --loop-surface: #E5EAF0;
     --loop-border: #E5EAF0;
@@ -180,6 +205,7 @@ html[data-loop-theme="dark"] .loop-glasses {{
 @media (prefers-color-scheme: dark) {{
   {unset_sel} {{
     --loop-fg: #F7F6F2;
+    --loop-muted: #94A3B8;
     --loop-page: #171C25;
     --loop-surface: #263B60;
     --loop-border: #263B60;
@@ -222,7 +248,18 @@ h1, h2, h3 {{
   color: var(--loop-fg);
   font-weight: 500;
 }}
-h1, h2, h3 {{
+h1 {{
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}}
+h2 {{
+  font-size: 1.55rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}}
+h3 {{
+  font-weight: 600;
   letter-spacing: 0.01em;
 }}
 a[id], h1, h2, h3, [id] {{ scroll-margin-top: 90px; }}
@@ -230,16 +267,34 @@ a[id], h1, h2, h3, [id] {{ scroll-margin-top: 90px; }}
 .stApp [data-testid="stMarkdownContainer"] a.loop-glance,
 .stApp [data-testid="stMarkdownContainer"] a[href^="#"] {{
   color: var(--loop-fg);
-  font-style: italic;
+  font-style: normal;
+  font-weight: 600;
   text-decoration: none;
 }}
+.loop-delta-up {{ color: var(--loop-accent) !important; }}
+.loop-delta-down {{ color: var(--loop-muted) !important; }}
+span[style*="#2F7D4F"], span[style*="#2f7d4f"] {{ color: var(--loop-accent) !important; }}
+span[style*="#C04545"], span[style*="#c04545"] {{ color: var(--loop-muted) !important; }}
 .stCaption, small, [data-testid="stCaptionContainer"] p {{
   color: var(--loop-muted);
 }}
 hr {{ border: none; border-top: 1px solid var(--loop-border); }}
 [data-testid="stHeader"], [data-testid="stToolbar"] {{
-  background: var(--loop-page);
+  background: color-mix(in srgb, var(--loop-page) 88%, transparent);
   color: var(--loop-fg);
+  backdrop-filter: saturate(1.1) blur(10px);
+  -webkit-backdrop-filter: saturate(1.1) blur(10px);
+}}
+[data-testid="stAppDeployButton"],
+.stAppDeployButton,
+.stDeployButton,
+div[class*="stDeployButton"] {{
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
 }}
 [data-testid="stSidebar"] {{
   background-color: var(--loop-page);
@@ -248,12 +303,18 @@ hr {{ border: none; border-top: 1px solid var(--loop-border); }}
 }}
 [data-testid="stTabs"] button,
 button[role="tab"] {{
-  color: var(--loop-muted);
+  color: var(--loop-muted) !important;
   background: transparent;
+  font-weight: 500;
 }}
 [data-testid="stTabs"] button[aria-selected="true"],
 button[role="tab"][aria-selected="true"] {{
-  color: var(--loop-fg);
+  color: var(--loop-fg) !important;
+  font-weight: 600;
+}}
+[data-testid="stSelectbox"] {{
+  max-width: 17.5rem;
+  width: fit-content;
 }}
 [data-testid="stSelectbox"] > div,
 [data-testid="stSelectbox"] .react-aria-ComboBox,
@@ -268,6 +329,26 @@ button[role="tab"][aria-selected="true"] {{
   border-color: var(--loop-border) !important;
   border-radius: 10px !important;
   font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+}}
+[data-testid="stForm"] [data-testid="stTextInput"] {{
+  max-width: none;
+  width: 100%;
+}}
+[data-testid="stBaseButton-primary"],
+[data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"],
+button[kind="primaryFormSubmit"] {{
+  background-color: var(--loop-accent) !important;
+  color: var(--loop-page) !important;
+  border: none !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+}}
+button:active,
+a:active,
+[role="tab"]:active,
+[data-testid="stBaseButton-primary"]:active,
+[data-testid="stFormSubmitButton"] button:active {{
+  transform: scale(0.97);
 }}
 [data-testid="stSelectbox"] span,
 [data-testid="stSelectbox"] p,
@@ -289,10 +370,12 @@ button[role="tab"][aria-selected="true"] {{
 [data-testid="stExpander"],
 [data-testid="stVerticalBlockBorderWrapper"],
 [data-testid="stPopover"] {{
-  background-color: var(--loop-page);
+  background-color: var(--loop-page) !important;
   border-color: var(--loop-border);
   color: var(--loop-fg);
   border-radius: 10px;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }}
 [data-testid="stBaseButton-secondaryFormSubmit"],
 [data-testid="stFormSubmitButton"] button,
@@ -327,7 +410,7 @@ button[kind="secondaryFormSubmit"] {{
   font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 2.35rem;
   font-weight: 400;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.18em;
   color: var(--loop-fg);
   line-height: 1.05;
   text-transform: uppercase;
@@ -336,27 +419,68 @@ button[kind="secondaryFormSubmit"] {{
   font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 0.92rem;
   font-weight: 400;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
   color: var(--loop-fg);
   margin-top: 0.25rem;
 }}
-a[href*="?tag="] {{
+a.loop-tag {{
+  color: var(--loop-fg) !important;
   font-weight: 500;
   background: none;
   border: none;
   border-radius: 0;
   padding: 0;
-  margin: 0 0.35rem 0 0;
-  display: inline;
-  text-decoration: underline;
-  text-underline-offset: 0.18em;
+  margin: 0 0.55rem 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-decoration: none;
   font-size: 0.92rem;
+}}
+.loop-tag-swatch {{
+  display: inline-block;
+  width: 6px;
+  height: 0.85em;
+  border-radius: 2px;
+  flex: 0 0 6px;
 }}
 {chip_colors}
 div[data-testid="stHtml"] {{
   height: 0;
   min-height: 0;
   overflow: hidden;
+}}
+@media (prefers-reduced-motion: reduce) {{
+  html {{ scroll-behavior: auto; }}
+  *, *::before, *::after {{
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }}
+  button:active, a:active, [role="tab"]:active {{
+    transform: none;
+  }}
+}}
+@media (prefers-reduced-transparency: reduce) {{
+  [data-testid="stHeader"], [data-testid="stToolbar"] {{
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--loop-page);
+  }}
+}}
+@media (prefers-contrast: more) {{
+  :root, html[data-loop-theme="light"] {{
+    --loop-muted: #334155;
+    --loop-border: #171C25;
+  }}
+  html[data-loop-theme="dark"] {{
+    --loop-muted: #B0BCCB;
+    --loop-border: #F7F6F2;
+  }}
+  a, button, [role="tab"] {{
+    text-decoration-thickness: 2px;
+  }}
 }}
 </style>
 """
@@ -473,6 +597,24 @@ def brand_theme_script() -> str:
   var media = win.matchMedia("(prefers-color-scheme: dark)");
   if (media.addEventListener) media.addEventListener("change", paint);
   else if (media.addListener) media.addListener(paint);
+  function labelSidebar() {
+    var nodes = doc.querySelectorAll(
+      '[data-testid="stExpandSidebarButton"], [data-testid="stCollapseSidebarButton"], [data-testid="stSidebarCollapsedControl"], [data-testid="collapsedControl"], [data-testid="stSidebarCollapseButton"]'
+    );
+    nodes.forEach(function (el) {
+      var btn = el.tagName === "BUTTON" ? el : el.querySelector("button") || el;
+      var expanded = btn.getAttribute("aria-expanded");
+      var label = expanded === "true" ? "Close LOOP sidebar" : "Open LOOP sidebar";
+      btn.setAttribute("aria-label", label);
+      btn.setAttribute("title", label);
+    });
+  }
+  labelSidebar();
+  if (!doc.__loopSidebarLabeled) {
+    doc.__loopSidebarLabeled = true;
+    var observer = new MutationObserver(labelSidebar);
+    observer.observe(doc.documentElement, { childList: true, subtree: true });
+  }
 })();
 </script>
 """
@@ -642,6 +784,43 @@ def humanize_brief_markdown(markdown: str) -> str:
     return rewritten
 
 
+def rewrite_snapshot_deltas(markdown: str) -> str:
+    """Map legacy green/red snapshot spans onto LOOP navy/ice and muted classes."""
+    rewritten = _PERCENT_UP_SPAN.sub(
+        r'<span class="loop-delta loop-delta-up">\1</span>', markdown
+    )
+    return _PERCENT_DOWN_SPAN.sub(
+        r'<span class="loop-delta loop-delta-down">\1</span>', rewritten
+    )
+
+
+def rewrite_glance_rows(markdown: str) -> str:
+    """Turn comma-joined At a Glance lines into one list row per story."""
+    lines = markdown.splitlines()
+    out: list[str] = []
+    in_glance = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "## At a Glance":
+            in_glance = True
+            out.append(line)
+            continue
+        if in_glance and (stripped.startswith("## ") or stripped == "---"):
+            in_glance = False
+        if in_glance and stripped:
+            clustered = _GLANCE_CLUSTER.match(stripped)
+            if clustered:
+                label, rest = clustered.group(1), clustered.group(2)
+                links = _GLANCE_MD_LINK.findall(rest)
+                if links:
+                    out.extend(f"- {label} {link}" for link in links)
+                    continue
+                out.append(f"- {label} {rest}")
+                continue
+        out.append(line)
+    return "\n".join(out)
+
+
 def rewrite_ask_gemini_topics(markdown: str) -> str:
     """Turn numbered research topics into **Ask Gemini:** labels with Gemini URLs."""
     lines = markdown.splitlines()
@@ -703,6 +882,8 @@ def rewrite_ask_gemini_topics(markdown: str) -> str:
 
 def display_brief_markdown(markdown: str) -> str:
     """Hyperlink At a Glance / titles to RSS URLs; drop standalone URL lines."""
+    markdown = rewrite_snapshot_deltas(markdown)
+    markdown = rewrite_glance_rows(markdown)
     markdown = humanize_brief_markdown(markdown)
     slug_to_url: dict[str, str] = {}
     for match in _ANCHOR_STORY.finditer(markdown):
@@ -1043,7 +1224,6 @@ def show_static_image(path: Path, **kwargs) -> bool:
 
 def page_icon_value() -> str:
     for name in (
-        "loop-glasses.png",
         "loop-glasses-light.svg",
         "loop-glasses.svg",
         "loop-logo.svg",
@@ -1134,7 +1314,7 @@ def render_daily_loop() -> None:
     index = dates.index(default) if default in dates else 0
     selected = st.selectbox("Briefing date", dates, index=index, key="daily_loop_date")
 
-    st.title(f"Daily Loop: {selected}")
+    st.header(selected)
     markdown = load_briefing_markdown(selected)
     if markdown is None:
         st.warning(f"Could not read briefs/{selected}.md.")
@@ -1190,7 +1370,10 @@ def render_loop_explorer(path: Path) -> None:
         render_story_cards(group_stories_by_headline(rows))
         return
 
+    st.header("The Loop")
+    st.caption("Search saved stories")
     with st.form("loop_search_form"):
+        st.markdown("**Filters**")
         st.selectbox(
             "Tag",
             tag_options,
@@ -1228,8 +1411,12 @@ def render_loop_explorer(path: Path) -> None:
                 format_func=lambda value: blank_label(value, "Any day"),
                 key="loop_day",
             )
-        st.text_input("Keyword", key="loop_query")
-        submitted = st.form_submit_button("Search")
+        st.text_input(
+            "Keyword",
+            key="loop_query",
+            placeholder="Search headlines and summaries",
+        )
+        submitted = st.form_submit_button("Search", type="primary")
     if submitted:
         _enter_loop_focus()
         rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)

@@ -307,26 +307,64 @@ class AppImportTests(unittest.TestCase):
         self.assertIn('class="loop-delta loop-delta-down"', displayed)
         self.assertNotIn("#2F7D4F", displayed)
         self.assertNotIn("#C04545", displayed)
+        self.assertIn('<p class="loop-glance-line">', displayed)
         self.assertIn(
             '<a class="loop-glance" href="#us-politics">US Politics</a>: '
-            "[Apple may try…](https://example.com/a), "
-            "[States take steps…](https://example.com/b)",
+            '<a href="https://example.com/a" target="_blank" rel="noopener noreferrer">'
+            "Apple may try…</a>, "
+            '<a href="https://example.com/b" target="_blank" rel="noopener noreferrer">'
+            "States take steps…</a></p>",
             displayed,
         )
         self.assertNotIn(
             '- <a class="loop-glance" href="#us-politics">US Politics</a> [Apple may try…]',
             displayed,
         )
+        self.assertNotIn("- <a class=\"loop-glance\"", displayed)
         snapshot, glance, rest = self.app.split_daily_brief_sections(displayed)
         self.assertIn("## Market Snapshot", snapshot)
         self.assertIn("loop-delta-up", snapshot)
         self.assertNotIn("## At a Glance", snapshot)
         self.assertIn("## At a Glance", glance)
-        self.assertIn("[Apple may try…](https://example.com/a)", glance)
-        self.assertIn("[States take steps…](https://example.com/b)", glance)
+        self.assertIn("Apple may try…", glance)
+        self.assertIn("States take steps…", glance)
+        self.assertIn('href="https://example.com/a"', glance)
+        self.assertIn('href="https://example.com/b"', glance)
         self.assertNotIn("## Market Snapshot", glance)
+        self.assertNotIn("---", glance)
         self.assertNotIn("## At a Glance", rest)
         self.assertNotIn("## Market Snapshot", rest)
+        self.assertIn("---", rest)
+
+    def test_display_rewrites_stacked_glance_bullets_into_tag_lines(self):
+        displayed = self.app.display_brief_markdown(
+            "# Looping... (2026-10-23)\n\n"
+            "## At a Glance\n\n"
+            '- <a class="loop-glance" href="#us-politics">US Politics</a> [Apple may try…](https://example.com/a)\n'
+            '- <a class="loop-glance" href="#us-politics">US Politics</a> [States take steps…](https://example.com/b)\n'
+            '- <a class="loop-glance" href="#market-valuations">Market Valuations</a> [AI inference startup…](https://example.com/c)\n'
+            "\n---\n"
+        )
+        self.assertIn('<p class="loop-glance-line">', displayed)
+        self.assertEqual(displayed.count('<p class="loop-glance-line">'), 2)
+        self.assertNotIn("- <a class=\"loop-glance\"", displayed)
+        self.assertIn("Apple may try…", displayed)
+        self.assertIn("States take steps…", displayed)
+        self.assertIn("AI inference startup…", displayed)
+        politics = next(
+            line
+            for line in displayed.splitlines()
+            if "loop-glance-line" in line and "US Politics" in line
+        )
+        valuations = next(
+            line
+            for line in displayed.splitlines()
+            if "loop-glance-line" in line and "Market Valuations" in line
+        )
+        self.assertIn("Apple may try…", politics)
+        self.assertIn("States take steps…", politics)
+        self.assertNotIn("AI inference startup…", politics)
+        self.assertIn("AI inference startup…", valuations)
 
     def test_static_svgs_are_utf8_and_bad_assets_are_skipped(self):
         static = Path(self.app.__file__).resolve().parents[1] / "static"
@@ -381,11 +419,14 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("color: var(--loop-fg)", css)
         self.assertNotIn("var(--loop-fg, inherit)", css)
         compact_css = css.replace(" ", "").lower()
-        self.assertIn("color:#ffffff!important", compact_css)
+        self.assertIn("color:#f7f6f2!important", compact_css)
+        self.assertIn('html[data-loop-theme="light"] [data-testid="stFormSubmitButton"] button', css)
+        self.assertIn('html[data-loop-theme="dark"] [data-testid="stFormSubmitButton"] button', css)
         self.assertIn("[data-testid=\"stFormSubmitButton\"] button p", css)
         self.assertIn("[data-testid=\"stBaseButton-secondary\"]", css)
         self.assertIn("font-style: italic", css)
         self.assertIn("loop-glance-body", css)
+        self.assertIn("loop-glance-line", css)
         self.assertIn("background-color: #F7F6F2 !important", css)
         self.assertIn("background-color: #171C25 !important", css)
         self.assertIn("background-color: var(--loop-input) !important", css)
@@ -422,8 +463,9 @@ class AppImportTests(unittest.TestCase):
         self.assertNotIn('"loop-glasses.png"', source)
         self.assertNotIn('"loop-icon-light.png"', source)
         self.assertIn("Open LOOP sidebar", source)
-        self.assertIn("paintSearchWhite", source)
+        self.assertIn("paintSearch", source)
         self.assertIn("loop-glance-body", source)
+        self.assertIn("loop-glance-line", source)
         self.assertIn("stAppDeployButton", css)
         self.assertIn("scale(0.97)", css)
         self.assertNotIn("max-width: 760px", css)

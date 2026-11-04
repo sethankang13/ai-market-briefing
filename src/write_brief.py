@@ -246,16 +246,18 @@ def glance_tag_label(tag: str) -> str:
 def render_at_a_glance(
     sections: list[tuple[str, list[tuple[dict[str, object], list[str]]]]],
 ) -> list[str]:
-    """Compact wrap: ``Tag: headline, headline  Tag2: headline``."""
-    parts: list[str] = []
+    """One compact line per tag: italic label, then inline three-word RSS links."""
+    lines: list[str] = []
     for tag, items in sections:
         slug = tag_section_id(tag)
         phrases = []
         for story, _extra in items:
             link = str(story.get("link") or story.get("url") or "").strip()
             phrases.append(glance_markdown(story.get("headline"), link, slug))
-        parts.append(f"{glance_tag_label(tag)}: {', '.join(phrases)}")
-    return [" ".join(parts)] if parts else []
+        if lines:
+            lines.append("")
+        lines.append(f"{glance_tag_label(tag)}: {', '.join(phrases)}")
+    return lines
 
 
 def unique_slug(headline: object, used: set[str]) -> str:

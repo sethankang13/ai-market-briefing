@@ -323,6 +323,11 @@ class WriteBriefTests(unittest.TestCase):
             for line in glance.splitlines()
             if "us-politics" in line and "Bill advances today…" in line
         )
+        tech_line = next(
+            line
+            for line in glance.splitlines()
+            if "Tech" in line and "Model release…" in line
+        )
         self.assertTrue(policy_line.startswith('<a class="loop-glance" href="#us-politics"'))
         self.assertIn(">US Politics</a>:", policy_line)
         self.assertNotIn("#US Politics", policy_line)
@@ -330,8 +335,10 @@ class WriteBriefTests(unittest.TestCase):
         self.assertNotIn("8501", policy_line)
         self.assertNotIn("text-decoration:underline", policy_line)
         self.assertIn("[Bill advances today…](https://example.com/story)", policy_line)
-        self.assertIn("[Model release…](https://example.com/story)", policy_line)
-        self.assertIn("Tech &amp; Innovation", policy_line)
+        self.assertNotIn("[Model release…](https://example.com/story)", policy_line)
+        self.assertIn("[Model release…](https://example.com/story)", tech_line)
+        self.assertIn("Tech &amp; Innovation", tech_line)
+        self.assertNotEqual(policy_line, tech_line)
         self.assertNotIn("- <a class=\"loop-glance\"", glance)
 
     def test_duplicate_headlines_are_grouped_as_also_covered_by(self):

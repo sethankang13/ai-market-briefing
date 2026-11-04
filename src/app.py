@@ -47,7 +47,7 @@ _NUMBERED_TOPIC_HTML = re.compile(
     r'^(\d+)\.\s+<a href="([^"]+)"[^>]*>(.*?)</a>\s*$'
 )
 _GLANCE_CLUSTER = re.compile(
-    r'^(<a class="loop-glance"[^>]*>.*?</a>):\s*(.+)$'
+    r'^(<a\b[^>]*>.*?</a>):\s*(.+)$'
 )
 _GLANCE_MD_LINK = re.compile(r"\[[^\]]+\]\([^)]+\)")
 _PERCENT_UP_SPAN = re.compile(
@@ -264,8 +264,7 @@ h3 {{
 }}
 a[id], h1, h2, h3, [id] {{ scroll-margin-top: 90px; }}
 .stApp a.loop-glance,
-.stApp [data-testid="stMarkdownContainer"] a.loop-glance,
-.stApp [data-testid="stMarkdownContainer"] a[href^="#"] {{
+.stApp [data-testid="stMarkdownContainer"] a.loop-glance {{
   color: var(--loop-fg);
   font-style: italic;
   font-weight: 400;
@@ -273,22 +272,45 @@ a[id], h1, h2, h3, [id] {{ scroll-margin-top: 90px; }}
   line-height: 1.45;
   text-decoration: none;
 }}
-.stApp [data-testid="stMarkdownContainer"]:has(a.loop-glance) p,
-.stApp [data-testid="stMarkdownContainer"]:has(a.loop-glance) p a,
 .loop-glance-body,
+.loop-glance-line,
 .loop-glance-body p,
 .loop-glance-body a {{
   font-size: 0.92rem !important;
-  font-style: italic !important;
+  font-style: normal;
   font-weight: 400 !important;
   line-height: 1.45 !important;
   color: var(--loop-fg);
 }}
-.stApp [data-testid="stMarkdownContainer"]:has(a.loop-glance) h2,
+.loop-glance-body a.loop-glance,
+.loop-glance-body a[href^="#"] {{
+  font-style: italic !important;
+}}
 .loop-glance-body h2 {{
   font-size: 1.55rem !important;
   font-style: normal !important;
   font-weight: 600 !important;
+}}
+.loop-glance-body ul,
+.loop-glance-body ol {{
+  list-style: none !important;
+  padding-left: 0 !important;
+  margin: 0.15rem 0 0.55rem;
+}}
+.loop-glance-body li {{
+  list-style: none !important;
+}}
+.loop-glance-body li::marker {{
+  content: none !important;
+}}
+.loop-glance-body a svg,
+.loop-glance-line a svg,
+.loop-glance-body [data-testid="stIconMaterial"],
+.loop-glance-body [data-testid="stIcon"] {{
+  display: none !important;
+}}
+.loop-glance-line {{
+  margin: 0 0 0.35rem;
 }}
 .loop-delta-up {{ color: #2F7D4F !important; }}
 .loop-delta-down {{ color: #C04545 !important; }}
@@ -361,23 +383,48 @@ button[role="tab"][aria-selected="true"] {{
 [data-testid="stFormSubmitButton"] button p,
 [data-testid="stFormSubmitButton"] button span,
 [data-testid="stFormSubmitButton"] [data-testid="stBaseButton-secondary"],
-[data-testid="stBaseButton-primary"],
-[data-testid="stBaseButton-primary"] p,
-[data-testid="stBaseButton-primary"] span,
 [data-testid="stBaseButton-secondary"],
 [data-testid="stBaseButton-secondary"] p,
 [data-testid="stBaseButton-secondary"] span {{
-  background-color: var(--loop-accent) !important;
-  color: #FFFFFF !important;
   border: none !important;
   border-radius: 10px !important;
   font-weight: 600 !important;
 }}
-[data-testid="stFormSubmitButton"] button,
-[data-testid="stFormSubmitButton"] button p,
-[data-testid="stFormSubmitButton"] button span,
-[data-testid="stBaseButton-secondary"] {{
-  color: #FFFFFF !important;
+html[data-loop-theme="light"] [data-testid="stFormSubmitButton"] button,
+html[data-loop-theme="light"] [data-testid="stFormSubmitButton"] button p,
+html[data-loop-theme="light"] [data-testid="stFormSubmitButton"] button span,
+html[data-loop-theme="light"] [data-testid="stBaseButton-secondary"],
+html[data-loop-theme="light"] [data-testid="stBaseButton-secondary"] p,
+html[data-loop-theme="light"] [data-testid="stBaseButton-secondary"] span {{
+  background-color: #263B60 !important;
+  color: #F7F6F2 !important;
+}}
+html[data-loop-theme="dark"] [data-testid="stFormSubmitButton"] button,
+html[data-loop-theme="dark"] [data-testid="stFormSubmitButton"] button p,
+html[data-loop-theme="dark"] [data-testid="stFormSubmitButton"] button span,
+html[data-loop-theme="dark"] [data-testid="stBaseButton-secondary"],
+html[data-loop-theme="dark"] [data-testid="stBaseButton-secondary"] p,
+html[data-loop-theme="dark"] [data-testid="stBaseButton-secondary"] span {{
+  background-color: #A7C7E7 !important;
+  color: #171C25 !important;
+}}
+@media (prefers-color-scheme: light) {{
+  html:not([data-loop-theme]) [data-testid="stFormSubmitButton"] button,
+  html:not([data-loop-theme]) [data-testid="stFormSubmitButton"] button p,
+  html:not([data-loop-theme]) [data-testid="stFormSubmitButton"] button span,
+  html:not([data-loop-theme]) [data-testid="stBaseButton-secondary"] {{
+    background-color: #263B60 !important;
+    color: #F7F6F2 !important;
+  }}
+}}
+@media (prefers-color-scheme: dark) {{
+  html:not([data-loop-theme]) [data-testid="stFormSubmitButton"] button,
+  html:not([data-loop-theme]) [data-testid="stFormSubmitButton"] button p,
+  html:not([data-loop-theme]) [data-testid="stFormSubmitButton"] button span,
+  html:not([data-loop-theme]) [data-testid="stBaseButton-secondary"] {{
+    background-color: #A7C7E7 !important;
+    color: #171C25 !important;
+  }}
 }}
 button:active,
 a:active,
@@ -589,6 +636,7 @@ def brand_theme_script() -> str:
     var theme = resolved();
     html.setAttribute("data-loop-theme", theme);
     html.setAttribute("data-theme", theme);
+    if (typeof paintSearch === "function") paintSearch();
   }
   if (!win.__loopStorageHooked) {
     win.__loopStorageHooked = true;
@@ -645,7 +693,13 @@ def brand_theme_script() -> str:
       btn.setAttribute("title", label);
     });
   }
-  function paintSearchWhite() {
+  function searchColors() {
+    var theme = doc.documentElement.getAttribute("data-loop-theme") || resolved();
+    if (theme === "dark") return { color: "#171C25", bg: "#A7C7E7" };
+    return { color: "#F7F6F2", bg: "#263B60" };
+  }
+  function paintSearch() {
+    var colors = searchColors();
     var roots = doc.querySelectorAll('[data-testid="stFormSubmitButton"], [data-testid="stBaseButton-secondary"]');
     roots.forEach(function (root) {
       var nodes = root.querySelectorAll("button, button p, button span, [data-testid='stBaseButton-secondary']");
@@ -653,17 +707,21 @@ def brand_theme_script() -> str:
         nodes = [root].concat(Array.prototype.slice.call(nodes));
       }
       nodes.forEach(function (el) {
-        el.style.setProperty("color", "#FFFFFF", "important");
+        el.style.setProperty("color", colors.color, "important");
+        var testid = el.getAttribute && el.getAttribute("data-testid");
+        if (el.tagName === "BUTTON" || (testid && testid.indexOf("stBaseButton") === 0)) {
+          el.style.setProperty("background-color", colors.bg, "important");
+        }
       });
     });
   }
   labelSidebar();
-  paintSearchWhite();
+  paintSearch();
   if (!doc.__loopSidebarLabeled) {
     doc.__loopSidebarLabeled = true;
     var observer = new MutationObserver(function () {
       labelSidebar();
-      paintSearchWhite();
+      paintSearch();
     });
     observer.observe(doc.documentElement, { childList: true, subtree: true });
   }
@@ -847,21 +905,45 @@ def rewrite_snapshot_deltas(markdown: str) -> str:
 
 
 _STACKED_GLANCE = re.compile(
-    r"^- (<a class=\"loop-glance\"[^>]*>.*?</a>)\s+(\[[^\]]+\]\([^)]+\))\s*$"
+    r"^- (<a\b[^>]*>.*?</a>)\s+(\[[^\]]+\]\([^)]+\))\s*$"
 )
+_GLANCE_MD_PHRASE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+_GLANCE_HTML_LINE = re.compile(r'^<p class="loop-glance-line">.*</p>$')
+
+
+def _glance_phrase_html(label: str, phrases: list[str]) -> str:
+    """One tag as HTML so Streamlit cannot turn it into list markers."""
+    links = []
+    for phrase in phrases:
+        html_link = _GLANCE_MD_PHRASE.sub(
+            lambda match: (
+                f'<a href="{html.escape(match.group(2), quote=True)}" '
+                f'target="_blank" rel="noopener noreferrer">'
+                f"{html.escape(match.group(1))}</a>"
+            ),
+            phrase,
+        )
+        links.append(html_link)
+    return f'<p class="loop-glance-line">{label}: {", ".join(links)}</p>'
 
 
 def rewrite_glance_rows(markdown: str) -> str:
-    """Keep At a Glance as compact ``Tag: headlines… Tag2: …`` wrap."""
+    """Restore pre-v4.1.2 glance: one wrapping line per italic tag label."""
     lines = markdown.splitlines()
     out: list[str] = []
     in_glance = False
-    parts: list[str] = []
+    grouped: list[tuple[str, list[str]]] = []
 
     def flush() -> None:
-        if parts:
-            out.append(" ".join(parts))
-            parts.clear()
+        for label, phrases in grouped:
+            out.append(_glance_phrase_html(label, phrases))
+        grouped.clear()
+
+    def add_phrase(label: str, phrase: str) -> None:
+        if grouped and grouped[-1][0] == label:
+            grouped[-1][1].append(phrase)
+        else:
+            grouped.append((label, [phrase]))
 
     for line in lines:
         stripped = line.strip()
@@ -876,18 +958,23 @@ def rewrite_glance_rows(markdown: str) -> str:
             out.append(line)
             continue
         if in_glance:
+            if _GLANCE_HTML_LINE.match(stripped):
+                flush()
+                out.append(stripped)
+                continue
             stacked = _STACKED_GLANCE.match(stripped)
             if stacked:
-                label, link = stacked.group(1), stacked.group(2)
-                prefix = f"{label}: "
-                if parts and parts[-1].startswith(prefix):
-                    parts[-1] = f"{parts[-1]}, {link}"
-                else:
-                    parts.append(f"{prefix}{link}")
+                add_phrase(stacked.group(1), stacked.group(2))
                 continue
             clustered = _GLANCE_CLUSTER.match(stripped)
             if clustered:
-                parts.append(stripped)
+                label, rest = clustered.group(1), clustered.group(2)
+                phrases = _GLANCE_MD_PHRASE.findall(rest)
+                if phrases:
+                    for text, href in phrases:
+                        add_phrase(label, f"[{text}]({href})")
+                else:
+                    add_phrase(label, rest)
                 continue
             if not stripped:
                 continue
@@ -914,6 +1001,9 @@ def split_daily_brief_sections(markdown: str) -> tuple[str, str, str]:
         for index in range(start + 1, len(lines)):
             stripped = lines[index].strip()
             if stripped.startswith("## ") and stripped != heading:
+                end = index
+                break
+            if heading == "## At a Glance" and stripped == "---":
                 end = index
                 break
         block = "\n".join(lines[start:end]).strip()

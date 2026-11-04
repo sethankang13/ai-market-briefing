@@ -267,9 +267,28 @@ a[id], h1, h2, h3, [id] {{ scroll-margin-top: 90px; }}
 .stApp [data-testid="stMarkdownContainer"] a.loop-glance,
 .stApp [data-testid="stMarkdownContainer"] a[href^="#"] {{
   color: var(--loop-fg);
-  font-style: normal;
-  font-weight: 600;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 0.92rem !important;
+  line-height: 1.45;
   text-decoration: none;
+}}
+.stApp [data-testid="stMarkdownContainer"]:has(a.loop-glance) p,
+.stApp [data-testid="stMarkdownContainer"]:has(a.loop-glance) p a,
+.loop-glance-body,
+.loop-glance-body p,
+.loop-glance-body a {{
+  font-size: 0.92rem !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  line-height: 1.45 !important;
+  color: var(--loop-fg);
+}}
+.stApp [data-testid="stMarkdownContainer"]:has(a.loop-glance) h2,
+.loop-glance-body h2 {{
+  font-size: 1.55rem !important;
+  font-style: normal !important;
+  font-weight: 600 !important;
 }}
 .loop-delta-up {{ color: #2F7D4F !important; }}
 .loop-delta-down {{ color: #C04545 !important; }}
@@ -338,17 +357,27 @@ button[role="tab"][aria-selected="true"] {{
   max-width: none;
   width: 100%;
 }}
-[data-testid="stBaseButton-primary"],
-[data-testid="stBaseButton-primary"] span,
 [data-testid="stFormSubmitButton"] button,
+[data-testid="stFormSubmitButton"] button p,
 [data-testid="stFormSubmitButton"] button span,
-button[kind="primaryFormSubmit"],
-button[kind="primaryFormSubmit"] span {{
+[data-testid="stFormSubmitButton"] [data-testid="stBaseButton-secondary"],
+[data-testid="stBaseButton-primary"],
+[data-testid="stBaseButton-primary"] p,
+[data-testid="stBaseButton-primary"] span,
+[data-testid="stBaseButton-secondary"],
+[data-testid="stBaseButton-secondary"] p,
+[data-testid="stBaseButton-secondary"] span {{
   background-color: var(--loop-accent) !important;
-  color: #fff !important;
+  color: #FFFFFF !important;
   border: none !important;
   border-radius: 10px !important;
   font-weight: 600 !important;
+}}
+[data-testid="stFormSubmitButton"] button,
+[data-testid="stFormSubmitButton"] button p,
+[data-testid="stFormSubmitButton"] button span,
+[data-testid="stBaseButton-secondary"] {{
+  color: #FFFFFF !important;
 }}
 button:active,
 a:active,
@@ -616,10 +645,26 @@ def brand_theme_script() -> str:
       btn.setAttribute("title", label);
     });
   }
+  function paintSearchWhite() {
+    var roots = doc.querySelectorAll('[data-testid="stFormSubmitButton"], [data-testid="stBaseButton-secondary"]');
+    roots.forEach(function (root) {
+      var nodes = root.querySelectorAll("button, button p, button span, [data-testid='stBaseButton-secondary']");
+      if (root.matches && root.matches("[data-testid='stBaseButton-secondary']")) {
+        nodes = [root].concat(Array.prototype.slice.call(nodes));
+      }
+      nodes.forEach(function (el) {
+        el.style.setProperty("color", "#FFFFFF", "important");
+      });
+    });
+  }
   labelSidebar();
+  paintSearchWhite();
   if (!doc.__loopSidebarLabeled) {
     doc.__loopSidebarLabeled = true;
-    var observer = new MutationObserver(labelSidebar);
+    var observer = new MutationObserver(function () {
+      labelSidebar();
+      paintSearchWhite();
+    });
     observer.observe(doc.documentElement, { childList: true, subtree: true });
   }
 })();
@@ -1385,7 +1430,10 @@ def render_daily_loop() -> None:
         left, right = st.columns((2, 1), gap="large")
         with left:
             if glance:
-                st.markdown(glance, unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="loop-glance-body">\n\n{glance}\n\n</div>',
+                    unsafe_allow_html=True,
+                )
         with right:
             if snapshot:
                 st.markdown(snapshot, unsafe_allow_html=True)

@@ -271,10 +271,10 @@ a[id], h1, h2, h3, [id] {{ scroll-margin-top: 90px; }}
   font-weight: 600;
   text-decoration: none;
 }}
-.loop-delta-up {{ color: var(--loop-accent) !important; }}
-.loop-delta-down {{ color: var(--loop-muted) !important; }}
-span[style*="#2F7D4F"], span[style*="#2f7d4f"] {{ color: var(--loop-accent) !important; }}
-span[style*="#C04545"], span[style*="#c04545"] {{ color: var(--loop-muted) !important; }}
+.loop-delta-up {{ color: #2F7D4F !important; }}
+.loop-delta-down {{ color: #C04545 !important; }}
+span[style*="#2F7D4F"], span[style*="#2f7d4f"] {{ color: #2F7D4F !important; }}
+span[style*="#C04545"], span[style*="#c04545"] {{ color: #C04545 !important; }}
 .stCaption, small, [data-testid="stCaptionContainer"] p {{
   color: var(--loop-muted);
 }}
@@ -316,6 +316,10 @@ button[role="tab"][aria-selected="true"] {{
   max-width: 17.5rem;
   width: fit-content;
 }}
+[data-testid="stForm"] [data-testid="stSelectbox"] {{
+  max-width: none;
+  width: 100%;
+}}
 [data-testid="stSelectbox"] > div,
 [data-testid="stSelectbox"] .react-aria-ComboBox,
 [data-testid="stSelectbox"] [role="group"],
@@ -338,7 +342,7 @@ button[role="tab"][aria-selected="true"] {{
 [data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"],
 button[kind="primaryFormSubmit"] {{
   background-color: var(--loop-accent) !important;
-  color: var(--loop-page) !important;
+  color: #FFFFFF !important;
   border: none !important;
   border-radius: 10px !important;
   font-weight: 600 !important;
@@ -785,7 +789,7 @@ def humanize_brief_markdown(markdown: str) -> str:
 
 
 def rewrite_snapshot_deltas(markdown: str) -> str:
-    """Map legacy green/red snapshot spans onto LOOP navy/ice and muted classes."""
+    """Keep snapshot percents on loop-delta classes (green up, red down)."""
     rewritten = _PERCENT_UP_SPAN.sub(
         r'<span class="loop-delta loop-delta-up">\1</span>', markdown
     )
@@ -819,6 +823,32 @@ def rewrite_glance_rows(markdown: str) -> str:
                 continue
         out.append(line)
     return "\n".join(out)
+
+
+def split_daily_brief_sections(markdown: str) -> tuple[str, str, str]:
+    """Pull Market Snapshot and At a Glance blocks out of the daily brief."""
+
+    def pull(heading: str, text: str) -> tuple[str, str]:
+        lines = text.splitlines()
+        start = next(
+            (index for index, line in enumerate(lines) if line.strip() == heading),
+            None,
+        )
+        if start is None:
+            return "", text
+        end = len(lines)
+        for index in range(start + 1, len(lines)):
+            stripped = lines[index].strip()
+            if stripped.startswith("## ") and stripped != heading:
+                end = index
+                break
+        block = "\n".join(lines[start:end]).strip()
+        remainder = "\n".join(lines[:start] + lines[end:]).strip()
+        return block, remainder
+
+    snapshot, remainder = pull("## Market Snapshot", markdown)
+    glance, remainder = pull("## At a Glance", remainder)
+    return snapshot, glance, remainder
 
 
 def rewrite_ask_gemini_topics(markdown: str) -> str:
@@ -1320,7 +1350,18 @@ def render_daily_loop() -> None:
         st.warning(f"Could not read briefs/{selected}.md.")
         arm_generation_poll(generating)
         return
-    st.markdown(display_brief_markdown(markdown), unsafe_allow_html=True)
+    displayed = display_brief_markdown(markdown)
+    snapshot, glance, rest = split_daily_brief_sections(displayed)
+    if glance or snapshot:
+        left, right = st.columns((2, 1), gap="large")
+        with left:
+            if glance:
+                st.markdown(glance, unsafe_allow_html=True)
+        with right:
+            if snapshot:
+                st.markdown(snapshot, unsafe_allow_html=True)
+    if rest.strip():
+        st.markdown(rest, unsafe_allow_html=True)
     arm_generation_poll(generating)
 
 
@@ -1374,18 +1415,21 @@ def render_loop_explorer(path: Path) -> None:
     st.caption("Search saved stories")
     with st.form("loop_search_form"):
         st.markdown("**Filters**")
-        st.selectbox(
-            "Tag",
-            tag_options,
-            format_func=tag_label,
-            key="loop_tag",
-        )
-        st.selectbox(
-            "Source",
-            sources,
-            format_func=source_label,
-            key="loop_source",
-        )
+        tag_col, source_col = st.columns(2)
+        with tag_col:
+            st.selectbox(
+                "Tag",
+                tag_options,
+                format_func=tag_label,
+                key="loop_tag",
+            )
+        with source_col:
+            st.selectbox(
+                "Source",
+                sources,
+                format_func=source_label,
+                key="loop_source",
+            )
         year_options = [""] + years
         month_options = [""] + months
         day_options = [""] + days

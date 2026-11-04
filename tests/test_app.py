@@ -316,6 +316,16 @@ class AppImportTests(unittest.TestCase):
             displayed,
         )
         self.assertNotIn("</a>: [Apple may try…]", displayed)
+        snapshot, glance, rest = self.app.split_daily_brief_sections(displayed)
+        self.assertIn("## Market Snapshot", snapshot)
+        self.assertIn("loop-delta-up", snapshot)
+        self.assertNotIn("## At a Glance", snapshot)
+        self.assertIn("## At a Glance", glance)
+        self.assertIn("[Apple may try…](https://example.com/a)", glance)
+        self.assertIn("[States take steps…](https://example.com/b)", glance)
+        self.assertNotIn("## Market Snapshot", glance)
+        self.assertNotIn("## At a Glance", rest)
+        self.assertNotIn("## Market Snapshot", rest)
 
     def test_static_svgs_are_utf8_and_bad_assets_are_skipped(self):
         static = Path(self.app.__file__).resolve().parents[1] / "static"
@@ -369,8 +379,9 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("--loop-input: #171C25", css)
         self.assertIn("color: var(--loop-fg)", css)
         self.assertNotIn("var(--loop-fg, inherit)", css)
-        self.assertNotIn("color:#fff", css.replace(" ", "").lower())
-        self.assertNotIn("#ffffff", css.lower())
+        compact_css = css.replace(" ", "").lower()
+        self.assertNotIn("color:#fff;", compact_css)
+        self.assertIn("color:#ffffff!important", compact_css)
         self.assertIn("background-color: #F7F6F2 !important", css)
         self.assertIn("background-color: #171C25 !important", css)
         self.assertIn("background-color: var(--loop-input) !important", css)
@@ -418,6 +429,11 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("letter-spacing: 0.18em", css)
         self.assertIn("loop-tag-swatch", css)
         self.assertIn("loop-delta-up", css)
+        self.assertIn(".loop-delta-up { color: #2F7D4F !important; }", css)
+        self.assertIn(".loop-delta-down { color: #C04545 !important; }", css)
+        self.assertIn("split_daily_brief_sections", source)
+        self.assertIn("st.columns((2, 1)", source)
+        self.assertIn("tag_col, source_col = st.columns(2)", source)
         self.assertIn('font = "Inter"', toml)
         self.assertIn("st.header(selected)", source)
         self.assertNotIn('st.title(f"Daily Loop: {selected}")', source)
@@ -553,6 +569,7 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("key=\"daily_loop_date\"", source)
         self.assertIn('st.form("loop_search_form")', source)
         self.assertIn('st.form_submit_button("Search", type="primary")', source)
+        self.assertIn("tag_col, source_col = st.columns(2)", source)
         self.assertNotIn("on_change=_enter_loop_focus", source)
         self.assertEqual(
             self.app.default_briefing_date(

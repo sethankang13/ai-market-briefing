@@ -527,6 +527,48 @@ a.loop-tag {{
 a.loop-tag:hover {{
   background-color: rgba(0, 0, 0, 0.06);
 }}
+.loop-in-focus {{
+  font-size: 1.55rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--loop-fg);
+  text-decoration: none;
+  margin: 0 0 0.45rem;
+}}
+.loop-in-focus-tag {{
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.18em;
+  font-weight: 600;
+}}
+.loop-in-focus-wrap [data-testid="stHeaderActionElements"],
+[data-testid="stHeaderActionElements"] {{
+  display: none !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}}
+a.loop-feed-parent {{
+  color: var(--loop-fg) !important;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-block;
+  border-radius: 4px;
+  padding: 0.05rem 0.15rem;
+}}
+a.loop-feed-parent:hover {{
+  background-color: rgba(0, 0, 0, 0.06);
+}}
+h3.loop-story-title {{
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0 0 0.35rem;
+}}
+h3.loop-story-title a {{
+  color: var(--loop-fg);
+  text-decoration: none;
+}}
 .loop-tag-swatch {{
   display: inline-block;
   width: 6px;
@@ -869,9 +911,11 @@ def headline_html(headline: object, url: object = None) -> str:
     if href:
         safe = html.escape(href, quote=True)
         return (
-            f'### <a href="{safe}" target="_blank" rel="noopener noreferrer">{text}</a>'
+            f'<h3 class="loop-story-title">'
+            f'<a href="{safe}" target="_blank" rel="noopener noreferrer">{text}</a>'
+            f"</h3>"
         )
-    return f"### **{text}**"
+    return f'<h3 class="loop-story-title">{text}</h3>'
 
 
 def source_bullet_markdown(source: object, title: object, url: object = None) -> str:
@@ -1309,26 +1353,40 @@ def unique_published_dates(db_path_str: str) -> list[str]:
     return [row["published_date"] for row in cursor.fetchall()]
 
 
-def read_query_tag(query_params=None) -> str | None:
-    """Read ``?tag=`` from Streamlit query params, or from an injected mapping."""
+def _query_params(query_params=None):
     params = query_params
     if params is None:
         params = getattr(st, "query_params", None)
         if params is None:
             getter = getattr(st, "experimental_get_query_params", None)
             params = getter() if callable(getter) else {}
+    return params
+
+
+def _query_value(key: str, query_params=None) -> str | None:
+    params = _query_params(query_params)
     if params is None:
         return None
     value = None
     if hasattr(params, "get"):
-        value = params.get("tag")
+        value = params.get(key)
     elif isinstance(params, dict):
-        value = params.get("tag")
+        value = params.get(key)
     if isinstance(value, list):
         value = value[0] if value else None
     if isinstance(value, str) and value.strip():
         return value.strip()
     return None
+
+
+def read_query_tag(query_params=None) -> str | None:
+    """Read ``?tag=`` from Streamlit query params, or from an injected mapping."""
+    return _query_value("tag", query_params)
+
+
+def read_query_source(query_params=None) -> str | None:
+    """Read ``?source=`` from Streamlit query params for sidebar publishers."""
+    return _query_value("source", query_params)
 
 
 def stories_for_tag(db_path_str: str, tag: str) -> list[dict]:
@@ -1521,6 +1579,31 @@ def in_focus_title(tag: str, source: str, query: str, year: str, month: str, day
     return "In Focus: " + (" · ".join(parts) if parts else "All stories")
 
 
+def in_focus_heading_html(
+    tag: str, source: str, query: str, year: str, month: str, day: str
+) -> str:
+    """``In Focus: <Tag>`` with only the tag name underlined in its theme color."""
+    extras: list[str] = []
+    if source:
+        extras.append(html.escape(source))
+    date_parts = [part for part in (year, month, day) if part]
+    if date_parts:
+        extras.append(html.escape("-".join(date_parts)))
+    if query:
+        extras.append(html.escape(f"“{query}”"))
+    extra = (" · " + " · ".join(extras)) if extras else ""
+    if tag:
+        color = html.escape(TAG_COLORS.get(tag, "#334155"), quote=True)
+        name = html.escape(humanize_tag(tag))
+        return (
+            f'<h2 class="loop-in-focus">In Focus: '
+            f'<span class="loop-in-focus-tag" style="text-decoration-color:{color}">{name}</span>'
+            f"{extra}</h2>"
+        )
+    label = extra.lstrip(" · ") or "All stories"
+    return f'<h2 class="loop-in-focus">In Focus: {label}</h2>'
+
+
 def static_asset_is_utf8(path: Path) -> bool:
     """Streamlit reads SVG as UTF-8; latin-1 bytes such as 0xb7 crash st.image."""
     try:
@@ -1575,7 +1658,14 @@ def render_sidebar(
         st.subheader("Active feeds")
         if feed_tree:
             for publisher, children in feed_tree:
-                st.markdown(f"**{publisher}**")
+                href = html.escape(
+                    "/?" + urlencode({"loop": "1", "source": publisher}),
+                    quote=True,
+                )
+                st.markdown(
+                    f'<a class="loop-feed-parent" href="{href}">{html.escape(publisher)}</a>',
+                    unsafe_allow_html=True,
+                )
                 for child in children:
                     if child != publisher:
                         st.caption(child)
@@ -1687,6 +1777,18 @@ def apply_tag_in_focus(tag: str) -> None:
     st.session_state["loop_page"] = 1
 
 
+def apply_source_in_focus(source: str) -> None:
+    """Open The Loop In Focus for one sidebar publisher: all tags, all dates, empty query."""
+    st.session_state["loop_focus"] = True
+    st.session_state["loop_tag"] = ""
+    st.session_state["loop_source"] = source
+    st.session_state["loop_year"] = ""
+    st.session_state["loop_month"] = ""
+    st.session_state["loop_day"] = ""
+    st.session_state["loop_query"] = ""
+    st.session_state["loop_page"] = 1
+
+
 def render_search_page_controls(result: dict[str, object]) -> None:
     page = int(result.get("page") or 1)
     total_pages = int(result.get("totalPages") or 0)
@@ -1749,7 +1851,12 @@ def render_loop_explorer(path: Path) -> None:
         month = st.session_state.get("loop_month") or ""
         day = st.session_state.get("loop_day") or ""
         query = (st.session_state.get("loop_query") or "").strip()
-        st.header(in_focus_title(tag, source, query, year, month, day))
+        st.markdown(
+            '<div class="loop-in-focus-wrap">'
+            + in_focus_heading_html(tag, source, query, year, month, day)
+            + "</div>",
+            unsafe_allow_html=True,
+        )
         page = int(st.session_state.get("loop_page") or 1)
         result = search_stories_page(
             str(path), tag, source, query, year, month, day, page=page
@@ -1861,8 +1968,11 @@ def main() -> None:
     dates = list_briefing_dates()
     render_sidebar(path, dates[0] if dates else None, active_feed_tree(), len(dates))
     requested = read_query_tag()
+    requested_source = read_query_source()
     if requested and not st.session_state.get("loop_focus"):
         apply_tag_in_focus(requested)
+    elif requested_source and not st.session_state.get("loop_focus"):
+        apply_source_in_focus(requested_source)
     if st.session_state.get("loop_focus"):
         explorer_tab, daily_tab = st.tabs([TAB_LOOP, TAB_DAILY])
         with explorer_tab:

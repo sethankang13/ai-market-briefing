@@ -150,6 +150,11 @@ class AppImportTests(unittest.TestCase):
             "Tech & Innovation",
         )
         self.assertIsNone(self.app.read_query_tag({}))
+        self.assertEqual(
+            self.app.read_query_source({"source": "Politico"}),
+            "Politico",
+        )
+        self.assertIsNone(self.app.read_query_source({}))
         rows = [
             {
                 "published_date": "2026-10-15",
@@ -485,10 +490,22 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("rgba(0, 0, 0, 0.06)", css)
         self.assertIn("text-decoration: underline", css)
         self.assertIn("apply_tag_in_focus", source)
+        self.assertIn("apply_source_in_focus", source)
+        self.assertIn("in_focus_heading_html", source)
+        self.assertIn("loop-in-focus-tag", css)
+        self.assertIn("stHeaderActionElements", css)
+        self.assertIn("loop-feed-parent", css)
+        self.assertIn('urlencode({"loop": "1", "source": publisher})', source)
+        self.assertNotIn("st.header(in_focus_title", source)
+        heading = self.app.in_focus_heading_html("US Politics", "", "", "", "", "")
+        self.assertIn("In Focus: ", heading)
+        self.assertIn('class="loop-in-focus-tag"', heading)
+        self.assertIn("US Politics", heading)
+        self.assertIn("text-decoration-color:#9B8AB8", heading)
+        self.assertNotIn('class="loop-in-focus-tag">In Focus', heading)
         self.assertIn("search_stories_page", source)
         self.assertIn("SEARCH_PAGE_SIZE = 20", source)
         self.assertIn("totalPages", source)
-        self.assertIn("st.markdown(f\"**{publisher}**\")", source)
         self.assertIn("loop-delta-up", css)
         self.assertIn(".loop-delta-up { color: #2F7D4F !important; }", css)
         self.assertIn(".loop-delta-down { color: #C04545 !important; }", css)

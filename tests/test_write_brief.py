@@ -267,7 +267,8 @@ class WriteBriefTests(unittest.TestCase):
         self.assertIn("**Ask Gemini:**", briefing)
         self.assertNotIn("Research topics to look into more", briefing)
         self.assertNotIn("1. Follow the bill markup.", briefing)
-        self.assertIn("gemini.google.com/app?q=", briefing)
+        self.assertIn("https://www.google.com/search?udm=50&amp;q=", briefing)
+        self.assertNotIn("gemini.google.com/app?q=", briefing)
         self.assertIn("Follow the bill markup", briefing)
         self.assertNotIn("# The Loop: Macro Landscape", briefing)
         self.assertNotIn("Why It Matters:", briefing)
@@ -369,8 +370,13 @@ class WriteBriefTests(unittest.TestCase):
             "Follow the bill markup.",
             "Policy cluster from RSS headlines.",
         )
-        self.assertTrue(url.startswith("https://gemini.google.com/app?q="))
-        encoded = url.split("?q=", 1)[1]
+        parsed = urlparse(url)
+        self.assertEqual(parsed.scheme, "https")
+        self.assertEqual(parsed.netloc, "www.google.com")
+        self.assertEqual(parsed.path, "/search")
+        query = parse_qs(parsed.query)
+        self.assertEqual(query.get("udm"), ["50"])
+        encoded = url.split("udm=50&q=", 1)[1]
         self.assertIn("%20", encoded)
         self.assertNotIn("+", encoded)
         prompt = unquote(encoded)

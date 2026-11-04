@@ -43,6 +43,9 @@ _ASK_GEMINI_HEADING = re.compile(
     r"^(?:Research topics to look into more|\*\*Ask Gemini:\*\*|Ask Gemini:)\s*$"
 )
 _PLAIN_NUMBERED_TOPIC = re.compile(r"^(\d+)\.\s+(?!<a )(?!\[)(.+)$")
+_NUMBERED_TOPIC_HTML = re.compile(
+    r'^(\d+)\.\s+<a href="([^"]+)"[^>]*>(.*?)</a>\s*$'
+)
 TAB_DAILY = "Daily Loop"
 TAB_LOOP = "The Loop"
 LOOP_HEADER_HTML = """
@@ -679,8 +682,19 @@ def rewrite_ask_gemini_topics(markdown: str) -> str:
                 )
                 i += 1
                 continue
-            if "gemini.google.com" in stripped:
-                out.append(lines[i])
+            html_topic = _NUMBERED_TOPIC_HTML.match(stripped)
+            if html_topic:
+                href = html.unescape(html_topic.group(2))
+                if "google.com/search" in href and "udm=50" in href:
+                    out.append(lines[i])
+                else:
+                    out.append(
+                        ask_gemini_topic_html(
+                            html.unescape(html_topic.group(3)),
+                            context,
+                            int(html_topic.group(1)),
+                        )
+                    )
                 i += 1
                 continue
             break

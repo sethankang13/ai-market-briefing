@@ -1,6 +1,7 @@
 import json
 import sqlite3
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -87,12 +88,15 @@ class LoopDatabaseTests(unittest.TestCase):
             1,
         )
         snapshot = {"fed_funds": {"status": "ok", "rate": 4.33}}
+        today = datetime.now(timezone.utc).date()
+        recent_day = (today - timedelta(days=1)).isoformat()
+        old_day = (today - timedelta(days=40)).isoformat()
         with TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "loop.db"
             db.append_stories(
                 [
                     {
-                        "published_at": "2026-10-20",
+                        "published_at": recent_day,
                         "headline": "Recent bill",
                         "link": "https://example.com/recent",
                         "source": "Example News",
@@ -107,7 +111,7 @@ class LoopDatabaseTests(unittest.TestCase):
             db.append_stories(
                 [
                     {
-                        "published_at": "2026-01-01",
+                        "published_at": old_day,
                         "headline": "Old bill",
                         "link": "https://example.com/old",
                         "source": "Example News",

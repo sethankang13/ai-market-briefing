@@ -103,7 +103,8 @@ def humanize_tag(tag: str) -> str:
     return tag.replace("-&-", " & ").replace("-", " ")
 
 
-GEMINI_APP_URL = "https://gemini.google.com/app"
+# Google AI Mode submits `q` (gemini.google.com/app?q= opens Gemini without starting the chat).
+GEMINI_AI_MODE_URL = "https://www.google.com/search"
 
 
 def concise_topic_label(topic_title: str) -> str:
@@ -136,8 +137,11 @@ def gemini_research_prompt(topic_title: str, topic_context: str = "") -> str:
 
 
 def create_gemini_research_url(topic_title: str, topic_context: str = "") -> str:
-    """Gemini app URL with ``q`` set to the encoded research prompt."""
-    return f"{GEMINI_APP_URL}?q={quote(gemini_research_prompt(topic_title, topic_context), safe='')}"
+    """Google AI Mode URL that submits the encoded four-part research prompt."""
+    return (
+        f"{GEMINI_AI_MODE_URL}?udm=50&q="
+        f"{quote(gemini_research_prompt(topic_title, topic_context), safe='')}"
+    )
 
 
 createGeminiResearchUrl = create_gemini_research_url

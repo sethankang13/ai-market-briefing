@@ -194,7 +194,7 @@ class WriteBriefTests(unittest.TestCase):
         )
         glance = briefing[briefing.index("## At a Glance"):briefing.index("## US Politics")]
         self.assertIn(
-            'href="#us-politics">US Politics</a> [Bill advances…]',
+            'href="#us-politics">US Politics</a>: [Bill advances…]',
             glance,
         )
         self.assertNotIn("Tech & Innovation", glance)
@@ -323,21 +323,16 @@ class WriteBriefTests(unittest.TestCase):
             for line in glance.splitlines()
             if "us-politics" in line and "Bill advances today…" in line
         )
-        self.assertTrue(policy_line.startswith('- <a class="loop-glance" href="#us-politics"'))
-        self.assertIn(">US Politics</a>", policy_line)
-        self.assertNotIn(">US Politics</a>:", policy_line)
+        self.assertTrue(policy_line.startswith('<a class="loop-glance" href="#us-politics"'))
+        self.assertIn(">US Politics</a>:", policy_line)
         self.assertNotIn("#US Politics", policy_line)
         self.assertNotIn("### ", glance)
         self.assertNotIn("8501", policy_line)
         self.assertNotIn("text-decoration:underline", policy_line)
-        model_line = next(
-            line for line in glance.splitlines() if "Model release…" in line
-        )
-        self.assertTrue(model_line.startswith("- "))
         self.assertIn("[Bill advances today…](https://example.com/story)", policy_line)
-        self.assertNotIn("Model release", policy_line)
-        self.assertIn("[Model release…](https://example.com/story)", model_line)
-        self.assertNotIn("Bill advances", model_line)
+        self.assertIn("[Model release…](https://example.com/story)", policy_line)
+        self.assertIn("Tech &amp; Innovation", policy_line)
+        self.assertNotIn("- <a class=\"loop-glance\"", glance)
 
     def test_duplicate_headlines_are_grouped_as_also_covered_by(self):
         first = story("Rates rise", ["Market Valuations"], "Primary copy.")

@@ -339,10 +339,13 @@ button[role="tab"][aria-selected="true"] {{
   width: 100%;
 }}
 [data-testid="stBaseButton-primary"],
-[data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"],
-button[kind="primaryFormSubmit"] {{
+[data-testid="stBaseButton-primary"] span,
+[data-testid="stFormSubmitButton"] button,
+[data-testid="stFormSubmitButton"] button span,
+button[kind="primaryFormSubmit"],
+button[kind="primaryFormSubmit"] span {{
   background-color: var(--loop-accent) !important;
-  color: #FFFFFF !important;
+  color: #fff !important;
   border: none !important;
   border-radius: 10px !important;
   font-weight: 600 !important;
@@ -798,30 +801,56 @@ def rewrite_snapshot_deltas(markdown: str) -> str:
     )
 
 
+_STACKED_GLANCE = re.compile(
+    r"^- (<a class=\"loop-glance\"[^>]*>.*?</a>)\s+(\[[^\]]+\]\([^)]+\))\s*$"
+)
+
+
 def rewrite_glance_rows(markdown: str) -> str:
-    """Turn comma-joined At a Glance lines into one list row per story."""
+    """Keep At a Glance as compact ``Tag: headlines… Tag2: …`` wrap."""
     lines = markdown.splitlines()
     out: list[str] = []
     in_glance = False
+    parts: list[str] = []
+
+    def flush() -> None:
+        if parts:
+            out.append(" ".join(parts))
+            parts.clear()
+
     for line in lines:
         stripped = line.strip()
         if stripped == "## At a Glance":
+            flush()
             in_glance = True
             out.append(line)
             continue
         if in_glance and (stripped.startswith("## ") or stripped == "---"):
+            flush()
             in_glance = False
-        if in_glance and stripped:
+            out.append(line)
+            continue
+        if in_glance:
+            stacked = _STACKED_GLANCE.match(stripped)
+            if stacked:
+                label, link = stacked.group(1), stacked.group(2)
+                prefix = f"{label}: "
+                if parts and parts[-1].startswith(prefix):
+                    parts[-1] = f"{parts[-1]}, {link}"
+                else:
+                    parts.append(f"{prefix}{link}")
+                continue
             clustered = _GLANCE_CLUSTER.match(stripped)
             if clustered:
-                label, rest = clustered.group(1), clustered.group(2)
-                links = _GLANCE_MD_LINK.findall(rest)
-                if links:
-                    out.extend(f"- {label} {link}" for link in links)
-                    continue
-                out.append(f"- {label} {rest}")
+                parts.append(stripped)
                 continue
+            if not stripped:
+                continue
+            flush()
+            out.append(line)
+            continue
         out.append(line)
+    flush()
     return "\n".join(out)
 
 

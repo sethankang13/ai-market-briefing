@@ -308,14 +308,15 @@ class AppImportTests(unittest.TestCase):
         self.assertNotIn("#2F7D4F", displayed)
         self.assertNotIn("#C04545", displayed)
         self.assertIn(
-            '- <a class="loop-glance" href="#us-politics">US Politics</a> [Apple may try…](https://example.com/a)',
+            '<a class="loop-glance" href="#us-politics">US Politics</a>: '
+            "[Apple may try…](https://example.com/a), "
+            "[States take steps…](https://example.com/b)",
             displayed,
         )
-        self.assertIn(
-            '- <a class="loop-glance" href="#us-politics">US Politics</a> [States take steps…](https://example.com/b)',
+        self.assertNotIn(
+            '- <a class="loop-glance" href="#us-politics">US Politics</a> [Apple may try…]',
             displayed,
         )
-        self.assertNotIn("</a>: [Apple may try…]", displayed)
         snapshot, glance, rest = self.app.split_daily_brief_sections(displayed)
         self.assertIn("## Market Snapshot", snapshot)
         self.assertIn("loop-delta-up", snapshot)
@@ -380,8 +381,8 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("color: var(--loop-fg)", css)
         self.assertNotIn("var(--loop-fg, inherit)", css)
         compact_css = css.replace(" ", "").lower()
-        self.assertNotIn("color:#fff;", compact_css)
-        self.assertIn("color:#ffffff!important", compact_css)
+        self.assertIn("color:#fff!important", compact_css)
+        self.assertIn("[data-testid=\"stFormSubmitButton\"] button span", css)
         self.assertIn("background-color: #F7F6F2 !important", css)
         self.assertIn("background-color: #171C25 !important", css)
         self.assertIn("background-color: var(--loop-input) !important", css)

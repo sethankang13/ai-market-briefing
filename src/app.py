@@ -149,10 +149,10 @@ body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
 .stApp, [data-testid="stAppViewContainer"] {{
   overscroll-behavior: none;
 }}
-[data-testid="stMainBlockContainer"] {{
-  max-width: 760px;
-  margin-left: auto;
-  margin-right: auto;
+[data-testid="stMainBlockContainer"],
+[data-testid="stMain"] .block-container {{
+  max-width: none !important;
+  width: 100%;
 }}
 {light_sel} {{
   --loop-fg: #171C25;

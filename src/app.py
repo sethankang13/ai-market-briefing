@@ -764,13 +764,90 @@ def brand_theme_script() -> str:
       });
     });
   }
+  var TAB_DAILY = "Daily Loop";
+  var TAB_LOOP = "The Loop";
+  function tabLabel(btn) {
+    return String((btn && (btn.innerText || btn.textContent)) || "").replace(new RegExp("\\s+", "g"), " ").trim();
+  }
+  function tabButtons() {
+    return Array.prototype.slice.call(doc.querySelectorAll('[role="tab"]'));
+  }
+  function desiredTab() {
+    var forced = doc.querySelector("[data-loop-select-tab]");
+    if (forced) {
+      var name = forced.getAttribute("data-loop-select-tab");
+      forced.removeAttribute("data-loop-select-tab");
+      if (name === TAB_DAILY || name === TAB_LOOP) {
+        try { win.sessionStorage.setItem("loopActiveTab", name); } catch (err) {}
+        return name;
+      }
+    }
+    try {
+      var stored = win.sessionStorage.getItem("loopActiveTab");
+      if (stored === TAB_DAILY || stored === TAB_LOOP) return stored;
+    } catch (err) {}
+    try {
+      var params = new URLSearchParams((win.location && win.location.search) || "");
+      if (params.get("tag") || params.get("source")) return TAB_LOOP;
+    } catch (err) {}
+    return null;
+  }
+  function clickTab(name) {
+    if (!name) return;
+    var match = tabButtons().find(function (btn) { return tabLabel(btn) === name; });
+    if (!match) return;
+    if (match.getAttribute("aria-selected") === "true") return;
+    match.click();
+  }
+  function applyTab() {
+    clickTab(desiredTab());
+  }
+  function retargetLoopLinks() {
+    doc.querySelectorAll("a.loop-tag, a.loop-feed-parent").forEach(function (a) {
+      a.setAttribute("target", "_self");
+      a.removeAttribute("rel");
+    });
+  }
+  function bindTabsAndSameTab(root) {
+    if (!root || root.__loopNavBound) return;
+    root.__loopNavBound = true;
+    root.addEventListener("click", function (event) {
+      var a = event.target && event.target.closest
+        ? event.target.closest("a.loop-tag, a.loop-feed-parent")
+        : null;
+      if (a) {
+        var href = a.getAttribute("href");
+        if (href && href.charAt(0) !== "#") {
+          event.preventDefault();
+          event.stopPropagation();
+          try { win.sessionStorage.setItem("loopActiveTab", TAB_LOOP); } catch (err) {}
+          (win.location || window.location).assign(href);
+          return;
+        }
+      }
+      var tab = event.target && event.target.closest
+        ? event.target.closest('[role="tab"]')
+        : null;
+      if (!tab) return;
+      var label = tabLabel(tab);
+      if (label === TAB_DAILY || label === TAB_LOOP) {
+        try { win.sessionStorage.setItem("loopActiveTab", label); } catch (err) {}
+      }
+    }, true);
+  }
+  bindTabsAndSameTab(doc);
+  bindTabsAndSameTab(document);
   labelSidebar();
   paintSearch();
+  retargetLoopLinks();
+  applyTab();
   if (!doc.__loopSidebarLabeled) {
     doc.__loopSidebarLabeled = true;
     var observer = new MutationObserver(function () {
       labelSidebar();
       paintSearch();
+      retargetLoopLinks();
+      applyTab();
     });
     observer.observe(doc.documentElement, { childList: true, subtree: true });
   }
@@ -1389,6 +1466,24 @@ def read_query_source(query_params=None) -> str | None:
     return _query_value("source", query_params)
 
 
+def clear_loop_query_params() -> None:
+    """Drop tag/source In Focus params so Back to Search can show the form."""
+    params = getattr(st, "query_params", None)
+    if params is not None:
+        for key in ("tag", "source", "loop"):
+            try:
+                if hasattr(params, "pop"):
+                    params.pop(key, None)
+                else:
+                    del params[key]
+            except Exception:
+                continue
+        return
+    setter = getattr(st, "experimental_set_query_params", None)
+    if callable(setter):
+        setter()
+
+
 def stories_for_tag(db_path_str: str, tag: str) -> list[dict]:
     """All loop.db rows whose tags contain ``tag``. Uses bound ``tags LIKE ?``."""
     return search_stories(db_path_str, tag, "", "")
@@ -1663,7 +1758,8 @@ def render_sidebar(
                     quote=True,
                 )
                 st.markdown(
-                    f'<a class="loop-feed-parent" href="{href}">{html.escape(publisher)}</a>',
+                    f'<a class="loop-feed-parent" href="{href}" target="_self">'
+                    f"{html.escape(publisher)}</a>",
                     unsafe_allow_html=True,
                 )
                 for child in children:
@@ -1763,11 +1859,13 @@ def render_daily_loop() -> None:
 
 def _enter_loop_focus() -> None:
     st.session_state["loop_focus"] = True
+    st.session_state["loop_select_tab"] = True
 
 
 def apply_tag_in_focus(tag: str) -> None:
     """Open The Loop In Focus for one Daily Loop tag: all sources, all dates, empty query."""
     st.session_state["loop_focus"] = True
+    st.session_state["loop_select_tab"] = True
     st.session_state["loop_tag"] = tag
     st.session_state["loop_source"] = ""
     st.session_state["loop_year"] = ""
@@ -1780,6 +1878,7 @@ def apply_tag_in_focus(tag: str) -> None:
 def apply_source_in_focus(source: str) -> None:
     """Open The Loop In Focus for one sidebar publisher: all tags, all dates, empty query."""
     st.session_state["loop_focus"] = True
+    st.session_state["loop_select_tab"] = True
     st.session_state["loop_tag"] = ""
     st.session_state["loop_source"] = source
     st.session_state["loop_year"] = ""
@@ -1841,6 +1940,8 @@ def render_loop_explorer(path: Path) -> None:
     if st.session_state.get("loop_focus"):
         if st.button("← Back to Search"):
             st.session_state["loop_focus"] = False
+            st.session_state["loop_restore_tab"] = True
+            clear_loop_query_params()
             rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
             if callable(rerun):
                 rerun()
@@ -1973,13 +2074,15 @@ def main() -> None:
         apply_tag_in_focus(requested)
     elif requested_source and not st.session_state.get("loop_focus"):
         apply_source_in_focus(requested_source)
-    if st.session_state.get("loop_focus"):
-        explorer_tab, daily_tab = st.tabs([TAB_LOOP, TAB_DAILY])
-        with explorer_tab:
-            render_loop_explorer(path)
-        with daily_tab:
-            render_daily_loop()
-        return
+    restore_loop_tab = bool(
+        st.session_state.pop("loop_restore_tab", False)
+        or st.session_state.pop("loop_select_tab", False)
+    )
+    if restore_loop_tab:
+        st.markdown(
+            '<div data-loop-select-tab="The Loop" hidden></div>',
+            unsafe_allow_html=True,
+        )
     daily_tab, explorer_tab = st.tabs([TAB_DAILY, TAB_LOOP])
     with daily_tab:
         render_daily_loop()

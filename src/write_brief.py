@@ -172,7 +172,7 @@ def tag_hashtag_html(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:
     label = html.escape(humanize_tag(tag))
     swatch = html.escape(color, quote=True)
     return (
-        f'<a class="loop-tag" href="{href}">'
+        f'<a class="loop-tag" href="{href}" target="_self">'
         f'<span class="loop-tag-swatch" style="background-color:{swatch}"></span>'
         f"#{label}</a>"
     )

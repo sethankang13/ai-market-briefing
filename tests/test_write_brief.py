@@ -85,6 +85,7 @@ class WriteBriefTests(unittest.TestCase):
         self.assertIn(f"background-color:{TAG_COLORS['US Politics']}", chip)
         self.assertNotIn('style="color:', chip)
         self.assertIn('href="http://127.0.0.1:8501/?loop=1&amp;tag=US+Politics"', chip)
+        self.assertIn('target="_self"', chip)
         labor = tag_archive_url("Labor & Economy")
         self.assertEqual(parse_qs(urlparse(labor).query)["tag"], ["Labor & Economy"])
         self.assertIn("Labor+%26+Economy", labor)

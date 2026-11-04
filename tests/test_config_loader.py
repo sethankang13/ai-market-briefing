@@ -17,31 +17,33 @@ class LoadConfigTests(unittest.TestCase):
         self.assertEqual(config["pipeline"]["top_selected_stories"], 5)
         self.assertEqual(config["pipeline"]["output_dir"], "briefs")
         self.assertEqual(config["pipeline"]["db_path"], "data/loop.db")
-        self.assertEqual(len(config["feeds"]), 20)
+        self.assertEqual(len(config_loader.iter_feeds(config)), 20)
         self.assertEqual(
             list(config["feeds"]),
             [
-                "Politico Elections & Campaigns",
-                "Politico Congress & Policy",
-                "AP News Politics",
-                "Washington Post Politics",
-                "CBS News Politics",
-                "WSJ, Bloomberg & FT Markets",
-                "Reuters Business & Markets",
-                "CNBC Markets",
-                "MarketWatch Top Stories",
-                "CNBC Economy & Fed",
-                "Reuters Economy & Labor",
-                "Federal Reserve Press Releases",
-                "FT & WSJ Geopolitics",
-                "Reuters Geopolitics",
-                "BBC World News",
-                "TechCrunch General",
-                "Reuters Tech & Hardware",
-                "CNBC Tech & Enterprise",
-                "Reuters M&A & Private Equity",
-                "Axios Feed",
+                "Politico",
+                "AP News",
+                "Washington Post",
+                "CBS News",
+                "WSJ, Bloomberg & FT",
+                "Reuters",
+                "CNBC",
+                "MarketWatch",
+                "Federal Reserve",
+                "BBC",
+                "TechCrunch",
+                "Axios",
             ],
+        )
+        self.assertEqual(
+            list(config["feeds"]["Politico"]),
+            ["Elections & Campaigns", "Congress & Policy"],
+        )
+        tree = config_loader.nested_feed_tree(config)
+        self.assertEqual(tree[0][0], "Politico")
+        self.assertEqual(
+            tree[0][1],
+            ["Elections & Campaigns", "Congress & Policy"],
         )
         self.assertEqual(
             config["models"]["gemini"],

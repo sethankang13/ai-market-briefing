@@ -133,6 +133,15 @@ class SelectStoriesTests(unittest.TestCase):
         )
         self.assertEqual([item["headline"] for item in selected], ["Today funding"])
 
+    def test_quotas_keep_markets_and_tech_when_politics_fills_the_top(self):
+        stories = [story(f"Bill {index}", ["US Politics"]) for index in range(1, 8)]
+        stories.append(story("S&P rally", ["Market Valuations"]))
+        stories.append(story("Chip launch", ["Tech & Innovation"]))
+        selected = select_stories(stories)
+        headlines = [item["headline"] for item in selected]
+        self.assertIn("S&P rally", headlines)
+        self.assertIn("Chip launch", headlines)
+
     def test_a_missing_tag_adds_nothing(self):
         selected = select_stories([
             story("Bill", ["US Politics"]),

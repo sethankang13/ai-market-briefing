@@ -180,7 +180,13 @@ class AppImportTests(unittest.TestCase):
         self.assertEqual([date for date, _rows in grouped], ["2026-10-15", "2026-10-14"])
         self.assertEqual(len(grouped[0][1]), 2)
         chips = self.app.tag_chips_html(["US Politics", "Tech & Innovation"])
-        self.assertIn("http://127.0.0.1:8501/?tag=US+Politics", chips)
+        self.assertIn("http://127.0.0.1:8501/?loop=1&amp;tag=US+Politics", chips)
+        rewritten = self.app.display_brief_markdown(
+            'chip <a href="http://127.0.0.1:8501/?tag=US+Politics">#US Politics</a>\n'
+        )
+        self.assertIn("?loop=1&tag=US+Politics", rewritten)
+        self.assertNotIn("?tag=US+Politics", rewritten.replace("?loop=1&tag=US+Politics", ""))
+        self.assertIn("tag=US+Politics", chips)
         self.assertIn("#Tech &amp; Innovation", chips)
         self.assertNotIn("#Tech & Innovation", chips)
 
@@ -476,6 +482,13 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("prefers-contrast: more", css)
         self.assertIn("letter-spacing: 0.18em", css)
         self.assertIn("loop-tag-swatch", css)
+        self.assertIn("rgba(0, 0, 0, 0.06)", css)
+        self.assertIn("text-decoration: underline", css)
+        self.assertIn("apply_tag_in_focus", source)
+        self.assertIn("search_stories_page", source)
+        self.assertIn("SEARCH_PAGE_SIZE = 20", source)
+        self.assertIn("totalPages", source)
+        self.assertIn("st.markdown(f\"**{publisher}**\")", source)
         self.assertIn("loop-delta-up", css)
         self.assertIn(".loop-delta-up { color: #2F7D4F !important; }", css)
         self.assertIn(".loop-delta-down { color: #C04545 !important; }", css)
@@ -610,6 +623,58 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("AND published_date = ?", source)
         self.assertIn("AND published_date LIKE ?", source)
         self.assertNotIn("AND published_date = '{", source)
+
+    def test_search_stories_page_returns_twenty_and_totals(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "loop.db"
+            connection = sqlite3.connect(path)
+            connection.execute(
+                """
+                CREATE TABLE stories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    published_date TEXT,
+                    headline TEXT,
+                    url TEXT,
+                    source TEXT,
+                    sub_feed TEXT,
+                    full_text TEXT,
+                    ai_summary TEXT,
+                    tags TEXT
+                )
+                """
+            )
+            connection.executemany(
+                "INSERT INTO stories (published_date, headline, url, source, sub_feed, tags) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        "2026-11-01",
+                        f"Story {index}",
+                        f"https://example.com/{index}",
+                        "Politico" if index % 2 else "Reuters",
+                        "Elections & Campaigns" if index % 2 else "Tech & Hardware",
+                        '["US Politics"]' if index % 2 else '["Tech & Innovation"]',
+                    )
+                    for index in range(25)
+                ],
+            )
+            connection.commit()
+            connection.close()
+            page_one = self.app.search_stories_page(str(path), "", "", "", page=1)
+            page_two = self.app.search_stories_page(str(path), "", "", "", page=2)
+            by_child = self.app.search_stories(
+                str(path), "", "Elections & Campaigns", ""
+            )
+            by_parent = self.app.search_stories(str(path), "", "Politico", "")
+
+        self.assertEqual(page_one["page"], 1)
+        self.assertEqual(page_one["totalPages"], 2)
+        self.assertEqual(page_one["totalCount"], 25)
+        self.assertEqual(len(page_one["rows"]), 20)
+        self.assertEqual(page_two["page"], 2)
+        self.assertEqual(len(page_two["rows"]), 5)
+        self.assertEqual(len(by_child), 12)
+        self.assertEqual(len(by_parent), 12)
 
     def test_daily_loop_date_default_and_loop_search_form(self):
         source = Path(self.app.__file__).read_text(encoding="utf-8")

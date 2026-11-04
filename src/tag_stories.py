@@ -33,6 +33,62 @@ def _tag_weights_from_config(config: dict) -> dict[str, int]:
 
 
 TAG_WEIGHTS = _tag_weights_from_config(_CONFIG)
+MAX_TAGS = 3
+DOMAIN_TAGS = tuple(label for label in TAG_LABELS if label != "US Politics")
+US_POLITICS_KEYWORDS = frozenset(
+    {
+        "bill",
+        "law",
+        "legislation",
+        "statute",
+        "executive order",
+        "congress",
+        "senate",
+        "house of representatives",
+        "supreme court",
+        "white house",
+        "capitol hill",
+        "veto",
+        "bipartisan",
+        "filibuster",
+        "ordinance",
+        "subcommittee",
+        "judiciary",
+        "lawmaker",
+        "lawmakers",
+        "election",
+        "elections",
+        "campaign",
+        "candidate",
+        "candidates",
+        "primary",
+        "caucus",
+        "debate",
+        "poll",
+        "polling",
+        "voter",
+        "voters",
+        "ballot",
+        "electoral",
+        "dem",
+        "democrat",
+        "democratic",
+        "gop",
+        "republican",
+        "swing state",
+        "midterms",
+        "presidential",
+        "nominee",
+        "nomination",
+        "turnout",
+        "endorsement",
+        "fundraising",
+        "pac",
+        "super pac",
+        "governor",
+        "white house race",
+    }
+)
 
 
 def primary_tag(tags: list[str]) -> str | None:
@@ -55,14 +111,37 @@ def contains_keyword(text: str, keyword: str) -> bool:
     return bool(re.search(pattern, text, flags=re.IGNORECASE))
 
 
+def _matches_us_politics(text: str) -> bool:
+    """US Politics only for legislation, elections, or campaigns — not generic probes."""
+    return any(contains_keyword(text, keyword) for keyword in US_POLITICS_KEYWORDS)
+
+
+def _cap_tags(matched: list[str]) -> list[str]:
+    """Keep 2–3 tags; prefer domain labels over US Politics when both apply."""
+    ordered = [label for label in TAG_LABELS if label in matched]
+    domain = [label for label in ordered if label in DOMAIN_TAGS]
+    has_politics = "US Politics" in ordered
+    if has_politics and len(domain) >= 2:
+        chosen = domain[:MAX_TAGS]
+    elif has_politics:
+        chosen = (domain + ["US Politics"])[:MAX_TAGS]
+    else:
+        chosen = domain[:MAX_TAGS]
+    return [label for label in TAG_LABELS if label in chosen]
+
+
 def tags_for_text(headline: str, description: str = "") -> list[str]:
-    """Return every V2.5 label whose keywords appear in the headline or description."""
+    """Return up to three taxonomy labels, preferring domain tags over US Politics."""
     text = f"{headline}\n{description}"
-    return [
-        label
-        for label in TAG_LABELS
-        if any(contains_keyword(text, keyword) for keyword in TAG_KEYWORDS[label])
-    ]
+    matched = []
+    for label in TAG_LABELS:
+        if label == "US Politics":
+            if _matches_us_politics(text):
+                matched.append(label)
+            continue
+        if any(contains_keyword(text, keyword) for keyword in TAG_KEYWORDS[label]):
+            matched.append(label)
+    return _cap_tags(matched)
 
 
 def tags_for_headline(headline: str) -> list[str]:

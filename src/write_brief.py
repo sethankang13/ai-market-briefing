@@ -162,7 +162,7 @@ def ask_gemini_topic_html(
 def tag_archive_url(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:
     """Local Streamlit archive URL for one taxonomy tag (query-parameterized)."""
     root = base if base.endswith("/") else f"{base}/"
-    return f"{root}?{urlencode({'tag': tag})}"
+    return f"{root}?{urlencode({'loop': '1', 'tag': tag})}"
 
 
 def tag_hashtag_html(tag: str, base: str = TAG_ARCHIVE_BASE) -> str:

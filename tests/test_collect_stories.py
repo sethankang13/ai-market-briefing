@@ -20,46 +20,47 @@ def google_article_link(publisher_url: str) -> str:
 class CollectStoriesTests(unittest.TestCase):
     def test_sources_are_the_twenty_feeds(self):
         self.assertEqual(len(collect_stories.SOURCES), 20)
+        self.assertEqual(len(collect_stories.FEED_ENTRIES), 20)
         self.assertEqual(
             list(collect_stories.SOURCES),
             [
-                "Politico Elections & Campaigns",
-                "Politico Congress & Policy",
-                "AP News Politics",
-                "Washington Post Politics",
-                "CBS News Politics",
-                "WSJ, Bloomberg & FT Markets",
-                "Reuters Business & Markets",
-                "CNBC Markets",
-                "MarketWatch Top Stories",
-                "CNBC Economy & Fed",
-                "Reuters Economy & Labor",
-                "Federal Reserve Press Releases",
-                "FT & WSJ Geopolitics",
-                "Reuters Geopolitics",
-                "BBC World News",
-                "TechCrunch General",
-                "Reuters Tech & Hardware",
-                "CNBC Tech & Enterprise",
-                "Reuters M&A & Private Equity",
-                "Axios Feed",
+                "Politico / Elections & Campaigns",
+                "Politico / Congress & Policy",
+                "AP News / Politics",
+                "Washington Post / Politics",
+                "CBS News / Politics",
+                "WSJ, Bloomberg & FT / Markets",
+                "WSJ, Bloomberg & FT / Geopolitics",
+                "Reuters / Business & Markets",
+                "Reuters / Economy & Labor",
+                "Reuters / Geopolitics",
+                "Reuters / Tech & Hardware",
+                "Reuters / M&A & Private Equity",
+                "CNBC / Markets",
+                "CNBC / Economy & Fed",
+                "CNBC / Tech & Enterprise",
+                "MarketWatch / Top Stories",
+                "Federal Reserve / Press Releases",
+                "BBC / World News",
+                "TechCrunch / General",
+                "Axios / Feed",
             ],
         )
         self.assertEqual(
-            collect_stories.SOURCES["CBS News Politics"],
+            collect_stories.SOURCES["CBS News / Politics"],
             "https://www.cbsnews.com/latest/rss/main",
         )
         self.assertEqual(
-            collect_stories.SOURCES["TechCrunch General"],
+            collect_stories.SOURCES["TechCrunch / General"],
             "https://techcrunch.com/feed/",
         )
         self.assertEqual(
-            collect_stories.SOURCES["Axios Feed"],
+            collect_stories.SOURCES["Axios / Feed"],
             "https://www.axios.com/feeds/feed.rss",
         )
         self.assertIn(
             "site:politico.com",
-            collect_stories.SOURCES["Politico Elections & Campaigns"],
+            collect_stories.SOURCES["Politico / Elections & Campaigns"],
         )
 
     def test_google_news_token_resolves_without_a_second_request(self):
@@ -128,6 +129,7 @@ class CollectStoriesTests(unittest.TestCase):
         )
         self.assertEqual(stories[0]["link"], publisher)
         self.assertEqual(stories[0]["source"], "Reuters AI")
+        self.assertEqual(stories[0]["sub_feed"], "Reuters AI")
 
     def test_fetch_feed_drops_items_older_than_48_hours(self):
         rss = b"""<?xml version="1.0"?>

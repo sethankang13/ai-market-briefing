@@ -372,6 +372,7 @@ class RunBriefingTests(unittest.TestCase):
                     "headline": "Skipped item",
                     "link": "https://example.com/skipped",
                     "source": "Wire",
+                    "sub_feed": "Tech & Hardware",
                     "tags": ["Tech & Innovation"],
                 },
             ]
@@ -394,6 +395,7 @@ class RunBriefingTests(unittest.TestCase):
         self.assertEqual(by_url["https://example.com/selected"]["is_selected"], 1)
         self.assertEqual(by_url["https://example.com/selected"]["ai_summary"], "Why it matters.")
         self.assertEqual(by_url["https://example.com/skipped"]["is_selected"], 0)
+        self.assertEqual(by_url["https://example.com/skipped"]["sub_feed"], "Tech & Hardware")
 
     def test_persist_step_reads_enriched_json_for_all_collected(self):
         with tempfile.TemporaryDirectory() as temp_dir:

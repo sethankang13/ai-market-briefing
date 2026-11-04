@@ -17,9 +17,24 @@ class TagStoriesTests(unittest.TestCase):
 
     def test_description_can_add_a_tag_the_headline_misses(self):
         self.assertEqual(
-            tags_for_text("Company update", "Regulators opened an FTC probe."),
+            tags_for_text("Company update", "Senate passes the farm bill today."),
             ["US Politics"],
         )
+
+    def test_us_politics_skips_generic_probes(self):
+        self.assertEqual(
+            tags_for_text("Company update", "Regulators opened an FTC probe."),
+            [],
+        )
+
+    def test_tag_cap_prefers_domain_over_us_politics(self):
+        tags = tags_for_text(
+            "Congress debates an AI earnings merger valuation for Nvidia chips"
+        )
+        self.assertLessEqual(len(tags), 3)
+        self.assertIn("Tech & Innovation", tags)
+        self.assertIn("Market Valuations", tags)
+        self.assertNotIn("US Politics", tags)
 
     def test_foundation_models_match_model_names(self):
         self.assertEqual(
@@ -61,7 +76,8 @@ class TagStoriesTests(unittest.TestCase):
             }
         )
 
-        self.assertTrue(has_all_topics(story, {"US Politics", "Tech & Innovation"}))
+        self.assertTrue(has_all_topics(story, {"Tech & Innovation"}))
+        self.assertFalse(has_all_topics(story, {"US Politics", "Tech & Innovation"}))
         self.assertFalse(has_all_topics(story, {"US Politics", "Venture & M&A"}))
 
 

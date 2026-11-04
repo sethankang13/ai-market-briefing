@@ -80,7 +80,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 import streamlit as st
-from config_loader import load_config, project_path
+from config_loader import flatten_feed_urls, load_config, nested_feed_tree, project_path
 from write_brief import (
     TAG_ARCHIVE_BASE,
     TAG_COLORS,
@@ -111,7 +111,9 @@ def brand_css() -> str:
     """Ivory/ink from data-loop-theme; Light/Dark beat OS, System follows it."""
     chip_colors = "\n".join(
         f'a.loop-tag[href*="{urlencode({"tag": tag})}"] .loop-tag-swatch '
-        f"{{ background-color: {color}; }}"
+        f"{{ background-color: {color}; }}\n"
+        f'a.loop-tag[href*="{urlencode({"tag": tag})}"] '
+        f"{{ text-decoration-color: {color}; }}"
         for tag, color in TAG_COLORS.items()
     )
     light_sel = _loop_prefixed('html[data-loop-theme="light"]')
@@ -511,14 +513,19 @@ a.loop-tag {{
   font-weight: 500;
   background: none;
   border: none;
-  border-radius: 0;
-  padding: 0;
-  margin: 0 0.55rem 0 0;
+  border-radius: 4px;
+  padding: 0.08rem 0.28rem;
+  margin: 0 0.35rem 0 0;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.18em;
   font-size: 0.92rem;
+}}
+a.loop-tag:hover {{
+  background-color: rgba(0, 0, 0, 0.06);
 }}
 .loop-tag-swatch {{
   display: inline-block;
@@ -810,10 +817,17 @@ def taxonomy_tags(config: dict | None = None) -> list[str]:
     return list(taxonomy.keys())
 
 
+SEARCH_PAGE_SIZE = 20
+
+
 def active_feed_names(config: dict | None = None) -> list[str]:
     settings = config if config is not None else load_config()
-    feeds = settings.get("feeds") or {}
-    return list(feeds.keys())
+    return list(flatten_feed_urls(settings))
+
+
+def active_feed_tree(config: dict | None = None) -> list[tuple[str, list[str]]]:
+    settings = config if config is not None else load_config()
+    return nested_feed_tree(settings)
 
 
 def active_feed_count(config: dict | None = None) -> int:
@@ -1076,6 +1090,8 @@ def rewrite_ask_gemini_topics(markdown: str) -> str:
 
 def display_brief_markdown(markdown: str) -> str:
     """Hyperlink At a Glance / titles to RSS URLs; drop standalone URL lines."""
+    markdown = markdown.replace("?loop=1&tag=", "?tag=")
+    markdown = markdown.replace("?tag=", "?loop=1&tag=")
     markdown = rewrite_snapshot_deltas(markdown)
     markdown = rewrite_glance_rows(markdown)
     markdown = humanize_brief_markdown(markdown)
@@ -1137,6 +1153,7 @@ def group_stories_by_headline(rows: list[dict]) -> list[dict]:
                 "url": str(row.get("url") or "").strip(),
                 "published_date": row.get("published_date") or "",
                 "source": row.get("source") or "Unknown source",
+                "sub_feed": row.get("sub_feed") or "",
                 "tags": row.get("tags") or [],
                 "ai_summary": row.get("ai_summary") or "",
                 "coverage": [row],
@@ -1248,6 +1265,34 @@ def unique_sources(db_path_str: str) -> list[str]:
 
 
 @st.cache_data
+def unique_sub_feeds(db_path_str: str) -> list[str]:
+    path = Path(db_path_str)
+    if not path.is_file():
+        return []
+    connection = get_connection(db_path_str)
+    try:
+        cursor = connection.execute(
+            "SELECT DISTINCT sub_feed FROM stories "
+            "WHERE sub_feed IS NOT NULL AND sub_feed != '' "
+            "ORDER BY sub_feed"
+        )
+    except sqlite3.Error:
+        return []
+    return [row["sub_feed"] for row in cursor.fetchall()]
+
+
+def unique_source_filters(db_path_str: str) -> list[str]:
+    """Publishers and sub-feeds so The Loop can filter by parent or child."""
+    names: list[str] = []
+    seen: set[str] = set()
+    for name in unique_sources(db_path_str) + unique_sub_feeds(db_path_str):
+        if name and name not in seen:
+            seen.add(name)
+            names.append(name)
+    return names
+
+
+@st.cache_data
 def unique_published_dates(db_path_str: str) -> list[str]:
     path = Path(db_path_str)
     if not path.is_file():
@@ -1264,7 +1309,6 @@ def unique_published_dates(db_path_str: str) -> list[str]:
     return [row["published_date"] for row in cursor.fetchall()]
 
 
-@st.cache_data
 def read_query_tag(query_params=None) -> str | None:
     """Read ``?tag=`` from Streamlit query params, or from an injected mapping."""
     params = query_params
@@ -1312,31 +1356,27 @@ def tag_chips_html(tags: list[str]) -> str:
     return " ".join(chips)
 
 
-def search_stories(
-    db_path_str: str,
+def _search_filters(
     tag: str,
     source: str,
     query: str,
     year: str = "",
     month: str = "",
     day: str = "",
-) -> list[dict]:
-    """Filter stored stories with bound parameters only (no SQL interpolation)."""
-    path = Path(db_path_str)
-    if not path.is_file():
-        return []
-    connection = get_connection(db_path_str)
-    sql = (
-        "SELECT published_date, headline, url, source, tags, ai_summary "
-        "FROM stories WHERE 1=1"
-    )
+    include_sub_feed: bool = True,
+) -> tuple[str, list[object]]:
+    sql = " FROM stories WHERE 1=1"
     params: list[object] = []
     if tag:
         sql += " AND tags LIKE ?"
         params.append(f"%{tag}%")
     if source:
-        sql += " AND source = ?"
-        params.append(source)
+        if include_sub_feed:
+            sql += " AND (source = ? OR sub_feed = ?)"
+            params.extend([source, source])
+        else:
+            sql += " AND source = ?"
+            params.append(source)
     if query:
         sql += " AND (headline LIKE ? OR ai_summary LIKE ?)"
         like = f"%{query}%"
@@ -1360,24 +1400,111 @@ def search_stories(
         if day:
             sql += " AND substr(published_date, 9, 2) = ?"
             params.append(day)
-    sql += " ORDER BY published_date DESC, id DESC"
+    return sql, params
+
+
+def search_stories(
+    db_path_str: str,
+    tag: str,
+    source: str,
+    query: str,
+    year: str = "",
+    month: str = "",
+    day: str = "",
+) -> list[dict]:
+    """Filter stored stories with bound parameters only (no SQL interpolation)."""
+    return search_stories_page(
+        db_path_str, tag, source, query, year, month, day, page=1, page_size=0
+    )["rows"]
+
+
+def search_stories_page(
+    db_path_str: str,
+    tag: str,
+    source: str,
+    query: str,
+    year: str = "",
+    month: str = "",
+    day: str = "",
+    page: int = 1,
+    page_size: int = SEARCH_PAGE_SIZE,
+) -> dict[str, object]:
+    """Paginated Loop search: 20 rows plus page / totalPages / totalCount."""
+    empty = {"rows": [], "page": 1, "totalPages": 0, "totalCount": 0}
+    path = Path(db_path_str)
+    if not path.is_file():
+        return empty
+    connection = get_connection(db_path_str)
+    where_sql, params = _search_filters(tag, source, query, year, month, day)
     try:
-        cursor = connection.execute(sql, params)
+        count_row = connection.execute(
+            "SELECT COUNT(*) AS n" + where_sql, params
+        ).fetchone()
     except sqlite3.Error:
-        return []
+        where_sql, params = _search_filters(
+            tag, source, query, year, month, day, include_sub_feed=False
+        )
+        try:
+            count_row = connection.execute(
+                "SELECT COUNT(*) AS n" + where_sql, params
+            ).fetchone()
+        except sqlite3.Error:
+            return empty
+    total_count = int(count_row["n"] if count_row is not None else 0)
+    size = int(page_size)
+    if size <= 0:
+        size = total_count or 1
+        total_pages = 1 if total_count else 0
+        page_number = 1
+        offset = 0
+    else:
+        total_pages = (total_count + size - 1) // size if total_count else 0
+        page_number = max(1, int(page or 1))
+        if total_pages:
+            page_number = min(page_number, total_pages)
+        offset = (page_number - 1) * size
+    select_sql = (
+        "SELECT published_date, headline, url, source, sub_feed, tags, ai_summary"
+        + where_sql
+        + " ORDER BY published_date DESC, id DESC LIMIT ? OFFSET ?"
+    )
+    try:
+        cursor = connection.execute(select_sql, [*params, size, offset])
+    except sqlite3.Error:
+        select_sql = (
+            "SELECT published_date, headline, url, source, tags, ai_summary"
+            + where_sql
+            + " ORDER BY published_date DESC, id DESC LIMIT ? OFFSET ?"
+        )
+        try:
+            cursor = connection.execute(select_sql, [*params, size, offset])
+        except sqlite3.Error:
+            return empty
     rows = []
     for row in cursor.fetchall():
+        source_name = row["source"] or "Unknown source"
+        sub_feed = ""
+        try:
+            sub_feed = row["sub_feed"] or ""
+        except (KeyError, IndexError):
+            sub_feed = ""
         rows.append(
             {
                 "published_date": row["published_date"] or "",
                 "headline": row["headline"] or "(untitled)",
                 "url": row["url"] or "",
-                "source": row["source"] or "Unknown source",
+                "source": source_name,
+                "sub_feed": sub_feed,
                 "tags": parse_tags(row["tags"]),
                 "ai_summary": row["ai_summary"] or "",
             }
         )
-    return rows
+    return {
+        "rows": rows,
+        "page": page_number,
+        "totalPages": total_pages,
+        "totalCount": total_count,
+    }
 
 
 def in_focus_title(tag: str, source: str, query: str, year: str, month: str, day: str) -> str:
@@ -1435,15 +1562,23 @@ def render_brand_header() -> None:
     st.markdown(LOOP_HEADER_HTML, unsafe_allow_html=True)
 
 
-def render_sidebar(path: Path, latest: str | None, feed_names: list[str], brief_count: int) -> None:
+def render_sidebar(
+    path: Path,
+    latest: str | None,
+    feed_tree: list[tuple[str, list[str]]],
+    brief_count: int,
+) -> None:
     with st.sidebar:
         st.header("LOOP: AI Market Briefing")
         st.metric("Stored briefings", brief_count)
         st.metric("Latest briefing", latest or "None")
         st.subheader("Active feeds")
-        if feed_names:
-            for name in feed_names:
-                st.caption(name)
+        if feed_tree:
+            for publisher, children in feed_tree:
+                st.markdown(f"**{publisher}**")
+                for child in children:
+                    if child != publisher:
+                        st.caption(child)
         else:
             st.caption("None configured")
         del path
@@ -1457,7 +1592,11 @@ def render_story_cards(groups: list[dict]) -> None:
     for group in groups:
         with st.container(border=True):
             st.markdown(headline_html(group["headline"], group["url"]), unsafe_allow_html=True)
-            st.write(f"**Source:** {group['source']}")
+            source_line = group["source"]
+            sub_feed = str(group.get("sub_feed") or "").strip()
+            if sub_feed and sub_feed != source_line:
+                source_line = f"{source_line} / {sub_feed}"
+            st.write(f"**Source:** {source_line}")
             st.write(f"**Date:** {group['published_date']}")
             chips = tag_chips_html(group["tags"])
             if chips:
@@ -1536,6 +1675,43 @@ def _enter_loop_focus() -> None:
     st.session_state["loop_focus"] = True
 
 
+def apply_tag_in_focus(tag: str) -> None:
+    """Open The Loop In Focus for one Daily Loop tag: all sources, all dates, empty query."""
+    st.session_state["loop_focus"] = True
+    st.session_state["loop_tag"] = tag
+    st.session_state["loop_source"] = ""
+    st.session_state["loop_year"] = ""
+    st.session_state["loop_month"] = ""
+    st.session_state["loop_day"] = ""
+    st.session_state["loop_query"] = ""
+    st.session_state["loop_page"] = 1
+
+
+def render_search_page_controls(result: dict[str, object]) -> None:
+    page = int(result.get("page") or 1)
+    total_pages = int(result.get("totalPages") or 0)
+    total_count = int(result.get("totalCount") or 0)
+    st.caption(
+        f"Page {page} of {total_pages} · {total_count} "
+        f"stor{'y' if total_count == 1 else 'ies'}"
+    )
+    if total_pages <= 1:
+        return
+    previous, nxt = st.columns(2)
+    with previous:
+        if page > 1 and st.button("Previous", key=f"loop_prev_{page}"):
+            st.session_state["loop_page"] = page - 1
+            rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
+            if callable(rerun):
+                rerun()
+    with nxt:
+        if page < total_pages and st.button("Next", key=f"loop_next_{page}"):
+            st.session_state["loop_page"] = page + 1
+            rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
+            if callable(rerun):
+                rerun()
+
+
 def render_loop_explorer(path: Path) -> None:
     if not path.is_file():
         st.info(
@@ -1545,7 +1721,7 @@ def render_loop_explorer(path: Path) -> None:
 
     internal_tags = taxonomy_tags()
     tag_options = [""] + internal_tags
-    sources = [""] + unique_sources(str(path))
+    sources = [""] + unique_source_filters(str(path))
     published = unique_published_dates(str(path))
     years = sorted({item[:4] for item in published if len(item) >= 4}, reverse=True)
     months = [f"{index:02d}" for index in range(1, 13)]
@@ -1574,8 +1750,12 @@ def render_loop_explorer(path: Path) -> None:
         day = st.session_state.get("loop_day") or ""
         query = (st.session_state.get("loop_query") or "").strip()
         st.header(in_focus_title(tag, source, query, year, month, day))
-        rows = search_stories(str(path), tag, source, query, year, month, day)
-        render_story_cards(group_stories_by_headline(rows))
+        page = int(st.session_state.get("loop_page") or 1)
+        result = search_stories_page(
+            str(path), tag, source, query, year, month, day, page=page
+        )
+        render_search_page_controls(result)
+        render_story_cards(group_stories_by_headline(result["rows"]))
         return
 
     st.header("The Loop")
@@ -1629,6 +1809,7 @@ def render_loop_explorer(path: Path) -> None:
         )
         submitted = st.form_submit_button("Search", type="primary")
     if submitted:
+        st.session_state["loop_page"] = 1
         _enter_loop_focus()
         rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
         if callable(rerun):
@@ -1678,10 +1859,16 @@ def main() -> None:
     render_brand_header()
     path = db_path()
     dates = list_briefing_dates()
-    render_sidebar(path, dates[0] if dates else None, active_feed_names(), len(dates))
+    render_sidebar(path, dates[0] if dates else None, active_feed_tree(), len(dates))
     requested = read_query_tag()
-    if requested:
-        render_tag_archive(path, requested)
+    if requested and not st.session_state.get("loop_focus"):
+        apply_tag_in_focus(requested)
+    if st.session_state.get("loop_focus"):
+        explorer_tab, daily_tab = st.tabs([TAB_LOOP, TAB_DAILY])
+        with explorer_tab:
+            render_loop_explorer(path)
+        with daily_tab:
+            render_daily_loop()
         return
     daily_tab, explorer_tab = st.tabs([TAB_DAILY, TAB_LOOP])
     with daily_tab:

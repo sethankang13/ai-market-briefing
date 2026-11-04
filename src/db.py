@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS stories (
     headline TEXT,
     url TEXT,
     source TEXT,
+    sub_feed TEXT,
     full_text TEXT,
     ai_summary TEXT,
     tags TEXT,
@@ -40,7 +41,7 @@ CREATE TABLE IF NOT EXISTS stories (
 """
 
 STORY_COLUMNS = (
-    "id, published_date, headline, url, source, full_text, "
+    "id, published_date, headline, url, source, sub_feed, full_text, "
     "ai_summary, tags, market_snapshot_json, macro_report, is_selected"
 )
 
@@ -103,6 +104,8 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
         connection.execute(
             "ALTER TABLE stories ADD COLUMN is_selected INTEGER DEFAULT 1"
         )
+    if "sub_feed" not in columns:
+        connection.execute("ALTER TABLE stories ADD COLUMN sub_feed TEXT")
     connection.execute(UNIQUE_DAY_URL_INDEX)
     connection.commit()
 
@@ -141,6 +144,7 @@ def append_stories(
             url_text = str(url).strip() if url else ""
             headline = story.get("headline")
             source = story.get("source")
+            sub_feed = story.get("sub_feed") or story.get("subFeed") or source
             ai_summary = story.get("ai_summary")
             tags = _tags_text(story.get("tags"))
             macro = macro_report if macro_report is not None else story.get("macro_report")
@@ -156,6 +160,7 @@ def append_stories(
                 headline,
                 url_text or url,
                 source,
+                sub_feed,
                 snippet,
                 ai_summary,
                 tags,
@@ -167,7 +172,7 @@ def append_stories(
                 connection.execute(
                     """
                     UPDATE stories SET
-                        headline = ?, url = ?, source = ?, full_text = ?,
+                        headline = ?, url = ?, source = ?, sub_feed = ?, full_text = ?,
                         ai_summary = ?, tags = ?, market_snapshot_json = ?,
                         macro_report = ?, is_selected = ?
                     WHERE id = ?
@@ -176,6 +181,7 @@ def append_stories(
                         headline,
                         url_text,
                         source,
+                        sub_feed,
                         snippet,
                         ai_summary,
                         tags,
@@ -190,10 +196,10 @@ def append_stories(
                     connection.execute(
                         """
                         INSERT INTO stories (
-                            published_date, headline, url, source, full_text,
+                            published_date, headline, url, source, sub_feed, full_text,
                             ai_summary, tags, market_snapshot_json, macro_report,
                             is_selected
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         values,
                     )
@@ -202,7 +208,7 @@ def append_stories(
                     connection.execute(
                         """
                         UPDATE stories SET
-                            headline = ?, url = ?, source = ?, full_text = ?,
+                            headline = ?, url = ?, source = ?, sub_feed = ?, full_text = ?,
                             ai_summary = ?, tags = ?, market_snapshot_json = ?,
                             macro_report = ?, is_selected = ?
                         WHERE published_date IS ? AND url = ?
@@ -211,6 +217,7 @@ def append_stories(
                             headline,
                             url_text,
                             source,
+                            sub_feed,
                             snippet,
                             ai_summary,
                             tags,

@@ -19,6 +19,7 @@ from tag_stories import TAG_LABELS
 _CONFIG = load_config()
 LOOP_TAGS = TAG_LABELS
 RECENCY_WINDOW = timedelta(hours=int(_CONFIG["pipeline"]["recency_cutoff_hours"]))
+QUOTA_TAGS = ("Market Valuations", "Tech & Innovation")
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -88,6 +89,42 @@ def _published_on_day(story: dict[str, object], run_day) -> bool:
     return published.date() == run_day
 
 
+def _apply_section_quotas(
+    stories: list[dict[str, object]],
+    selected_indexes: list[int],
+    run_day,
+    maximum: int,
+) -> list[int]:
+    """Keep Market Valuations and Tech & Innovation in the brief when they exist."""
+    selected = list(selected_indexes)
+    for tag in QUOTA_TAGS:
+        if any(tag in story_tags(stories[index]) for index in selected):
+            continue
+        tagged = [
+            index
+            for index, story in enumerate(stories)
+            if tag in story_tags(story)
+        ]
+        if not tagged:
+            continue
+        best = _rank_today_first(stories, tagged, run_day)[0]
+        if best in selected:
+            continue
+        politics_only = [
+            index
+            for index in selected
+            if "US Politics" in story_tags(stories[index])
+            and not any(
+                quota in story_tags(stories[index]) for quota in QUOTA_TAGS
+            )
+        ]
+        if len(selected) >= maximum and politics_only:
+            drop = _ranked_indexes(stories, politics_only)[-1]
+            selected = [index for index in selected if index != drop]
+        selected.append(best)
+    return selected
+
+
 def _rank_today_first(
     stories: list[dict[str, object]], indexes: list[int], run_day
 ) -> list[int]:
@@ -120,6 +157,9 @@ def select_stories(
     ]
     pool = today_consequential if today_consequential else consequential
     selected_indexes = _ranked_indexes(stories, pool)[:maximum]
+    selected_indexes = _apply_section_quotas(
+        stories, selected_indexes, run_day, maximum
+    )
 
     if len(selected_indexes) < maximum:
         untagged_index = next(

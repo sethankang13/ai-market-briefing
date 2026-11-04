@@ -45,6 +45,7 @@ class LoopDatabaseTests(unittest.TestCase):
                 "headline",
                 "url",
                 "source",
+                "sub_feed",
                 "full_text",
                 "ai_summary",
                 "tags",
@@ -56,6 +57,7 @@ class LoopDatabaseTests(unittest.TestCase):
         self.assertEqual(row["is_selected"], 1)
         self.assertEqual(row["headline"], "Policy bill advances")
         self.assertEqual(row["url"], "https://example.com/bill")
+        self.assertEqual(row["sub_feed"], "Example News")
         self.assertEqual(row["published_date"], "2026-10-06")
         self.assertEqual(row["full_text"], "The full article body.")
         self.assertEqual(json.loads(row["tags"]), ["US Politics"])

@@ -19,11 +19,12 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
 
-from config_loader import load_config
+from config_loader import flatten_feed_urls, iter_feeds, load_config
 
 
 _CONFIG = load_config()
-SOURCES = dict(_CONFIG["feeds"])
+FEED_ENTRIES = iter_feeds(_CONFIG)
+SOURCES = flatten_feed_urls(_CONFIG)
 RECENCY_CUTOFF_HOURS = int(_CONFIG["pipeline"]["recency_cutoff_hours"])
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -169,7 +170,9 @@ def is_recent(
     return as_utc(now) - as_utc(published) <= max_age
 
 
-def stories_from_feedparser(parsed, source: str, now: datetime) -> list[dict[str, str]]:
+def stories_from_feedparser(
+    parsed, source: str, now: datetime, sub_feed: str = ""
+) -> list[dict[str, str]]:
     """Build story records from a feedparser result, dropping stale items."""
     stories = []
     for entry in getattr(parsed, "entries", []) or []:
@@ -186,6 +189,7 @@ def stories_from_feedparser(parsed, source: str, now: datetime) -> list[dict[str
             {
                 "headline": str(entry.get("title") or "").strip(),
                 "source": source,
+                "sub_feed": sub_feed or source,
                 "link": resolve_publisher_url(link),
                 "published_at": pub_date.strip(),
                 "description": plain_text(
@@ -196,7 +200,9 @@ def stories_from_feedparser(parsed, source: str, now: datetime) -> list[dict[str
     return stories
 
 
-def stories_from_rss_tree(rss: ET.Element, source: str, now: datetime) -> list[dict[str, str]]:
+def stories_from_rss_tree(
+    rss: ET.Element, source: str, now: datetime, sub_feed: str = ""
+) -> list[dict[str, str]]:
     """Build story records from an ElementTree RSS document."""
     stories = []
     for item in rss.findall("./channel/item"):
@@ -211,6 +217,7 @@ def stories_from_rss_tree(rss: ET.Element, source: str, now: datetime) -> list[d
             {
                 "headline": item.findtext("title", default="").strip(),
                 "source": source,
+                "sub_feed": sub_feed or source,
                 "link": resolve_publisher_url(link),
                 "published_at": pub_date,
                 "description": item_description(item),
@@ -227,13 +234,14 @@ def fetch_feed(feed: dict[str, str], now: datetime | None = None) -> list[dict[s
     with urlopen(request, timeout=20) as response:
         raw = response.read()
 
+    sub_feed = str(feed.get("sub_feed") or feed["source"])
     if feedparser_module is not None:
         parsed = feedparser_module.parse(raw)
         if getattr(parsed, "entries", None):
-            return stories_from_feedparser(parsed, feed["source"], run_at)
+            return stories_from_feedparser(parsed, feed["source"], run_at, sub_feed)
 
     rss = ET.fromstring(raw)
-    return stories_from_rss_tree(rss, feed["source"], run_at)
+    return stories_from_rss_tree(rss, feed["source"], run_at, sub_feed)
 
 
 def collect_stories(now: datetime | None = None) -> tuple[list[dict[str, str]], list[str]]:
@@ -242,11 +250,21 @@ def collect_stories(now: datetime | None = None) -> tuple[list[dict[str, str]], 
     stories = []
     failed_sources = []
 
-    for source, url in SOURCES.items():
+    for entry in FEED_ENTRIES:
+        label = f"{entry['publisher']} / {entry['sub_feed']}"
         try:
-            stories.extend(fetch_feed({"source": source, "url": url}, now=run_at))
+            stories.extend(
+                fetch_feed(
+                    {
+                        "source": entry["publisher"],
+                        "sub_feed": entry["sub_feed"],
+                        "url": entry["url"],
+                    },
+                    now=run_at,
+                )
+            )
         except Exception:
-            failed_sources.append(source)
+            failed_sources.append(label)
 
     return stories, failed_sources
 

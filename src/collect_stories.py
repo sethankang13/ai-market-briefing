@@ -26,6 +26,7 @@ _CONFIG = load_config()
 FEED_ENTRIES = iter_feeds(_CONFIG)
 SOURCES = flatten_feed_urls(_CONFIG)
 RECENCY_CUTOFF_HOURS = int(_CONFIG["pipeline"]["recency_cutoff_hours"])
+MAX_ITEMS_PER_FEED = int(_CONFIG["pipeline"].get("max_items_per_feed") or 15)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RAW_DATA_DIRECTORY = PROJECT_ROOT / "data" / "raw"
@@ -238,10 +239,60 @@ def fetch_feed(feed: dict[str, str], now: datetime | None = None) -> list[dict[s
     if feedparser_module is not None:
         parsed = feedparser_module.parse(raw)
         if getattr(parsed, "entries", None):
-            return stories_from_feedparser(parsed, feed["source"], run_at, sub_feed)
+            return cap_feed_items(
+                stories_from_feedparser(parsed, feed["source"], run_at, sub_feed)
+            )
 
     rss = ET.fromstring(raw)
-    return stories_from_rss_tree(rss, feed["source"], run_at, sub_feed)
+    return cap_feed_items(stories_from_rss_tree(rss, feed["source"], run_at, sub_feed))
+
+
+def cap_feed_items(
+    stories: list[dict[str, str]], limit: int | None = None
+) -> list[dict[str, str]]:
+    """Keep the feed's newest/top items (RSS order), at most ``max_items_per_feed``."""
+    cap = MAX_ITEMS_PER_FEED if limit is None else int(limit)
+    if cap < 0:
+        cap = 0
+    return list(stories)[:cap]
+
+
+def headline_merge_key(headline: object) -> str:
+    return " ".join(str(headline or "").casefold().split())
+
+
+def merge_stories_by_headline(stories: list[dict[str, str]]) -> list[dict[str, str]]:
+    """One row per casefolded headline: first source is primary, later ones secondary."""
+    grouped: list[dict[str, str]] = []
+    index: dict[str, int] = {}
+    for story in stories:
+        item = dict(story)
+        extras = item.get("secondary_sources")
+        if isinstance(extras, list):
+            item["secondary_sources"] = [
+                str(name) for name in extras if str(name).strip()
+            ]
+        else:
+            item["secondary_sources"] = []
+        key = headline_merge_key(item.get("headline"))
+        if not key:
+            grouped.append(item)
+            continue
+        if key in index:
+            primary = grouped[index[key]]
+            source = str(item.get("source") or "").strip()
+            primary_source = str(primary.get("source") or "").strip()
+            secondary = primary.setdefault("secondary_sources", [])
+            if (
+                source
+                and source != primary_source
+                and source not in secondary
+            ):
+                secondary.append(source)
+            continue
+        index[key] = len(grouped)
+        grouped.append(item)
+    return grouped
 
 
 def collect_stories(now: datetime | None = None) -> tuple[list[dict[str, str]], list[str]]:
@@ -266,7 +317,7 @@ def collect_stories(now: datetime | None = None) -> tuple[list[dict[str, str]], 
         except Exception:
             failed_sources.append(label)
 
-    return stories, failed_sources
+    return merge_stories_by_headline(stories), failed_sources
 
 
 def save_run(stories: list[dict[str, str]], failed_sources: list[str]) -> Path:

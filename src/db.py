@@ -1,8 +1,8 @@
 """SQLite history for Loop: AI Market Briefing.
 
 Each briefing run upserts collected RSS stories into ``data/loop.db``.
-The database file is gitignored. Existing rows are never deleted; new
-columns are added with ``ALTER TABLE``.
+The database file is gitignored. New columns are added with ``ALTER TABLE``.
+Unselected rows older than ``db_retention_days`` are pruned after each run.
 
 Run from the project folder:
     python3 src/db.py
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Iterable
@@ -36,13 +36,15 @@ CREATE TABLE IF NOT EXISTS stories (
     tags TEXT,
     market_snapshot_json TEXT,
     macro_report TEXT,
-    is_selected INTEGER DEFAULT 1
+    is_selected INTEGER DEFAULT 1,
+    secondary_sources TEXT
 );
 """
 
 STORY_COLUMNS = (
     "id, published_date, headline, url, source, sub_feed, full_text, "
-    "ai_summary, tags, market_snapshot_json, macro_report, is_selected"
+    "ai_summary, tags, market_snapshot_json, macro_report, is_selected, "
+    "secondary_sources"
 )
 
 RECENT_STORIES_SQL = (
@@ -112,6 +114,8 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
         )
     if "sub_feed" not in columns:
         connection.execute("ALTER TABLE stories ADD COLUMN sub_feed TEXT")
+    if "secondary_sources" not in columns:
+        connection.execute("ALTER TABLE stories ADD COLUMN secondary_sources TEXT")
     _dedupe_unique_stories(connection)
     for statement in (UNIQUE_URL_INDEX, UNIQUE_DAY_URL_INDEX):
         try:
@@ -172,6 +176,73 @@ def _is_selected_value(story: dict[str, Any]) -> int:
     return 1 if story.get("is_selected") else 0
 
 
+def _has_tags(story: dict[str, Any]) -> bool:
+    tags = story.get("tags")
+    if isinstance(tags, str):
+        text = tags.strip()
+        if not text or text in ("[]", "null"):
+            return False
+        try:
+            tags = json.loads(text)
+        except json.JSONDecodeError:
+            return True
+    if isinstance(tags, list):
+        return any(str(tag).strip() for tag in tags)
+    return False
+
+
+def _should_persist(story: dict[str, Any]) -> bool:
+    """Keep brief picks and any story that already has at least one tag."""
+    return bool(_is_selected_value(story) or _has_tags(story))
+
+
+def _secondary_sources_text(value: object) -> str:
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith("["):
+            return text
+        return json.dumps([text] if text else [])
+    if isinstance(value, list):
+        names = [str(item).strip() for item in value if str(item).strip()]
+        return json.dumps(names)
+    return "[]"
+
+
+def prune_old_stories(
+    retention_days: int | None = None,
+    db_path: Path | None = None,
+    today: date | None = None,
+) -> int:
+    """Delete unselected rows older than ``db_retention_days`` (default 365)."""
+    settings = load_config()["pipeline"]
+    days = (
+        int(retention_days)
+        if retention_days is not None
+        else int(settings.get("db_retention_days") or 365)
+    )
+    cutoff = ((today or date.today()) - timedelta(days=days)).isoformat()
+    path = Path(db_path) if db_path is not None else DEFAULT_DB_PATH
+    if not path.is_file():
+        return 0
+    connection = connect(path)
+    try:
+        cursor = connection.execute(
+            """
+            DELETE FROM stories
+            WHERE IFNULL(is_selected, 1) = 0
+              AND published_date IS NOT NULL
+              AND published_date != ''
+              AND published_date < ?
+            """,
+            (cutoff,),
+        )
+        deleted = int(cursor.rowcount or 0)
+        connection.commit()
+        return deleted
+    finally:
+        connection.close()
+
+
 def append_stories(
     stories: Iterable[dict[str, Any]],
     market_snapshot: dict[str, Any] | None = None,
@@ -184,6 +255,8 @@ def append_stories(
     inserted = 0
     try:
         for story in stories:
+            if not _should_persist(story):
+                continue
             snippet = story.get("full_text") or story.get("description") or ""
             published = iso_published_date(
                 story.get("published_at") or story.get("published_date")
@@ -195,6 +268,7 @@ def append_stories(
             sub_feed = story.get("sub_feed") or story.get("subFeed") or source
             ai_summary = story.get("ai_summary")
             tags = _tags_text(story.get("tags"))
+            secondary_sources = _secondary_sources_text(story.get("secondary_sources"))
             macro = macro_report if macro_report is not None else story.get("macro_report")
             is_selected = _is_selected_value(story)
             existing = None
@@ -220,6 +294,7 @@ def append_stories(
                 snapshot_json,
                 macro,
                 is_selected,
+                secondary_sources,
             )
             if existing:
                 connection.execute(
@@ -227,7 +302,7 @@ def append_stories(
                     UPDATE stories SET
                         published_date = ?, headline = ?, url = ?, source = ?, sub_feed = ?,
                         full_text = ?, ai_summary = ?, tags = ?, market_snapshot_json = ?,
-                        macro_report = ?, is_selected = ?
+                        macro_report = ?, is_selected = ?, secondary_sources = ?
                     WHERE id = ?
                     """,
                     (
@@ -242,6 +317,7 @@ def append_stories(
                         snapshot_json,
                         macro,
                         is_selected,
+                        secondary_sources,
                         existing["id"],
                     ),
                 )
@@ -252,8 +328,8 @@ def append_stories(
                         INSERT INTO stories (
                             published_date, headline, url, source, sub_feed, full_text,
                             ai_summary, tags, market_snapshot_json, macro_report,
-                            is_selected
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            is_selected, secondary_sources
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         values,
                     )
@@ -264,7 +340,8 @@ def append_stories(
                         UPDATE stories SET
                             published_date = ?, headline = ?, url = ?, source = ?,
                             sub_feed = ?, full_text = ?, ai_summary = ?, tags = ?,
-                            market_snapshot_json = ?, macro_report = ?, is_selected = ?
+                            market_snapshot_json = ?, macro_report = ?, is_selected = ?,
+                            secondary_sources = ?
                         WHERE url = ? OR (headline = ? AND source = ?)
                         """,
                         (
@@ -279,6 +356,7 @@ def append_stories(
                             snapshot_json,
                             macro,
                             is_selected,
+                            secondary_sources,
                             url_text,
                             headline,
                             source,

@@ -1,7 +1,7 @@
 import json
 import sqlite3
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -52,8 +52,10 @@ class LoopDatabaseTests(unittest.TestCase):
                 "market_snapshot_json",
                 "macro_report",
                 "is_selected",
+                "secondary_sources",
             },
         )
+        self.assertEqual(json.loads(row["secondary_sources"] or "[]"), [])
         self.assertEqual(row["is_selected"], 1)
         self.assertEqual(row["headline"], "Policy bill advances")
         self.assertEqual(row["url"], "https://example.com/bill")
@@ -261,3 +263,57 @@ class LoopDatabaseTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["is_selected"], 1)
         self.assertEqual(rows[0]["headline"], "Old pick")
+
+    def test_append_skips_untagged_unselected_and_prunes_old_unselected(self):
+        snapshot = {"fed_funds": {"status": "ok", "rate": 4.33}}
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "loop.db"
+            inserted = db.append_stories(
+                [
+                    {
+                        "published_at": "2024-01-01",
+                        "headline": "Old unselected",
+                        "link": "https://example.com/old-skip",
+                        "source": "Wire",
+                        "tags": ["US Politics"],
+                        "is_selected": 0,
+                    },
+                    {
+                        "published_at": "2026-11-01",
+                        "headline": "Fresh unselected",
+                        "link": "https://example.com/fresh",
+                        "source": "Wire",
+                        "tags": ["US Politics"],
+                        "is_selected": 0,
+                    },
+                    {
+                        "published_at": "2024-01-01",
+                        "headline": "Old pick",
+                        "link": "https://example.com/old-pick",
+                        "source": "Wire",
+                        "tags": ["US Politics"],
+                        "is_selected": 1,
+                    },
+                    {
+                        "published_at": "2026-11-01",
+                        "headline": "No tags",
+                        "link": "https://example.com/none",
+                        "source": "Wire",
+                        "tags": [],
+                        "is_selected": 0,
+                    },
+                ],
+                snapshot,
+                db_path=path,
+            )
+            rows = db.load_stories(path)
+            deleted = db.prune_old_stories(
+                retention_days=365,
+                db_path=path,
+                today=date(2026, 11, 4),
+            )
+            kept = {row["headline"] for row in db.load_stories(path)}
+        self.assertEqual(inserted, 3)
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(deleted, 1)
+        self.assertEqual(kept, {"Fresh unselected", "Old pick"})

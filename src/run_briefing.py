@@ -167,7 +167,10 @@ def persist_step(summarized_run: dict, snapshot: dict) -> Path:
         snapshot,
         macro_report=macro if isinstance(macro, str) else None,
     )
+    pruned = db.prune_old_stories()
     print(f"Appended {inserted} stories to {db.DEFAULT_DB_PATH}")
+    if pruned:
+        print(f"Pruned {pruned} unselected stories older than retention")
     return db.DEFAULT_DB_PATH
 
 

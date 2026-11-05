@@ -565,9 +565,20 @@ a.loop-tag:hover {{
 }}
 [data-testid="stHorizontalBlock"]:has(.loop-page-caption) button,
 [data-testid="stHorizontalBlock"]:has(.loop-page-caption) button p,
-[data-testid="stHorizontalBlock"]:has(.loop-page-caption) button span {{
-  background-color: #263B60 !important;
-  color: #F7F6F2 !important;
+[data-testid="stHorizontalBlock"]:has(.loop-page-caption) button span,
+button[kind="tertiary"],
+[data-testid="stBaseButton-tertiary"],
+[data-testid="stBaseButton-tertiary"] p,
+[data-testid="stBaseButton-tertiary"] span {{
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--loop-fg) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 0.18em;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }}
 a.loop-feed-parent {{
   color: var(--loop-fg) !important;
@@ -1034,6 +1045,20 @@ def parse_tags(raw: object) -> list[str]:
     return [raw]
 
 
+def parse_secondary_sources(raw: object) -> list[str]:
+    if isinstance(raw, list):
+        return [str(item).strip() for item in raw if str(item).strip()]
+    if not isinstance(raw, str) or not raw.strip():
+        return []
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return [raw.strip()]
+    if isinstance(parsed, list):
+        return [str(item).strip() for item in parsed if str(item).strip()]
+    return [raw.strip()]
+
+
 def normalize_headline(headline: object) -> str:
     """Collapse whitespace and lowercase so exact headlines group together."""
     return " ".join(str(headline or "").lower().split())
@@ -1332,7 +1357,18 @@ def group_stories_by_headline(rows: list[dict]) -> list[dict]:
         if not key:
             key = f"__row_{row_number}"
         if key in index:
-            groups[index[key]]["coverage"].append(row)
+            group = groups[index[key]]
+            group["coverage"].append(row)
+            for name in row.get("secondary_sources") or []:
+                if name and name != group["source"] and name not in group["secondary_sources"]:
+                    group["secondary_sources"].append(name)
+            source_name = str(row.get("source") or "").strip()
+            if (
+                source_name
+                and source_name != group["source"]
+                and source_name not in group["secondary_sources"]
+            ):
+                group["secondary_sources"].append(source_name)
             continue
         index[key] = len(groups)
         groups.append(
@@ -1344,6 +1380,7 @@ def group_stories_by_headline(rows: list[dict]) -> list[dict]:
                 "sub_feed": row.get("sub_feed") or "",
                 "tags": row.get("tags") or [],
                 "ai_summary": row.get("ai_summary") or "",
+                "secondary_sources": list(row.get("secondary_sources") or []),
                 "coverage": [row],
             }
         )
@@ -1666,6 +1703,10 @@ def search_stories_page(
     connection = get_connection(db_path_str)
     cursor = None
     for include_sub_feed, columns in (
+        (
+            True,
+            "published_date, headline, url, source, sub_feed, tags, ai_summary, secondary_sources",
+        ),
         (True, "published_date, headline, url, source, sub_feed, tags, ai_summary"),
         (False, "published_date, headline, url, source, tags, ai_summary"),
         (True, "published_date, headline, url, source, sub_feed, tags"),
@@ -1700,6 +1741,11 @@ def search_stories_page(
             summary = row["ai_summary"] or ""
         except (KeyError, IndexError):
             summary = ""
+        secondary = []
+        try:
+            secondary = parse_secondary_sources(row["secondary_sources"])
+        except (KeyError, IndexError):
+            secondary = []
         rows.append(
             {
                 "published_date": row["published_date"] or "",
@@ -1709,6 +1755,7 @@ def search_stories_page(
                 "sub_feed": sub_feed,
                 "tags": parse_tags(row["tags"]),
                 "ai_summary": summary,
+                "secondary_sources": secondary,
             }
         )
     size = int(page_size)
@@ -1764,6 +1811,8 @@ def in_focus_heading_html(
     if query:
         extras.append(html.escape(f"“{query}”"))
     extra = (" · " + " · ".join(extras)) if extras else ""
+    if not tag and not extra:
+        return '<h2 class="loop-in-focus">All Stories</h2>'
     if tag:
         color = html.escape(TAG_COLORS.get(tag, "#334155"), quote=True)
         name = html.escape(humanize_tag(tag))
@@ -1772,8 +1821,26 @@ def in_focus_heading_html(
             f'<span class="loop-in-focus-tag" style="text-decoration-color:{color}">{name}</span>'
             f"{extra}</h2>"
         )
-    label = extra.lstrip(" · ") or "All stories"
+    label = extra.lstrip(" · ")
     return f'<h2 class="loop-in-focus">In Focus: {label}</h2>'
+
+
+def page_range_label(page: int, page_size: int, total_count: int) -> str:
+    """Inclusive item range for the current page, e.g. ``1-20`` or ``840-843``."""
+    if total_count <= 0 or page_size <= 0:
+        return "0-0"
+    start = (max(1, page) - 1) * page_size + 1
+    end = min(start + page_size - 1, total_count)
+    if start > total_count:
+        start = total_count
+    return f"{start}-{end}"
+
+
+def _text_button(label: str, key: str) -> bool:
+    try:
+        return bool(st.button(label, key=key, type="tertiary"))
+    except TypeError:
+        return bool(st.button(label, key=key))
 
 
 def static_asset_is_utf8(path: Path) -> bool:
@@ -1847,34 +1914,37 @@ def render_sidebar(
         del path
 
 
+def coverage_line(group: dict) -> str:
+    """``Source • Tag (also covered by …)`` under the primary headline URL."""
+    source = str(group.get("source") or "Unknown source").strip() or "Unknown source"
+    tags = [humanize_tag(tag) for tag in (group.get("tags") or []) if tag]
+    extras: list[str] = []
+    for name in group.get("secondary_sources") or []:
+        text = str(name).strip()
+        if text and text != source and text not in extras:
+            extras.append(text)
+    for item in group.get("sources") or []:
+        text = str(item.get("source") or "").strip()
+        if text and text != source and text not in extras:
+            extras.append(text)
+    line = source
+    if tags:
+        line = f"{source} • {tags[0]}"
+    if extras:
+        line += f" (also covered by {', '.join(extras)})"
+    return line
+
+
 def render_story_cards(groups: list[dict]) -> None:
-    st.caption(f"{len(groups)} matching stor{'y' if len(groups) == 1 else 'ies'}")
     if not groups:
         st.info("No stored articles match those filters.")
         return
     for group in groups:
         with st.container(border=True):
             st.markdown(headline_html(group["headline"], group["url"]), unsafe_allow_html=True)
-            source_line = group["source"]
-            sub_feed = str(group.get("sub_feed") or "").strip()
-            if sub_feed and sub_feed != source_line:
-                source_line = f"{source_line} / {sub_feed}"
-            st.write(f"**Source:** {source_line}")
-            st.write(f"**Date:** {group['published_date']}")
-            chips = tag_chips_html(group["tags"])
-            if chips:
-                st.markdown(chips, unsafe_allow_html=True)
-            if group["ai_summary"]:
+            st.markdown(coverage_line(group))
+            if group.get("ai_summary"):
                 st.write(group["ai_summary"])
-            coverage = group["sources"]
-            if len(coverage) > 1:
-                with st.popover(f"🔗 Sources ({len(coverage)})"):
-                    for item in coverage:
-                        st.markdown(
-                            source_bullet_markdown(
-                                item["source"], item["headline"], item["url"]
-                            )
-                        )
 
 
 def render_daily_loop() -> None:
@@ -1979,25 +2049,19 @@ def render_search_page_controls(result: dict[str, object]) -> None:
         left, mid, right = st.columns([1, 2, 1], vertical_alignment="center")
     except TypeError:
         left, mid, right = st.columns([1, 2, 1])
+    clicked_prev = False
+    clicked_next = False
     with left:
-        clicked_prev = st.button(
-            "< Previous",
-            key=f"loop_prev_{page}",
-            type="primary",
-            disabled=page <= 1,
-        )
+        if page > 1:
+            clicked_prev = _text_button("Previous", f"loop_prev_{page}")
     with mid:
         st.markdown(
-            f'<p class="loop-page-caption">Page {page} of {total_pages}</p>',
+            f'<p class="loop-page-caption">{page_range_label(page, SEARCH_PAGE_SIZE, total_count)}</p>',
             unsafe_allow_html=True,
         )
     with right:
-        clicked_next = st.button(
-            "Next >",
-            key=f"loop_next_{page}",
-            type="primary",
-            disabled=page >= total_pages,
-        )
+        if page < total_pages:
+            clicked_next = _text_button("Next", f"loop_next_{page}")
     rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
     if clicked_prev and page > 1:
         st.session_state["loop_page"] = page - 1
@@ -2045,8 +2109,8 @@ def render_loop_explorer(path: Path) -> None:
     def blank_label(value: str, empty: str) -> str:
         return empty if value == "" else value
 
-    if st.session_state.get("loop_focus"):
-        if st.button("← Back to Search"):
+    if st.session_state.get("loop_focus") or st.session_state.get("loop_searched"):
+        if _text_button("Back to Search", "loop_back_search"):
             st.session_state["loop_focus"] = False
             st.session_state["loop_searched"] = False
             st.session_state["loop_restore_tab"] = True
@@ -2149,23 +2213,6 @@ def render_loop_explorer(path: Path) -> None:
         if callable(rerun):
             rerun()
         return
-
-    if not st.session_state.get("loop_searched"):
-        return
-
-    tag = st.session_state.get("loop_tag") or ""
-    source = st.session_state.get("loop_source") or ""
-    year = st.session_state.get("loop_year") or ""
-    month = st.session_state.get("loop_month") or ""
-    day = st.session_state.get("loop_day") or ""
-    query = (st.session_state.get("loop_query") or "").strip()
-    page = int(st.session_state.get("loop_page") or 1)
-    st.header("All Stories")
-    result = search_stories_page(
-        str(path), tag, source, query, year, month, day, page=page
-    )
-    render_search_page_controls(result)
-    render_story_cards(group_stories_by_headline(result["rows"]))
 
 
 def render_tag_archive(path: Path, tag: str) -> None:

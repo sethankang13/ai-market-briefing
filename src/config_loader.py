@@ -24,6 +24,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "pipeline": {
         "recency_cutoff_hours": 48,
         "top_selected_stories": 5,
+        "max_items_per_feed": 15,
+        "db_retention_days": 365,
         "output_dir": "briefs",
         "db_path": "data/loop.db",
     },

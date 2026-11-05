@@ -15,6 +15,8 @@ class LoadConfigTests(unittest.TestCase):
         config = config_loader.load_config()
         self.assertEqual(config["pipeline"]["recency_cutoff_hours"], 48)
         self.assertEqual(config["pipeline"]["top_selected_stories"], 5)
+        self.assertEqual(config["pipeline"]["max_items_per_feed"], 15)
+        self.assertEqual(config["pipeline"]["db_retention_days"], 365)
         self.assertEqual(config["pipeline"]["output_dir"], "briefs")
         self.assertEqual(config["pipeline"]["db_path"], "data/loop.db")
         self.assertEqual(len(config_loader.iter_feeds(config)), 20)

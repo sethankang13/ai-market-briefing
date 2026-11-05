@@ -506,6 +506,21 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("In Focus: ", heading)
         self.assertIn('class="loop-in-focus-tag"', heading)
         self.assertIn("US Politics", heading)
+        self.assertEqual(
+            self.app.in_focus_heading_html("", "", "", "", "", ""),
+            '<h2 class="loop-in-focus">All Stories</h2>',
+        )
+        self.assertEqual(self.app.page_range_label(1, 20, 843), "1-20")
+        self.assertEqual(self.app.page_range_label(43, 20, 843), "841-843")
+        line = self.app.coverage_line(
+            {
+                "source": "Reuters",
+                "tags": ["US Politics"],
+                "secondary_sources": ["CNBC"],
+                "sources": [],
+            }
+        )
+        self.assertEqual(line, "Reuters • US Politics (also covered by CNBC)")
         self.assertIn("text-decoration-color:#9B8AB8", heading)
         self.assertNotIn('class="loop-in-focus-tag">In Focus', heading)
         self.assertIn("search_stories_page", source)
@@ -807,14 +822,18 @@ class AppImportTests(unittest.TestCase):
         self.assertIn('st.form_submit_button("Search", type="primary")', source)
         self.assertIn("setdefault(key, \"\")", source)
         self.assertIn('setdefault("loop_searched", False)', source)
-        self.assertIn('st.header("All Stories")', source)
-        self.assertIn("if not st.session_state.get(\"loop_searched\"):", source)
-        self.assertIn('"< Previous"', source)
-        self.assertIn('"Next >"', source)
+        self.assertIn('>All Stories</h2>', source)
+        self.assertIn('"Back to Search"', source)
+        self.assertIn('_text_button("Previous"', source)
+        self.assertIn('_text_button("Next"', source)
+        self.assertIn("page_range_label", source)
         self.assertIn("loop-page-caption", source)
         self.assertIn("st.columns([1, 2, 1]", source)
-        self.assertNotIn("st.columns(2)", source.split("def render_search_page_controls")[1][:800])
+        self.assertNotIn("matching stor", source)
+        self.assertNotIn("st.columns(2)", source.split("def render_search_page_controls")[1][:900])
         self.assertNotIn('st.caption(\n        f"Page {page} of {total_pages}', source)
+        self.assertNotIn('"< Previous"', source)
+        self.assertNotIn('"Next >"', source)
         self.assertIn("tag_col, source_col = st.columns(2)", source)
         self.assertNotIn("on_change=_enter_loop_focus", source)
         self.assertIn("unique_source_filters", source)

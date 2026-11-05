@@ -558,10 +558,17 @@ a.loop-tag:hover {{
 }}
 [data-testid="stHorizontalBlock"]:has(.loop-page-caption) {{
   align-items: center;
+  width: 100%;
+}}
+[data-testid="stHorizontalBlock"]:has(.loop-page-caption) > div:last-child {{
+  display: flex !important;
+  justify-content: flex-end !important;
 }}
 [data-testid="stHorizontalBlock"]:has(.loop-page-caption) > div:last-child [data-testid="stButton"] {{
   display: flex;
   justify-content: flex-end;
+  width: 100%;
+  margin-left: auto;
 }}
 [data-testid="stHorizontalBlock"]:has(.loop-page-caption) button,
 [data-testid="stHorizontalBlock"]:has(.loop-page-caption) button p,
@@ -1836,6 +1843,12 @@ def page_range_label(page: int, page_size: int, total_count: int) -> str:
     return f"{start}-{end}"
 
 
+def page_status_caption(page: int, page_size: int, total_count: int, total_pages: int) -> str:
+    """``1-20 · Page 1 of 43``."""
+    pages = max(1, int(total_pages or 0))
+    return f"{page_range_label(page, page_size, total_count)} · Page {max(1, page)} of {pages}"
+
+
 def _text_button(label: str, key: str) -> bool:
     try:
         return bool(st.button(label, key=key, type="tertiary"))
@@ -1927,9 +1940,13 @@ def coverage_line(group: dict) -> str:
         text = str(item.get("source") or "").strip()
         if text and text != source and text not in extras:
             extras.append(text)
-    line = source
+    parts = [source]
     if tags:
-        line = f"{source} • {tags[0]}"
+        parts.append(tags[0])
+    published = str(group.get("published_date") or "").strip()
+    if published:
+        parts.append(published)
+    line = " • ".join(parts)
     if extras:
         line += f" (also covered by {', '.join(extras)})"
     return line
@@ -2053,15 +2070,17 @@ def render_search_page_controls(result: dict[str, object]) -> None:
     clicked_next = False
     with left:
         if page > 1:
-            clicked_prev = _text_button("Previous", f"loop_prev_{page}")
+            clicked_prev = _text_button("← Previous", f"loop_prev_{page}")
     with mid:
         st.markdown(
-            f'<p class="loop-page-caption">{page_range_label(page, SEARCH_PAGE_SIZE, total_count)}</p>',
+            f'<p class="loop-page-caption">'
+            f"{page_status_caption(page, SEARCH_PAGE_SIZE, total_count, total_pages)}"
+            f"</p>",
             unsafe_allow_html=True,
         )
     with right:
         if page < total_pages:
-            clicked_next = _text_button("Next", f"loop_next_{page}")
+            clicked_next = _text_button("Next →", f"loop_next_{page}")
     rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
     if clicked_prev and page > 1:
         st.session_state["loop_page"] = page - 1
@@ -2110,7 +2129,7 @@ def render_loop_explorer(path: Path) -> None:
         return empty if value == "" else value
 
     if st.session_state.get("loop_focus") or st.session_state.get("loop_searched"):
-        if _text_button("Back to Search", "loop_back_search"):
+        if _text_button("← Back to Search", "loop_back_search"):
             st.session_state["loop_focus"] = False
             st.session_state["loop_searched"] = False
             st.session_state["loop_restore_tab"] = True

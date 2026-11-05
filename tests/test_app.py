@@ -512,15 +512,23 @@ class AppImportTests(unittest.TestCase):
         )
         self.assertEqual(self.app.page_range_label(1, 20, 843), "1-20")
         self.assertEqual(self.app.page_range_label(43, 20, 843), "841-843")
+        self.assertEqual(
+            self.app.page_status_caption(1, 20, 843, 43),
+            "1-20 · Page 1 of 43",
+        )
         line = self.app.coverage_line(
             {
                 "source": "Reuters",
                 "tags": ["US Politics"],
+                "published_date": "2026-11-04",
                 "secondary_sources": ["CNBC"],
                 "sources": [],
             }
         )
-        self.assertEqual(line, "Reuters • US Politics (also covered by CNBC)")
+        self.assertEqual(
+            line,
+            "Reuters • US Politics • 2026-11-04 (also covered by CNBC)",
+        )
         self.assertIn("text-decoration-color:#9B8AB8", heading)
         self.assertNotIn('class="loop-in-focus-tag">In Focus', heading)
         self.assertIn("search_stories_page", source)
@@ -823,10 +831,11 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("setdefault(key, \"\")", source)
         self.assertIn('setdefault("loop_searched", False)', source)
         self.assertIn('>All Stories</h2>', source)
-        self.assertIn('"Back to Search"', source)
-        self.assertIn('_text_button("Previous"', source)
-        self.assertIn('_text_button("Next"', source)
+        self.assertIn('"← Back to Search"', source)
+        self.assertIn('_text_button("← Previous"', source)
+        self.assertIn('_text_button("Next →"', source)
         self.assertIn("page_range_label", source)
+        self.assertIn("page_status_caption", source)
         self.assertIn("loop-page-caption", source)
         self.assertIn("st.columns([1, 2, 1]", source)
         self.assertNotIn("matching stor", source)

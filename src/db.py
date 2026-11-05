@@ -106,7 +106,26 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
         )
     if "sub_feed" not in columns:
         connection.execute("ALTER TABLE stories ADD COLUMN sub_feed TEXT")
-    connection.execute(UNIQUE_DAY_URL_INDEX)
+    try:
+        connection.execute(UNIQUE_DAY_URL_INDEX)
+    except sqlite3.IntegrityError:
+        connection.execute(
+            """
+            DELETE FROM stories
+            WHERE url IS NOT NULL AND url != ''
+              AND id IN (
+                SELECT s.id FROM stories AS s
+                WHERE s.url IS NOT NULL AND s.url != ''
+                  AND EXISTS (
+                    SELECT 1 FROM stories AS t
+                    WHERE t.url = s.url
+                      AND (t.published_date IS s.published_date)
+                      AND t.id > s.id
+                  )
+              )
+            """
+        )
+        connection.execute(UNIQUE_DAY_URL_INDEX)
     connection.commit()
 
 

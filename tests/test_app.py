@@ -132,12 +132,15 @@ class AppImportTests(unittest.TestCase):
 
     def test_search_sql_keeps_placeholders_instead_of_interpolating(self):
         source = Path(self.app.__file__).read_text(encoding="utf-8")
-        self.assertIn("AND tags LIKE ?", source)
+        self.assertIn("tags LIKE ?", source)
         self.assertIn("AND source = ?", source)
         self.assertIn("AND (headline LIKE ? OR ai_summary LIKE ?)", source)
         self.assertNotIn("AND tags LIKE '%", source)
         self.assertNotIn(f"LIKE '%{{", source)
-        self.assertIn("SELECT published_date, headline, url, source, tags, ai_summary", source)
+        self.assertIn(
+            "published_date, headline, url, source, sub_feed, tags, ai_summary",
+            source,
+        )
         self.assertIn("def stories_for_tag", source)
 
     def test_tag_query_param_and_date_grouped_archive_helpers(self):
@@ -574,6 +577,10 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("loopActiveTab", source)
         self.assertIn("__loopTabLockUntil", source)
         self.assertIn("tabLockActive", source)
+        self.assertIn("setTimeout(function () {", source)
+        self.assertIn('addEventListener("pointerdown"', source)
+        self.assertIn("armFrameFocus", source)
+        self.assertNotIn("lockTabs(1000)", source)
         self.assertIn(".assign(href)", source)
         self.assertIn("retargetLoopLinks", source)
         self.assertIn("st.header(selected)", source)
@@ -705,12 +712,100 @@ class AppImportTests(unittest.TestCase):
         self.assertEqual(len(by_child), 12)
         self.assertEqual(len(by_parent), 12)
 
+    def test_search_page_counts_unique_headlines_not_duplicate_rows(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "loop.db"
+            connection = sqlite3.connect(path)
+            connection.execute(
+                """
+                CREATE TABLE stories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    published_date TEXT,
+                    headline TEXT,
+                    url TEXT,
+                    source TEXT,
+                    sub_feed TEXT,
+                    tags TEXT
+                )
+                """
+            )
+            connection.executemany(
+                "INSERT INTO stories (published_date, headline, url, source, sub_feed, tags) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        "2026-10-23",
+                        "Same story",
+                        "https://example.com/same",
+                        f"Source {index}",
+                        "",
+                        '["US Politics"]',
+                    )
+                    for index in range(20)
+                ]
+                + [
+                    (
+                        "2026-10-22",
+                        f"Other {index}",
+                        f"https://example.com/other-{index}",
+                        "Reuters",
+                        "",
+                        '["Tech & Innovation"]',
+                    )
+                    for index in range(3)
+                ],
+            )
+            connection.commit()
+            connection.close()
+            page = self.app.search_stories_page(str(path), "", "", "", page=1)
+            groups = self.app.group_stories_by_headline(page["rows"])
+
+        self.assertEqual(page["totalCount"], 4)
+        self.assertEqual(page["totalPages"], 1)
+        self.assertEqual(len(groups), 4)
+
+    def test_search_matches_hyphenated_legacy_tags(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "loop.db"
+            connection = sqlite3.connect(path)
+            connection.execute(
+                """
+                CREATE TABLE stories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    published_date TEXT,
+                    headline TEXT,
+                    url TEXT,
+                    source TEXT,
+                    sub_feed TEXT,
+                    tags TEXT
+                )
+                """
+            )
+            connection.execute(
+                "INSERT INTO stories (published_date, headline, url, source, sub_feed, tags) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    "2026-10-22",
+                    "Legacy valuation",
+                    "https://example.com/legacy",
+                    "FT, WSJ & Bloomberg Proxy",
+                    "Markets",
+                    '["Market-Valuations"]',
+                ),
+            )
+            connection.commit()
+            connection.close()
+            rows = self.app.search_stories(str(path), "Market Valuations", "", "")
+
+        self.assertEqual([row["headline"] for row in rows], ["Legacy valuation"])
+
     def test_daily_loop_date_default_and_loop_search_form(self):
         source = Path(self.app.__file__).read_text(encoding="utf-8")
         self.assertIn('st.selectbox("Briefing date"', source)
         self.assertIn("key=\"daily_loop_date\"", source)
         self.assertIn('st.form("loop_search_form")', source)
         self.assertIn('st.form_submit_button("Search", type="primary")', source)
+        self.assertIn("setdefault(key, \"\")", source)
         self.assertIn("tag_col, source_col = st.columns(2)", source)
         self.assertNotIn("on_change=_enter_loop_focus", source)
         self.assertEqual(

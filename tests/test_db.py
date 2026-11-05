@@ -172,6 +172,28 @@ class LoopDatabaseTests(unittest.TestCase):
         self.assertEqual(by_url["https://example.com/bill"]["is_selected"], 1)
         self.assertEqual(by_url["https://example.com/other"]["is_selected"], 0)
 
+    def test_ensure_schema_dedupes_same_day_urls_for_unique_index(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "loop.db"
+            connection = sqlite3.connect(path)
+            connection.execute(db.SCHEMA)
+            connection.execute(
+                "INSERT INTO stories (published_date, headline, url, source) "
+                "VALUES (?, ?, ?, ?)",
+                ("2026-11-04", "First", "https://example.com/dup", "Wire"),
+            )
+            connection.execute(
+                "INSERT INTO stories (published_date, headline, url, source) "
+                "VALUES (?, ?, ?, ?)",
+                ("2026-11-04", "Second", "https://example.com/dup", "Wire"),
+            )
+            connection.commit()
+            connection.close()
+            rows = db.load_stories(path)
+            headlines = [row["headline"] for row in rows]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(headlines, ["Second"])
+
     def test_existing_database_migrates_is_selected_column(self):
         with TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "loop.db"

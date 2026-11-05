@@ -809,8 +809,17 @@ def brand_theme_script() -> str:
     var match = tabButtons().find(function (btn) { return tabLabel(btn) === name; });
     if (!match) return;
     if (match.getAttribute("aria-selected") === "true") return;
-    lockTabs(400);
+    lockTabs(250);
     match.click();
+  }
+  function armFrameFocus() {
+    try { win.focus(); } catch (err) {}
+    try {
+      if (doc.body) {
+        doc.body.setAttribute("tabindex", "-1");
+        if (doc.body.focus) doc.body.focus({ preventScroll: true });
+      }
+    } catch (err) {}
   }
   function applyTab() {
     if (tabLockActive()) return;
@@ -828,6 +837,21 @@ def brand_theme_script() -> str:
   function bindTabsAndSameTab(root) {
     if (!root || root.__loopNavBound) return;
     root.__loopNavBound = true;
+    root.addEventListener("pointerdown", function (event) {
+      if (event.button) return;
+      var tab = event.target && event.target.closest
+        ? event.target.closest('[role="tab"]')
+        : null;
+      if (!tab) return;
+      var label = tabLabel(tab);
+      if (label !== TAB_DAILY && label !== TAB_LOOP) return;
+      try { win.sessionStorage.setItem("loopActiveTab", label); } catch (err) {}
+      if (event.isTrusted === false) return;
+      if (tab.getAttribute("aria-selected") === "true") return;
+      event.preventDefault();
+      event.stopPropagation();
+      clickTab(label);
+    }, true);
     root.addEventListener("click", function (event) {
       var a = event.target && event.target.closest
         ? event.target.closest("a.loop-tag, a.loop-feed-parent")
@@ -848,8 +872,12 @@ def brand_theme_script() -> str:
       if (!tab) return;
       var label = tabLabel(tab);
       if (label === TAB_DAILY || label === TAB_LOOP) {
-        if (event.isTrusted !== false) lockTabs(1000);
         try { win.sessionStorage.setItem("loopActiveTab", label); } catch (err) {}
+        if (event.isTrusted !== false) {
+          setTimeout(function () {
+            if (selectedTabName() !== label) clickTab(label);
+          }, 50);
+        }
       }
     }, true);
   }
@@ -858,6 +886,7 @@ def brand_theme_script() -> str:
   labelSidebar();
   paintSearch();
   retargetLoopLinks();
+  armFrameFocus();
   applyTab();
   if (!doc.__loopSidebarLabeled) {
     doc.__loopSidebarLabeled = true;
@@ -1539,8 +1568,12 @@ def _search_filters(
     sql = " FROM stories WHERE 1=1"
     params: list[object] = []
     if tag:
-        sql += " AND tags LIKE ?"
-        params.append(f"%{tag}%")
+        variants = []
+        for candidate in (tag, tag.replace(" ", "-"), tag.replace("-", " ")):
+            if candidate and candidate not in variants:
+                variants.append(candidate)
+        sql += " AND (" + " OR ".join("tags LIKE ?" for _ in variants) + ")"
+        params.extend(f"%{item}%" for item in variants)
     if source:
         if include_sub_feed:
             sql += " AND (source = ? OR sub_feed = ?)"
@@ -1600,57 +1633,35 @@ def search_stories_page(
     page: int = 1,
     page_size: int = SEARCH_PAGE_SIZE,
 ) -> dict[str, object]:
-    """Paginated Loop search: 20 rows plus page / totalPages / totalCount."""
+    """Paginated Loop search: 20 unique headlines plus page / totalPages / totalCount."""
     empty = {"rows": [], "page": 1, "totalPages": 0, "totalCount": 0}
     path = Path(db_path_str)
     if not path.is_file():
         return empty
     connection = get_connection(db_path_str)
-    where_sql, params = _search_filters(tag, source, query, year, month, day)
-    try:
-        count_row = connection.execute(
-            "SELECT COUNT(*) AS n" + where_sql, params
-        ).fetchone()
-    except sqlite3.Error:
+    cursor = None
+    for include_sub_feed, columns in (
+        (True, "published_date, headline, url, source, sub_feed, tags, ai_summary"),
+        (False, "published_date, headline, url, source, tags, ai_summary"),
+        (True, "published_date, headline, url, source, sub_feed, tags"),
+        (False, "published_date, headline, url, source, tags"),
+    ):
         where_sql, params = _search_filters(
-            tag, source, query, year, month, day, include_sub_feed=False
+            tag, source, query, year, month, day, include_sub_feed=include_sub_feed
         )
-        try:
-            count_row = connection.execute(
-                "SELECT COUNT(*) AS n" + where_sql, params
-            ).fetchone()
-        except sqlite3.Error:
-            return empty
-    total_count = int(count_row["n"] if count_row is not None else 0)
-    size = int(page_size)
-    if size <= 0:
-        size = total_count or 1
-        total_pages = 1 if total_count else 0
-        page_number = 1
-        offset = 0
-    else:
-        total_pages = (total_count + size - 1) // size if total_count else 0
-        page_number = max(1, int(page or 1))
-        if total_pages:
-            page_number = min(page_number, total_pages)
-        offset = (page_number - 1) * size
-    select_sql = (
-        "SELECT published_date, headline, url, source, sub_feed, tags, ai_summary"
-        + where_sql
-        + " ORDER BY published_date DESC, id DESC LIMIT ? OFFSET ?"
-    )
-    try:
-        cursor = connection.execute(select_sql, [*params, size, offset])
-    except sqlite3.Error:
         select_sql = (
-            "SELECT published_date, headline, url, source, tags, ai_summary"
+            "SELECT "
+            + columns
             + where_sql
-            + " ORDER BY published_date DESC, id DESC LIMIT ? OFFSET ?"
+            + " ORDER BY published_date DESC, id DESC"
         )
         try:
-            cursor = connection.execute(select_sql, [*params, size, offset])
+            cursor = connection.execute(select_sql, params)
+            break
         except sqlite3.Error:
-            return empty
+            cursor = None
+    if cursor is None:
+        return empty
     rows = []
     for row in cursor.fetchall():
         source_name = row["source"] or "Unknown source"
@@ -1659,6 +1670,11 @@ def search_stories_page(
             sub_feed = row["sub_feed"] or ""
         except (KeyError, IndexError):
             sub_feed = ""
+        summary = ""
+        try:
+            summary = row["ai_summary"] or ""
+        except (KeyError, IndexError):
+            summary = ""
         rows.append(
             {
                 "published_date": row["published_date"] or "",
@@ -1667,11 +1683,29 @@ def search_stories_page(
                 "source": source_name,
                 "sub_feed": sub_feed,
                 "tags": parse_tags(row["tags"]),
-                "ai_summary": row["ai_summary"] or "",
+                "ai_summary": summary,
             }
         )
+    size = int(page_size)
+    if size <= 0:
+        total_count = len(rows)
+        return {
+            "rows": rows,
+            "page": 1,
+            "totalPages": 1 if total_count else 0,
+            "totalCount": total_count,
+        }
+    groups = group_stories_by_headline(rows)
+    total_count = len(groups)
+    total_pages = (total_count + size - 1) // size if total_count else 0
+    page_number = max(1, int(page or 1))
+    if total_pages:
+        page_number = min(page_number, total_pages)
+    start = (page_number - 1) * size
+    page_groups = groups[start : start + size]
+    page_rows = [item for group in page_groups for item in group["coverage"]]
     return {
-        "rows": rows,
+        "rows": page_rows,
         "page": page_number,
         "totalPages": total_pages,
         "totalCount": total_count,
@@ -1938,6 +1972,17 @@ def render_loop_explorer(path: Path) -> None:
         )
         return
 
+    for key in (
+        "loop_tag",
+        "loop_source",
+        "loop_year",
+        "loop_month",
+        "loop_day",
+        "loop_query",
+    ):
+        st.session_state.setdefault(key, "")
+    st.session_state.setdefault("loop_page", 1)
+
     internal_tags = taxonomy_tags()
     tag_options = [""] + internal_tags
     sources = [""] + unique_source_filters(str(path))
@@ -1959,6 +2004,13 @@ def render_loop_explorer(path: Path) -> None:
         if st.button("← Back to Search"):
             st.session_state["loop_focus"] = False
             st.session_state["loop_restore_tab"] = True
+            st.session_state["loop_tag"] = ""
+            st.session_state["loop_source"] = ""
+            st.session_state["loop_year"] = ""
+            st.session_state["loop_month"] = ""
+            st.session_state["loop_day"] = ""
+            st.session_state["loop_query"] = ""
+            st.session_state["loop_page"] = 1
             clear_loop_query_params()
             rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
             if callable(rerun):
@@ -2036,10 +2088,33 @@ def render_loop_explorer(path: Path) -> None:
         submitted = st.form_submit_button("Search", type="primary")
     if submitted:
         st.session_state["loop_page"] = 1
-        _enter_loop_focus()
+        tag = st.session_state.get("loop_tag") or ""
+        source = st.session_state.get("loop_source") or ""
+        year = st.session_state.get("loop_year") or ""
+        month = st.session_state.get("loop_month") or ""
+        day = st.session_state.get("loop_day") or ""
+        query = (st.session_state.get("loop_query") or "").strip()
+        if tag or source or query or year or month or day:
+            _enter_loop_focus()
+        else:
+            st.session_state["loop_focus"] = False
         rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
         if callable(rerun):
             rerun()
+        return
+
+    tag = st.session_state.get("loop_tag") or ""
+    source = st.session_state.get("loop_source") or ""
+    year = st.session_state.get("loop_year") or ""
+    month = st.session_state.get("loop_month") or ""
+    day = st.session_state.get("loop_day") or ""
+    query = (st.session_state.get("loop_query") or "").strip()
+    page = int(st.session_state.get("loop_page") or 1)
+    result = search_stories_page(
+        str(path), tag, source, query, year, month, day, page=page
+    )
+    render_search_page_controls(result)
+    render_story_cards(group_stories_by_headline(result["rows"]))
 
 
 def render_tag_archive(path: Path, tag: str) -> None:

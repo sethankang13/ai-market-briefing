@@ -572,6 +572,8 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("loop_select_tab", source)
         self.assertIn("loop_restore_tab", source)
         self.assertIn("loopActiveTab", source)
+        self.assertIn("__loopTabLockUntil", source)
+        self.assertIn("tabLockActive", source)
         self.assertIn(".assign(href)", source)
         self.assertIn("retargetLoopLinks", source)
         self.assertIn("st.header(selected)", source)

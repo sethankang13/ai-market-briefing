@@ -792,15 +792,32 @@ def brand_theme_script() -> str:
     } catch (err) {}
     return null;
   }
+  function tabLockActive() {
+    return Date.now() < (win.__loopTabLockUntil || 0);
+  }
+  function lockTabs(ms) {
+    win.__loopTabLockUntil = Date.now() + (ms || 1000);
+  }
+  function selectedTabName() {
+    var selected = tabButtons().find(function (btn) {
+      return btn.getAttribute("aria-selected") === "true";
+    });
+    return selected ? tabLabel(selected) : null;
+  }
   function clickTab(name) {
     if (!name) return;
     var match = tabButtons().find(function (btn) { return tabLabel(btn) === name; });
     if (!match) return;
     if (match.getAttribute("aria-selected") === "true") return;
+    lockTabs(400);
     match.click();
   }
   function applyTab() {
-    clickTab(desiredTab());
+    if (tabLockActive()) return;
+    var desired = desiredTab();
+    if (!desired) return;
+    if (selectedTabName() === desired) return;
+    clickTab(desired);
   }
   function retargetLoopLinks() {
     doc.querySelectorAll("a.loop-tag, a.loop-feed-parent").forEach(function (a) {
@@ -831,6 +848,7 @@ def brand_theme_script() -> str:
       if (!tab) return;
       var label = tabLabel(tab);
       if (label === TAB_DAILY || label === TAB_LOOP) {
+        if (event.isTrusted !== false) lockTabs(1000);
         try { win.sessionStorage.setItem("loopActiveTab", label); } catch (err) {}
       }
     }, true);

@@ -1,3 +1,4 @@
+import json
 import os
 import sqlite3
 import sys
@@ -481,6 +482,12 @@ class AppImportTests(unittest.TestCase):
         self.assertIn("paintSearch", source)
         self.assertIn("loop-glance-body", source)
         self.assertIn("loop-glance-line", source)
+        self.assertIn("loop-trajectory", source)
+        self.assertIn("loop-tag-pattern", source)
+        self.assertIn("loop-market-chart", source)
+        self.assertIn("render_market_history_chart", source)
+        self.assertIn("load_macro_trajectory", source)
+        self.assertNotIn("st.sidebar.button", source)
         self.assertIn("stAppDeployButton", css)
         self.assertIn("scale(0.97)", css)
         self.assertNotIn("max-width: 760px", css)
@@ -1023,3 +1030,172 @@ class HeadlineAndPopoverTests(unittest.TestCase):
         self.assertNotIn("](#rates-rise)", displayed)
         self.assertNotIn("https://example.com/should-not-print", displayed)
         self.assertIn("also covered by [CNBC]", displayed)
+
+    def test_parse_trajectory_markdown_reads_three_blocks(self):
+        parsed = self.app.parse_trajectory_markdown(
+            "# The Loop: Macro Summary (Last 14 Days)\n\n"
+            "# Macro Trajectory (Last 14 Days)\n\n"
+            "## Narrative Arcs\n\n"
+            "1. Policy and markets stay linked.\n"
+            "2. Labor remains the second thread.\n\n"
+            "## Signal Momentum\n\n"
+            "Gaining:\n"
+            "- US Politics\n\n"
+            "Fading:\n"
+            "- Venture & M&A\n\n"
+            "## Pivot Points\n\n"
+            "- A rate-path reversal.\n"
+        )
+        self.assertEqual(
+            parsed["narrative_arcs"],
+            ["Policy and markets stay linked.", "Labor remains the second thread."],
+        )
+        self.assertEqual(parsed["signal_momentum"]["gaining"], ["US Politics"])
+        self.assertEqual(parsed["signal_momentum"]["fading"], ["Venture & M&A"])
+        self.assertEqual(parsed["pivot_points"], ["A rate-path reversal."])
+        self.assertFalse(parsed["empty"])
+
+    def test_load_macro_trajectory_prefers_markdown_then_macros(self):
+        with TemporaryDirectory() as temp_dir:
+            folder = Path(temp_dir)
+            loop_md = folder / "THE_LOOP.md"
+            loop_md.write_text(
+                "# Macro Trajectory (Last 14 Days)\n\n"
+                "## Narrative Arcs\n\n"
+                "1. From the file.\n",
+                encoding="utf-8",
+            )
+            from_file = self.app.load_macro_trajectory(
+                days=14,
+                db_path=folder / "missing.db",
+                markdown_path=loop_md,
+            )
+            self.assertEqual(from_file["narrative_arcs"], ["From the file."])
+            missing = self.app.load_macro_trajectory(
+                days=14,
+                db_path=folder / "missing.db",
+                markdown_path=folder / "nope.md",
+            )
+            self.assertTrue(missing["empty"])
+
+            import db
+
+            sqlite_path = folder / "loop.db"
+            db.append_stories(
+                [
+                    {
+                        "published_at": "2026-11-01",
+                        "headline": "Policy bill advances",
+                        "link": "https://example.com/bill",
+                        "source": "Example News",
+                        "tags": ["US Politics"],
+                    },
+                    {
+                        "published_at": "2026-11-04",
+                        "headline": "Chip rules expand",
+                        "link": "https://example.com/chips",
+                        "source": "Other Source",
+                        "tags": ["Geopolitics & Trade"],
+                    },
+                ],
+                db_path=sqlite_path,
+                macro_report=json.dumps(
+                    {
+                        "tag_notes": {
+                            "US Politics": "The bill remains the week's core."
+                        },
+                        "daily_summary": "Policy headlines dominated the window.",
+                        "research_radar": ["Follow the markup."],
+                    }
+                ),
+            )
+            from_macros = self.app.load_macro_trajectory(
+                days=14,
+                db_path=sqlite_path,
+                markdown_path=folder / "nope.md",
+            )
+            self.assertFalse(from_macros["empty"])
+            self.assertTrue(
+                any("Policy headlines" in arc for arc in from_macros["narrative_arcs"])
+            )
+            self.assertEqual(
+                self.app.load_tag_notes_for_date("2026-11-04", sqlite_path)["US Politics"],
+                "The bill remains the week's core.",
+            )
+            self.assertEqual(
+                self.app.latest_tag_note("US Politics", sqlite_path),
+                "The bill remains the week's core.",
+            )
+            self.assertEqual(self.app.load_tag_notes_for_date("1999-01-01", sqlite_path), {})
+
+    def test_market_snapshot_history_dedupes_and_skips_bad_json(self):
+        with TemporaryDirectory() as temp_dir:
+            import db
+
+            sqlite_path = Path(temp_dir) / "loop.db"
+            snapshot = {
+                "fetched_at": "2026-11-04T12:00:00+00:00",
+                "fed_funds": {"status": "ok", "rate": 3.88},
+                "indexes": {
+                    "^GSPC": {
+                        "status": "ok",
+                        "previous_close": 7405.77,
+                        "percent_change": -3.68,
+                    },
+                    "^IXIC": {
+                        "status": "ok",
+                        "previous_close": 24480.44,
+                        "percent_change": -4.88,
+                    },
+                    "^DJI": {
+                        "status": "ok",
+                        "previous_close": 51828.58,
+                        "percent_change": -2.86,
+                    },
+                },
+            }
+            db.append_stories(
+                [
+                    {
+                        "published_at": "2026-11-04",
+                        "headline": "Policy bill advances",
+                        "link": "https://example.com/bill",
+                        "source": "Example News",
+                        "tags": ["US Politics"],
+                    }
+                ],
+                market_snapshot=snapshot,
+                db_path=sqlite_path,
+            )
+            db.append_stories(
+                [
+                    {
+                        "published_at": "2026-11-04",
+                        "headline": "Second story same day",
+                        "link": "https://example.com/second",
+                        "source": "Other Source",
+                        "tags": ["US Politics"],
+                    }
+                ],
+                market_snapshot=snapshot,
+                db_path=sqlite_path,
+            )
+            history = self.app.load_market_snapshot_history(sqlite_path)
+            self.assertEqual(len(history), 1)
+            self.assertEqual(history[0]["date"], "2026-11-04")
+            self.assertEqual(history[0]["fed_funds"], 3.88)
+            self.assertEqual(history[0]["^GSPC"], 7405.77)
+            rows = self.app.market_history_long_rows(
+                history, ["fed_funds", "^GSPC"], "2026-11-04", "2026-11-04"
+            )
+            self.assertEqual({row["series"] for row in rows}, {"Fed Funds", "S&P 500"})
+            self.assertEqual(
+                self.app.load_market_snapshot_history(Path(temp_dir) / "missing.db"),
+                [],
+            )
+            html = self.app.trajectory_html({"empty": True}, days=14)
+            self.assertIn("Macro Trajectory (Last 14 Days)", html)
+            self.assertIn("cannot invent a trajectory", html)
+            pattern = self.app.tag_pattern_html("US Politics", "The bill remains the week's core.")
+            self.assertIn("#", pattern)
+            self.assertIn("week&#x27;s core", pattern)

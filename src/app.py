@@ -58,6 +58,12 @@ _PERCENT_DOWN_SPAN = re.compile(
 )
 TAB_DAILY = "Daily Loop"
 TAB_LOOP = "The Loop"
+MARKET_SERIES = (
+    ("fed_funds", "Fed Funds", "#263B60"),
+    ("^GSPC", "S&P 500", "#A7C7E7"),
+    ("^IXIC", "Nasdaq", "#64748B"),
+    ("^DJI", "Dow", "#171C25"),
+)
 LOOP_HEADER_HTML = """
 <div class="loop-header">
   <div class="loop-mark" aria-label="LOOP glasses">
@@ -80,6 +86,8 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 import streamlit as st
+import fetch_market
+import write_the_loop
 from config_loader import flatten_feed_urls, load_config, nested_feed_tree, project_path
 from write_brief import (
     TAG_ARCHIVE_BASE,
@@ -313,6 +321,56 @@ a[id], h1, h2, h3, [id] {{ scroll-margin-top: 90px; }}
 }}
 .loop-glance-line {{
   margin: 0 0 0.35rem;
+}}
+.loop-trajectory {{
+  margin: 0 0 1.15rem;
+  color: var(--loop-fg);
+}}
+.loop-trajectory h2 {{
+  font-size: 1.35rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em;
+  margin: 0 0 0.55rem !important;
+}}
+.loop-trajectory h3 {{
+  font-size: 0.92rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--loop-muted);
+  margin: 0.7rem 0 0.25rem !important;
+}}
+.loop-trajectory ol,
+.loop-trajectory ul {{
+  margin: 0 0 0.4rem 1.1rem;
+  padding: 0;
+}}
+.loop-trajectory li,
+.loop-trajectory p {{
+  font-size: 0.95rem !important;
+  line-height: 1.5 !important;
+  font-weight: 400 !important;
+}}
+.loop-tag-pattern {{
+  margin: 0 0 0.7rem;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--loop-fg);
+}}
+.loop-tag-pattern p {{
+  margin: 0.2rem 0 0;
+  font-style: italic;
+  font-weight: 400 !important;
+}}
+.loop-market-chart {{
+  margin: 0.35rem 0 1.1rem;
+  width: 100%;
+  max-width: 100%;
+}}
+@media (max-width: 768px) {{
+  .loop-market-chart {{
+    min-height: 220px;
+  }}
 }}
 .loop-delta-up {{ color: #2F7D4F !important; }}
 .loop-delta-down {{ color: #C04545 !important; }}
@@ -1273,6 +1331,392 @@ def split_daily_brief_sections(markdown: str) -> tuple[str, str, str]:
     return snapshot, glance, remainder
 
 
+def the_loop_markdown_path() -> Path:
+    return briefs_directory() / "THE_LOOP.md"
+
+
+def parse_trajectory_markdown(markdown: str) -> dict[str, object]:
+    """Parse a Macro Trajectory section from THE_LOOP.md."""
+    arcs: list[str] = []
+    gaining: list[str] = []
+    fading: list[str] = []
+    pivots: list[str] = []
+    bucket = None
+    momentum_side = "gaining"
+    in_section = False
+    for raw in markdown.splitlines():
+        stripped = raw.strip()
+        if stripped.startswith("# Macro Trajectory"):
+            in_section = True
+            bucket = None
+            continue
+        if in_section and stripped.startswith("# ") and not stripped.startswith("# Macro Trajectory"):
+            break
+        if not in_section:
+            continue
+        heading = re.match(r"^#{1,3}\s+(.*)$", stripped)
+        if heading:
+            title = heading.group(1).strip().lower()
+            if "narrative" in title:
+                bucket = "arcs"
+            elif "signal" in title or "momentum" in title:
+                bucket = "momentum"
+                momentum_side = "gaining"
+            elif "pivot" in title:
+                bucket = "pivots"
+            else:
+                bucket = None
+            continue
+        if re.match(r"^gaining:", stripped, re.I):
+            momentum_side = "gaining"
+            rest = stripped.split(":", 1)[1].strip(" -")
+            if rest:
+                gaining.append(rest)
+            continue
+        if re.match(r"^fading:", stripped, re.I):
+            momentum_side = "fading"
+            rest = stripped.split(":", 1)[1].strip(" -")
+            if rest:
+                fading.append(rest)
+            continue
+        item = re.sub(r"^\s*(?:\d+[.)]|[-*])\s*", "", stripped).strip()
+        if not item:
+            continue
+        if bucket == "arcs":
+            arcs.append(item)
+        elif bucket == "momentum":
+            if momentum_side == "fading":
+                fading.append(item)
+            else:
+                gaining.append(item)
+        elif bucket == "pivots":
+            pivots.append(item)
+    empty = not (arcs or gaining or fading or pivots)
+    return {
+        "narrative_arcs": arcs,
+        "signal_momentum": {"gaining": gaining, "fading": fading},
+        "pivot_points": pivots,
+        "empty": empty,
+        "source": "the_loop_md",
+    }
+
+
+def trajectory_from_macros(payloads: list[dict]) -> dict[str, object]:
+    """Build a trajectory from stored daily_summary / tag_notes without calling Gemini."""
+    dated = [item for item in payloads if isinstance(item, dict)]
+    chronological = list(reversed(dated))
+    arcs = []
+    for item in chronological[-4:]:
+        day = str(item.get("published_date") or "").strip()
+        summary = str(item.get("daily_summary") or "").strip()
+        if summary:
+            arcs.append(f"{day}: {summary}" if day else summary)
+    counts: dict[str, list[int]] = {}
+    midpoint = max(len(chronological) // 2, 1)
+    for index, item in enumerate(chronological):
+        notes = item.get("tag_notes") if isinstance(item.get("tag_notes"), dict) else {}
+        half = 0 if index < midpoint else 1
+        for tag in notes:
+            bucket = counts.setdefault(str(tag), [0, 0])
+            bucket[half] += 1
+    gaining = []
+    fading = []
+    for tag in TAG_LABELS:
+        early, late = counts.get(tag, [0, 0])
+        if late > early:
+            gaining.append(humanize_tag(tag))
+        elif early > late and late == 0:
+            fading.append(humanize_tag(tag))
+        elif early > late:
+            fading.append(humanize_tag(tag))
+    empty = not (arcs or gaining or fading)
+    return {
+        "narrative_arcs": arcs,
+        "signal_momentum": {"gaining": gaining, "fading": fading},
+        "pivot_points": [],
+        "empty": empty,
+        "source": "macros",
+        "unavailable_pivots": True,
+    }
+
+
+def load_macro_trajectory(
+    days: int = 14,
+    db_path: Path | None = None,
+    markdown_path: Path | None = None,
+) -> dict[str, object]:
+    """Prefer THE_LOOP.md synthesize output; else stored macro_report JSON."""
+    path = Path(markdown_path) if markdown_path is not None else the_loop_markdown_path()
+    if path.is_file():
+        try:
+            parsed = parse_trajectory_markdown(path.read_text(encoding="utf-8"))
+        except OSError:
+            parsed = {"empty": True, "narrative_arcs": [], "signal_momentum": {}, "pivot_points": []}
+        if not parsed.get("empty"):
+            return parsed
+    payloads = write_the_loop.load_macro_reports(days=days, db_path=db_path)
+    if payloads:
+        return trajectory_from_macros(payloads)
+    return {
+        "narrative_arcs": [],
+        "signal_momentum": {"gaining": [], "fading": []},
+        "pivot_points": [],
+        "empty": True,
+        "source": "none",
+    }
+
+
+def load_tag_notes_for_date(
+    day: str,
+    sqlite_path: Path | None = None,
+) -> dict[str, str]:
+    """Stored tag_notes for one published_date; empty dict if missing."""
+    path = Path(sqlite_path) if sqlite_path is not None else db_path()
+    if not path.is_file() or not day:
+        return {}
+    try:
+        connection = get_connection(str(path))
+        cursor = connection.execute(
+            "SELECT macro_report FROM stories "
+            "WHERE published_date = ? AND macro_report IS NOT NULL "
+            "AND trim(macro_report) != '' "
+            "ORDER BY id DESC",
+            (day,),
+        )
+        rows = cursor.fetchall()
+    except sqlite3.Error:
+        return {}
+    for row in rows:
+        parsed = write_the_loop.parse_macro_payload(row["macro_report"])
+        if parsed and parsed.get("tag_notes"):
+            return parsed["tag_notes"]
+    return {}
+
+
+def latest_tag_note(tag: str, sqlite_path: Path | None = None) -> str:
+    """Most recent stored pattern paragraph for one taxonomy tag."""
+    if not tag:
+        return ""
+    path = Path(sqlite_path) if sqlite_path is not None else db_path()
+    payloads = write_the_loop.load_macro_reports(days=365, db_path=path)
+    for item in payloads:
+        notes = item.get("tag_notes") if isinstance(item.get("tag_notes"), dict) else {}
+        text = notes.get(tag)
+        if isinstance(text, str) and text.strip():
+            return text.strip()
+    return ""
+
+
+def load_market_snapshot_history(sqlite_path: Path | None = None) -> list[dict[str, object]]:
+    """Unique dated snapshots already stored on stories. Does not invent quotes."""
+    path = Path(sqlite_path) if sqlite_path is not None else db_path()
+    if not path.is_file():
+        return []
+    try:
+        connection = get_connection(str(path))
+        cursor = connection.execute(
+            "SELECT published_date, market_snapshot_json FROM stories "
+            "WHERE market_snapshot_json IS NOT NULL AND trim(market_snapshot_json) != '' "
+            "ORDER BY published_date ASC, id ASC"
+        )
+        rows = [dict(row) for row in cursor.fetchall()]
+    except sqlite3.Error:
+        return []
+    history: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for row in rows:
+        raw = row.get("market_snapshot_json")
+        try:
+            data = json.loads(raw) if isinstance(raw, str) else raw
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(data, dict):
+            continue
+        day = str(row.get("published_date") or "").strip()
+        fetched = data.get("fetched_at")
+        if isinstance(fetched, str) and len(fetched) >= 10:
+            day = fetched[:10]
+        if not day or day in seen:
+            continue
+        point: dict[str, object] = {"date": day}
+        fed = data.get("fed_funds") if isinstance(data.get("fed_funds"), dict) else {}
+        if fed.get("status") == "ok" and isinstance(fed.get("rate"), (int, float)):
+            point["fed_funds"] = float(fed["rate"])
+        indexes = data.get("indexes") if isinstance(data.get("indexes"), dict) else {}
+        for symbol, _label in fetch_market.INDEXES:
+            entry = indexes.get(symbol) if isinstance(indexes.get(symbol), dict) else {}
+            close = entry.get("previous_close")
+            if entry.get("status") == "ok" and isinstance(close, (int, float)):
+                point[symbol] = float(close)
+        if len(point) == 1:
+            continue
+        seen.add(day)
+        history.append(point)
+    return history
+
+
+def trajectory_html(report: dict[str, object], days: int = 14) -> str:
+    if report.get("empty"):
+        return (
+            '<div class="loop-trajectory">'
+            f"<h2>Macro Trajectory (Last {int(days)} Days)</h2>"
+            "<p>No stored daily summaries or tag notes for this window; "
+            "LOOP cannot invent a trajectory.</p>"
+            "</div>"
+        )
+    parts = [f'<div class="loop-trajectory"><h2>Macro Trajectory (Last {int(days)} Days)</h2>']
+    arcs = [item for item in report.get("narrative_arcs") or [] if isinstance(item, str)]
+    parts.append("<h3>Narrative Arcs</h3>")
+    if arcs:
+        parts.append("<ol>" + "".join(f"<li>{html.escape(arc)}</li>" for arc in arcs) + "</ol>")
+    else:
+        parts.append("<p>No persistent narrative arcs in this window.</p>")
+    momentum = report.get("signal_momentum") if isinstance(report.get("signal_momentum"), dict) else {}
+    gaining = [item for item in momentum.get("gaining") or [] if isinstance(item, str)]
+    fading = [item for item in momentum.get("fading") or [] if isinstance(item, str)]
+    parts.append("<h3>Signal Momentum</h3>")
+    parts.append("<p>Gaining</p><ul>")
+    parts.append("".join(f"<li>{html.escape(item)}</li>" for item in gaining) or "<li>(none)</li>")
+    parts.append("</ul><p>Fading</p><ul>")
+    parts.append("".join(f"<li>{html.escape(item)}</li>" for item in fading) or "<li>(none)</li>")
+    parts.append("</ul>")
+    parts.append("<h3>Pivot Points</h3>")
+    pivots = [item for item in report.get("pivot_points") or [] if isinstance(item, str)]
+    if pivots:
+        parts.append("<ul>" + "".join(f"<li>{html.escape(item)}</li>" for item in pivots) + "</ul>")
+    elif report.get("unavailable_pivots"):
+        parts.append(
+            "<p>No synthesized pivot points yet. Run "
+            "<code>python3 src/write_the_loop.py --synthesize</code> to write them.</p>"
+        )
+    else:
+        parts.append("<ul><li>(none)</li></ul>")
+    parts.append("</div>")
+    return "".join(parts)
+
+
+def tag_pattern_html(tag: str, note: str) -> str:
+    chip = tag_hashtag_html(tag)
+    body = html.escape(note.strip()) if note.strip() else "No stored pattern for this section yet."
+    return f'<div class="loop-tag-pattern">{chip}<p>{body}</p></div>'
+
+
+def render_tag_patterns(notes: dict[str, str]) -> None:
+    ordered = [tag for tag in TAG_LABELS if tag in notes]
+    extra = [tag for tag in notes if tag not in ordered]
+    if not ordered and not extra:
+        st.info("No stored tag patterns for this briefing yet.")
+        return
+    blocks = [tag_pattern_html(tag, notes[tag]) for tag in ordered + extra]
+    st.markdown(
+        '<div class="loop-glance-body">\n' + "\n".join(blocks) + "\n</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def market_history_long_rows(
+    history: list[dict[str, object]],
+    selected: list[str],
+    start: str | None = None,
+    end: str | None = None,
+) -> list[dict[str, object]]:
+    wanted = set(selected)
+    rows: list[dict[str, object]] = []
+    for point in history:
+        day = str(point.get("date") or "")
+        if start and day < start:
+            continue
+        if end and day > end:
+            continue
+        for key, label, color in MARKET_SERIES:
+            if key not in wanted:
+                continue
+            value = point.get(key)
+            if isinstance(value, (int, float)):
+                rows.append(
+                    {
+                        "date": day,
+                        "series": label,
+                        "value": float(value),
+                        "color": color,
+                        "axis": "fed" if key == "fed_funds" else "index",
+                    }
+                )
+    return rows
+
+
+def render_market_history_chart(history: list[dict[str, object]]) -> None:
+    st.markdown('<div class="loop-market-chart">', unsafe_allow_html=True)
+    st.subheader("Market Snapshot History")
+    if not history:
+        st.info("No stored market snapshot history yet. LOOP does not invent those numbers.")
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+    labels = [label for _key, label, _color in MARKET_SERIES]
+    keys_by_label = {label: key for key, label, _color in MARKET_SERIES}
+    selected_labels = st.multiselect(
+        "Series",
+        labels,
+        default=labels,
+        key="loop_market_series",
+        help="Isolate Fed Funds, S&P 500, Nasdaq, or Dow.",
+    )
+    dates = [str(point.get("date")) for point in history if point.get("date")]
+    start, end = dates[0], dates[-1]
+    if len(dates) >= 2:
+        start, end = st.select_slider(
+            "Window",
+            options=dates,
+            value=(dates[0], dates[-1]),
+            key="loop_market_window",
+        )
+    selected_keys = [keys_by_label[label] for label in selected_labels if label in keys_by_label]
+    rows = market_history_long_rows(history, selected_keys, start, end)
+    if not selected_keys:
+        st.info("Select at least one series to plot.")
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+    if not rows:
+        st.info("No quotes in that window for the selected series.")
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+    try:
+        import altair as alt
+    except ImportError:
+        st.error("Chart library is unavailable.")
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+    color_scale = alt.Scale(
+        domain=[label for _k, label, _c in MARKET_SERIES],
+        range=[color for _k, _label, color in MARKET_SERIES],
+    )
+    index_rows = alt.Chart(rows).transform_filter("datum.axis == 'index'")
+    fed_rows = alt.Chart(rows).transform_filter("datum.axis == 'fed'")
+    indexes = index_rows.mark_line(point=True).encode(
+        x=alt.X("date:T", title=None),
+        y=alt.Y("value:Q", title="Index"),
+        color=alt.Color("series:N", scale=color_scale, legend=alt.Legend(title=None)),
+        tooltip=["date:T", "series:N", "value:Q"],
+    )
+    fed = fed_rows.mark_line(point=True, strokeDash=[4, 3]).encode(
+        x=alt.X("date:T", title=None),
+        y=alt.Y("value:Q", title="Fed Funds %", axis=alt.Axis(orient="right")),
+        color=alt.Color("series:N", scale=color_scale, legend=alt.Legend(title=None)),
+        tooltip=["date:T", "series:N", "value:Q"],
+    )
+    layers = []
+    if any(row["axis"] == "index" for row in rows):
+        layers.append(indexes)
+    if any(row["axis"] == "fed" for row in rows):
+        layers.append(fed)
+    chart = alt.layer(*layers).resolve_scale(y="independent").properties(height=280)
+    try:
+        st.altair_chart(chart, use_container_width=True, theme="streamlit")
+    except TypeError:
+        st.altair_chart(chart, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def rewrite_ask_gemini_topics(markdown: str) -> str:
     """Turn numbered research topics into **Ask Gemini:** labels with Gemini URLs."""
     lines = markdown.splitlines()
@@ -2049,18 +2493,20 @@ def render_daily_loop() -> None:
         arm_generation_poll(generating)
         return
     displayed = display_brief_markdown(markdown)
-    snapshot, glance, rest = split_daily_brief_sections(displayed)
-    if glance or snapshot:
-        left, right = st.columns((2, 1), gap="large")
-        with left:
-            if glance:
-                st.markdown(
-                    f'<div class="loop-glance-body">\n\n{glance}\n\n</div>',
-                    unsafe_allow_html=True,
-                )
-        with right:
-            if snapshot:
-                st.markdown(snapshot, unsafe_allow_html=True)
+    snapshot, _glance, rest = split_daily_brief_sections(displayed)
+    sqlite = db_path()
+    trajectory = load_macro_trajectory(days=14, db_path=sqlite)
+    st.markdown(trajectory_html(trajectory, days=14), unsafe_allow_html=True)
+    notes = load_tag_notes_for_date(selected, sqlite)
+    left, right = st.columns((2, 1), gap="large")
+    with left:
+        render_tag_patterns(notes)
+    with right:
+        if snapshot:
+            st.markdown(snapshot, unsafe_allow_html=True)
+        else:
+            st.info("No market snapshot in this briefing.")
+    render_market_history_chart(load_market_snapshot_history(sqlite))
     if rest.strip():
         st.markdown(rest, unsafe_allow_html=True)
     arm_generation_poll(generating)
@@ -2203,6 +2649,9 @@ def render_loop_explorer(path: Path) -> None:
             + "</div>",
             unsafe_allow_html=True,
         )
+        if tag:
+            note = latest_tag_note(tag, path)
+            st.markdown(tag_pattern_html(tag, note), unsafe_allow_html=True)
         page = int(st.session_state.get("loop_page") or 1)
         result = search_stories_page(
             str(path), tag, source, query, year, month, day, page=page
@@ -2284,6 +2733,7 @@ def render_tag_archive(path: Path, tag: str) -> None:
     """Archive of every stored story with this tag, grouped by date (newest first)."""
     st.markdown(f"## {tag_hashtag_html(tag)}", unsafe_allow_html=True)
     st.caption("Local Loop archive from data/loop.db. Not a public website.")
+    st.markdown(tag_pattern_html(tag, latest_tag_note(tag, path)), unsafe_allow_html=True)
     st.markdown(f"[Back to Daily Loop]({TAG_ARCHIVE_BASE})")
     if not path.is_file():
         st.info(

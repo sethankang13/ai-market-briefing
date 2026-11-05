@@ -409,9 +409,9 @@ class AppImportTests(unittest.TestCase):
         script = self.app.brand_theme_script()
         config = Path(self.app.__file__).resolve().parents[1] / ".streamlit" / "config.toml"
         toml = config.read_text(encoding="utf-8")
-        self.assertEqual(self.app.LOOP_VERSION, "4.1.2")
+        self.assertEqual(self.app.LOOP_VERSION, "4.2")
         version_file = Path(self.app.__file__).resolve().parents[1] / "VERSION"
-        self.assertEqual(version_file.read_text(encoding="utf-8").strip(), "4.1.2")
+        self.assertEqual(version_file.read_text(encoding="utf-8").strip(), "4.2")
         self.assertIn('data-loop-theme="light"', css)
         self.assertIn('data-loop-theme="dark"', css)
         self.assertNotIn('data-loop-theme="system"', css)

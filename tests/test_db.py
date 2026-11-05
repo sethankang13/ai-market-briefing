@@ -79,7 +79,7 @@ class LoopDatabaseTests(unittest.TestCase):
                 }
             ]
         )
-        self.assertTrue(report.startswith("# The Loop: Macro Summary (Last 7 Days)\n"))
+        self.assertTrue(report.startswith("# The Loop: Macro Summary (Last 14 Days)\n"))
         self.assertIn("[Policy bill advances](https://example.com/bill)", report)
         self.assertIn("## At a Glance", report)
         self.assertNotIn("# Looping...", report)

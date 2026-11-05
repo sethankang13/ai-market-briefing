@@ -471,18 +471,19 @@ def gemini_url(model: str) -> str:
     return GEMINI_URL_TEMPLATE.format(model=model)
 
 
-def summarize_with_gemini(
+def generate_with_gemini(
     prompt: str,
     api_key: str,
     model: str = GEMINI_MODEL,
+    system_prompt: str = SYSTEM_PROMPT,
 ) -> str:
-    """Ask one Gemini flash model for the run-level briefing JSON."""
+    """Ask one Gemini flash model and return visible text (no JSON parse)."""
     payload = {
         "contents": [
             {
                 "parts": [
                     {
-                        "text": f"{SYSTEM_PROMPT}\n\n{prompt}"
+                        "text": f"{system_prompt}\n\n{prompt}"
                     }
                 ]
             }
@@ -497,11 +498,58 @@ def summarize_with_gemini(
         payload,
         {"x-goog-api-key": api_key},
     )
-    return parse_macro_report(visible_gemini_text(data))
+    return visible_gemini_text(data)
+
+
+def summarize_with_gemini(
+    prompt: str,
+    api_key: str,
+    model: str = GEMINI_MODEL,
+) -> str:
+    """Ask one Gemini flash model for the run-level briefing JSON."""
+    return parse_macro_report(generate_with_gemini(prompt, api_key, model=model))
 
 
 def _retryable_http_error(error: urllib.error.HTTPError) -> bool:
     return error.code in {404, 408, 429, 500, 502, 503, 504}
+
+
+def generate_with_gemini_cascade(
+    prompt: str,
+    api_key: str,
+    models: tuple[str, ...] = GEMINI_MODELS,
+    system_prompt: str = SYSTEM_PROMPT,
+) -> tuple[str, str]:
+    """Try Gemini models in order. 429/connection/404 errors continue the cascade."""
+    last_error: Exception | None = None
+    for model in models:
+        try:
+            text = generate_with_gemini(
+                prompt, api_key, model=model, system_prompt=system_prompt
+            )
+            return text, model
+        except urllib.error.HTTPError as error:
+            last_error = error
+            try:
+                error.close()
+            except Exception:
+                pass
+            if _retryable_http_error(error):
+                continue
+            continue
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            ConnectionError,
+            OSError,
+            ValueError,
+            KeyError,
+        ) as error:
+            last_error = error
+            continue
+    raise SummarizationError(
+        "All Gemini models failed: " + ", ".join(models)
+    ) from last_error
 
 
 def summarize_with_gemini_cascade(

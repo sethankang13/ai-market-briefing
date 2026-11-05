@@ -4,13 +4,13 @@
 
 A personal daily briefing that turns public RSS into a local Markdown file and a local Streamlit reader. It is a deterministic **ETL pipeline**, **one Gemini Flash `generateContent` call per run** (not per story), and a read-only Streamlit UI. Not a chatbot, not email, not a public website.
 
-**Architecture: v4.1 (SHIPPED).** **v4.2 is IN PROGRESS.**
+**Architecture: v4.2 (SHIPPED).**
 
 ## Architecture (v4.1)
 
 | Piece | What it is |
 | --- | --- |
-| Brand | **LOOP: AI Market Briefing**. Daily file `# Looping... (YYYY-MM-DD)` (app title `Daily Loop: YYYY-MM-DD`). History `# The Loop: Macro Summary (Last N Days)`. |
+| Brand | **LOOP: AI Market Briefing**. Daily file `# Looping... (YYYY-MM-DD)` (app title `Daily Loop: YYYY-MM-DD`). History `# The Loop: Macro Summary (Last N Days)`. `--synthesize` prepends `# Macro Trajectory (Last N Days)`. |
 | ETL | Collect → enrich/tag → select → market snapshot → one Gemini Flash macro → write brief → upsert `data/loop.db`. Raw JSON is immutable. Publisher HTML is not fetched on the live path. |
 | Model | One Gemini Flash completion per live run (`gemini-3.8-flash` → `3.7` → `3.6` → `2.5-flash`). OpenAI `gpt-4o-mini` is the fallback. `--mock` skips models. |
 | UI | Local Streamlit on `http://127.0.0.1:8501` (`Daily Loop`, `The Loop`, `?tag=` archive). Streamlit ⋮ Light / Dark / System only. Loop.app starts the UI; it does not run Gemini. |
@@ -61,6 +61,7 @@ python3 src/run_briefing.py --mock          # live RSS + tags + select; mock mar
 python3 src/run_briefing.py --mock --force  # allow --mock to replace today's briefs/YYYY-MM-DD.md
 python3 src/run_briefing.py --mock --open   # macOS `open` on the written brief
 python3 src/write_the_loop.py               # historical report from data/loop.db (no new model calls)
+python3 src/write_the_loop.py --synthesize --mock --days 14  # mock macro trajectory; no Gemini
 bash scripts/start_app.sh                   # Streamlit on 127.0.0.1:8501
 bash scripts/stop_app.sh
 python3 -m unittest
@@ -99,7 +100,7 @@ Per-article HTML scrape lives in `src/archived_article_summarizer.py` and is not
 ```text
 /Users/ethankang/Documents/ai-market-briefing/
 ├── README.md
-├── VERSION                 # 4.1.2
+├── VERSION                 # 4.2
 ├── config/config.yaml      # feeds, taxonomy, tag_weights, models, paths
 ├── src/run_briefing.py     # orchestrator
 ├── src/app.py              # Streamlit
@@ -122,7 +123,7 @@ Per-article HTML scrape lives in `src/archived_article_summarizer.py` and is not
 | v4.0 | SHIPPED | Local Streamlit: Daily Loop + The Loop; Loop.app launcher. |
 | v4.0.1 | SHIPPED | `RunAtLoad`, skip-if-today’s-brief-exists, lockfile UI, honest Fed Funds. |
 | v4.1 | **SHIPPED** | LOOP brand, ⋮ Light/Dark/System, Daily Loop date select, **8:00 AM every day**, full RSS in `loop.db`, one Gemini Flash per run. |
-| v4.2 | **IN PROGRESS** | Six-tag weighted taxonomy, twenty RSS sources, `--mock --force` overwrite guard, Daily Loop explorer polish. |
+| v4.2 | **SHIPPED** | Meta-synthesis: `write_the_loop.py --synthesize` prepends narrative arcs, signal momentum, and pivot points from stored `macro_report` JSON (one Gemini Flash call, or `--mock`). |
 | v5.0 | Planned | Delivery after the local habit is solid (PDF / email), still citing the sources actually used. |
 | v5.1 | Planned | Entity tracking and source-grounded story clusters (one event, every supporting link, facts vs interpretation). |
 

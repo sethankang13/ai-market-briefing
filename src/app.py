@@ -9,7 +9,7 @@ Run from the project folder:
 
 from __future__ import annotations
 
-LOOP_VERSION = "4.1.2"
+LOOP_VERSION = "4.2"
 
 import html
 import json

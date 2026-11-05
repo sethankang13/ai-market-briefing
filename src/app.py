@@ -560,15 +560,28 @@ a.loop-tag:hover {{
   align-items: center;
   width: 100%;
 }}
-[data-testid="stHorizontalBlock"]:has(.loop-page-caption) > div:last-child {{
+[data-testid="stHorizontalBlock"]:has(.loop-page-caption) > div:last-child,
+[data-testid="stColumn"]:has(.loop-page-next-cell) {{
+  text-align: right !important;
+}}
+[data-testid="stColumn"]:has(.loop-page-next-cell) [data-testid="stVerticalBlock"] {{
+  align-items: flex-end !important;
+}}
+[data-testid="stColumn"]:has(.loop-page-next-cell) [data-testid="stButton"],
+[data-testid="stColumn"]:has(.loop-page-next-cell) [data-testid="stElementContainer"],
+[data-testid="stHorizontalBlock"]:has(.loop-page-caption) > div:last-child [data-testid="stButton"] {{
+  width: auto !important;
+  margin-left: auto !important;
   display: flex !important;
   justify-content: flex-end !important;
+  align-self: flex-end !important;
 }}
-[data-testid="stHorizontalBlock"]:has(.loop-page-caption) > div:last-child [data-testid="stButton"] {{
-  display: flex;
-  justify-content: flex-end;
-  width: 100%;
-  margin-left: auto;
+[data-testid="stColumn"]:has(.loop-page-next-cell) button,
+[data-testid="stHorizontalBlock"]:has(.loop-page-caption) > div:last-child button {{
+  width: auto !important;
+  margin-left: auto !important;
+  justify-content: flex-end !important;
+  text-align: right !important;
 }}
 [data-testid="stHorizontalBlock"]:has(.loop-page-caption) button,
 [data-testid="stHorizontalBlock"]:has(.loop-page-caption) button p,
@@ -597,6 +610,17 @@ a.loop-feed-parent {{
 }}
 a.loop-feed-parent:hover {{
   background-color: rgba(0, 0, 0, 0.06);
+}}
+.loop-card-title {{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.55rem;
+  margin: 0 0 0.35rem;
+}}
+.loop-card-title h3.loop-story-title {{
+  margin: 0;
+  display: inline;
 }}
 h3.loop-story-title {{
   font-size: 1.15rem;
@@ -1927,10 +1951,8 @@ def render_sidebar(
         del path
 
 
-def coverage_line(group: dict) -> str:
-    """``Source • Tag (also covered by …)`` under the primary headline URL."""
+def extra_sources(group: dict) -> list[str]:
     source = str(group.get("source") or "Unknown source").strip() or "Unknown source"
-    tags = [humanize_tag(tag) for tag in (group.get("tags") or []) if tag]
     extras: list[str] = []
     for name in group.get("secondary_sources") or []:
         text = str(name).strip()
@@ -1940,16 +1962,38 @@ def coverage_line(group: dict) -> str:
         text = str(item.get("source") or "").strip()
         if text and text != source and text not in extras:
             extras.append(text)
-    parts = [source]
-    if tags:
-        parts.append(tags[0])
+    return extras
+
+
+def date_line(group: dict) -> str:
     published = str(group.get("published_date") or "").strip()
-    if published:
-        parts.append(published)
-    line = " • ".join(parts)
+    return f"Date: {published}" if published else "Date:"
+
+
+def source_line(group: dict) -> str:
+    """``Source: Name (also covered by …)``."""
+    source = str(group.get("source") or "Unknown source").strip() or "Unknown source"
+    line = f"Source: {source}"
+    extras = extra_sources(group)
     if extras:
         line += f" (also covered by {', '.join(extras)})"
     return line
+
+
+def card_title_html(group: dict) -> str:
+    """Headline link and tag chips on one line."""
+    chips = tag_chips_html(group.get("tags") or [])
+    return (
+        '<div class="loop-card-title">'
+        + headline_html(group.get("headline"), group.get("url"))
+        + ((" " + chips) if chips else "")
+        + "</div>"
+    )
+
+
+def coverage_line(group: dict) -> str:
+    """Back-compat alias for the Explorer source line."""
+    return source_line(group)
 
 
 def render_story_cards(groups: list[dict]) -> None:
@@ -1958,8 +2002,9 @@ def render_story_cards(groups: list[dict]) -> None:
         return
     for group in groups:
         with st.container(border=True):
-            st.markdown(headline_html(group["headline"], group["url"]), unsafe_allow_html=True)
-            st.markdown(coverage_line(group))
+            st.markdown(card_title_html(group), unsafe_allow_html=True)
+            st.markdown(date_line(group))
+            st.markdown(source_line(group))
             if group.get("ai_summary"):
                 st.write(group["ai_summary"])
 
@@ -2079,6 +2124,7 @@ def render_search_page_controls(result: dict[str, object]) -> None:
             unsafe_allow_html=True,
         )
     with right:
+        st.markdown('<div class="loop-page-next-cell" hidden></div>', unsafe_allow_html=True)
         if page < total_pages:
             clicked_next = _text_button("Next →", f"loop_next_{page}")
     rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)

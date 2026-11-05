@@ -516,19 +516,26 @@ class AppImportTests(unittest.TestCase):
             self.app.page_status_caption(1, 20, 843, 43),
             "1-20 · Page 1 of 43",
         )
-        line = self.app.coverage_line(
-            {
-                "source": "Reuters",
-                "tags": ["US Politics"],
-                "published_date": "2026-11-04",
-                "secondary_sources": ["CNBC"],
-                "sources": [],
-            }
-        )
+        card = {
+            "headline": "Fed holds rates",
+            "url": "https://example.com/fed",
+            "source": "Reuters",
+            "tags": ["US Politics"],
+            "published_date": "2026-11-04",
+            "secondary_sources": ["CNBC"],
+            "sources": [],
+        }
+        self.assertEqual(self.app.date_line(card), "Date: 2026-11-04")
         self.assertEqual(
-            line,
-            "Reuters • US Politics • 2026-11-04 (also covered by CNBC)",
+            self.app.source_line(card),
+            "Source: Reuters (also covered by CNBC)",
         )
+        title_html = self.app.card_title_html(card)
+        self.assertIn("loop-card-title", title_html)
+        self.assertIn("Fed holds rates", title_html)
+        self.assertIn("US Politics", title_html)
+        self.assertIn("loop-page-next-cell", source)
+        self.assertIn("text-align: right !important", css)
         self.assertIn("text-decoration-color:#9B8AB8", heading)
         self.assertNotIn('class="loop-in-focus-tag">In Focus', heading)
         self.assertIn("search_stories_page", source)

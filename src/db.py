@@ -57,6 +57,12 @@ UNIQUE_DAY_URL_INDEX = (
     "WHERE url IS NOT NULL AND url != ''"
 )
 
+UNIQUE_URL_INDEX = (
+    "CREATE UNIQUE INDEX IF NOT EXISTS stories_url "
+    "ON stories(url) "
+    "WHERE url IS NOT NULL AND url != ''"
+)
+
 
 def iso_published_date(value: object) -> str | None:
     """Store YYYY-MM-DD when the RSS date can be parsed; otherwise the original text."""
@@ -106,27 +112,50 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
         )
     if "sub_feed" not in columns:
         connection.execute("ALTER TABLE stories ADD COLUMN sub_feed TEXT")
-    try:
-        connection.execute(UNIQUE_DAY_URL_INDEX)
-    except sqlite3.IntegrityError:
-        connection.execute(
-            """
-            DELETE FROM stories
-            WHERE url IS NOT NULL AND url != ''
-              AND id IN (
-                SELECT s.id FROM stories AS s
-                WHERE s.url IS NOT NULL AND s.url != ''
-                  AND EXISTS (
-                    SELECT 1 FROM stories AS t
-                    WHERE t.url = s.url
-                      AND (t.published_date IS s.published_date)
-                      AND t.id > s.id
-                  )
-              )
-            """
-        )
-        connection.execute(UNIQUE_DAY_URL_INDEX)
+    _dedupe_unique_stories(connection)
+    for statement in (UNIQUE_URL_INDEX, UNIQUE_DAY_URL_INDEX):
+        try:
+            connection.execute(statement)
+        except sqlite3.IntegrityError:
+            _dedupe_unique_stories(connection)
+            connection.execute(statement)
     connection.commit()
+
+
+def _dedupe_unique_stories(connection: sqlite3.Connection) -> None:
+    """Keep one row per URL, then one row per headline+source."""
+    connection.execute(
+        """
+        DELETE FROM stories
+        WHERE url IS NOT NULL AND url != ''
+          AND id IN (
+            SELECT s.id FROM stories AS s
+            WHERE s.url IS NOT NULL AND s.url != ''
+              AND EXISTS (
+                SELECT 1 FROM stories AS t
+                WHERE t.url = s.url AND t.id > s.id
+              )
+          )
+        """
+    )
+    connection.execute(
+        """
+        DELETE FROM stories
+        WHERE headline IS NOT NULL AND headline != ''
+          AND source IS NOT NULL AND source != ''
+          AND id IN (
+            SELECT s.id FROM stories AS s
+            WHERE s.headline IS NOT NULL AND s.headline != ''
+              AND s.source IS NOT NULL AND s.source != ''
+              AND EXISTS (
+                SELECT 1 FROM stories AS t
+                WHERE t.headline = s.headline
+                  AND t.source = s.source
+                  AND t.id > s.id
+              )
+          )
+        """
+    )
 
 
 def _tags_text(tags: object) -> str:
@@ -149,7 +178,7 @@ def append_stories(
     db_path: Path | None = None,
     macro_report: str | None = None,
 ) -> int:
-    """Upsert collected stories. Same-day duplicate URLs REPLACE; returns new inserts."""
+    """Upsert collected stories. Duplicate URL or headline+source REPLACE; returns new inserts."""
     snapshot_json = json.dumps(market_snapshot) if market_snapshot is not None else None
     connection = connect(db_path)
     inserted = 0
@@ -171,8 +200,13 @@ def append_stories(
             existing = None
             if url_text:
                 existing = connection.execute(
-                    "SELECT id FROM stories WHERE published_date IS ? AND url = ?",
-                    (published, url_text),
+                    "SELECT id FROM stories WHERE url = ?",
+                    (url_text,),
+                ).fetchone()
+            if existing is None and headline and source:
+                existing = connection.execute(
+                    "SELECT id FROM stories WHERE headline = ? AND source = ?",
+                    (headline, source),
                 ).fetchone()
             values = (
                 published,
@@ -191,12 +225,13 @@ def append_stories(
                 connection.execute(
                     """
                     UPDATE stories SET
-                        headline = ?, url = ?, source = ?, sub_feed = ?, full_text = ?,
-                        ai_summary = ?, tags = ?, market_snapshot_json = ?,
+                        published_date = ?, headline = ?, url = ?, source = ?, sub_feed = ?,
+                        full_text = ?, ai_summary = ?, tags = ?, market_snapshot_json = ?,
                         macro_report = ?, is_selected = ?
                     WHERE id = ?
                     """,
                     (
+                        published,
                         headline,
                         url_text,
                         source,
@@ -227,12 +262,13 @@ def append_stories(
                     connection.execute(
                         """
                         UPDATE stories SET
-                            headline = ?, url = ?, source = ?, sub_feed = ?, full_text = ?,
-                            ai_summary = ?, tags = ?, market_snapshot_json = ?,
-                            macro_report = ?, is_selected = ?
-                        WHERE published_date IS ? AND url = ?
+                            published_date = ?, headline = ?, url = ?, source = ?,
+                            sub_feed = ?, full_text = ?, ai_summary = ?, tags = ?,
+                            market_snapshot_json = ?, macro_report = ?, is_selected = ?
+                        WHERE url = ? OR (headline = ? AND source = ?)
                         """,
                         (
+                            published,
                             headline,
                             url_text,
                             source,
@@ -243,8 +279,9 @@ def append_stories(
                             snapshot_json,
                             macro,
                             is_selected,
-                            published,
                             url_text,
+                            headline,
+                            source,
                         ),
                     )
         connection.commit()

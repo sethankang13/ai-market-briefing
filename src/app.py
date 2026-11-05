@@ -549,6 +549,26 @@ a.loop-tag:hover {{
   min-width: 0 !important;
   overflow: hidden !important;
 }}
+.loop-page-caption {{
+  text-align: center;
+  margin: 0.35rem 0 0;
+  color: var(--loop-muted);
+  font-size: 0.95rem;
+  line-height: 2.5rem;
+}}
+[data-testid="stHorizontalBlock"]:has(.loop-page-caption) {{
+  align-items: center;
+}}
+[data-testid="stHorizontalBlock"]:has(.loop-page-caption) > div:last-child [data-testid="stButton"] {{
+  display: flex;
+  justify-content: flex-end;
+}}
+[data-testid="stHorizontalBlock"]:has(.loop-page-caption) button,
+[data-testid="stHorizontalBlock"]:has(.loop-page-caption) button p,
+[data-testid="stHorizontalBlock"]:has(.loop-page-caption) button span {{
+  background-color: #263B60 !important;
+  color: #F7F6F2 !important;
+}}
 a.loop-feed-parent {{
   color: var(--loop-fg) !important;
   font-weight: 600;
@@ -1450,11 +1470,16 @@ def unique_sub_feeds(db_path_str: str) -> list[str]:
 
 
 def unique_source_filters(db_path_str: str) -> list[str]:
-    """Publishers and sub-feeds so The Loop can filter by parent or child."""
-    names: list[str] = []
-    seen: set[str] = set()
-    for name in unique_sources(db_path_str) + unique_sub_feeds(db_path_str):
-        if name and name not in seen:
+    """High-level publishers only (AP News, Axios, CNBC, …), not RSS sub-feeds."""
+    tree = nested_feed_tree()
+    publishers = [name for name, _children in tree]
+    children = {child for _name, kids in tree for child in kids}
+    stored = unique_sources(db_path_str)
+    stored_set = set(stored)
+    names: list[str] = [name for name in publishers if name in stored_set]
+    seen = set(names)
+    for name in stored:
+        if name and name not in seen and name not in children:
             seen.add(name)
             names.append(name)
     return names
@@ -1917,6 +1942,7 @@ def _enter_loop_focus() -> None:
 def apply_tag_in_focus(tag: str) -> None:
     """Open The Loop In Focus for one Daily Loop tag: all sources, all dates, empty query."""
     st.session_state["loop_focus"] = True
+    st.session_state["loop_searched"] = True
     st.session_state["loop_select_tab"] = True
     st.session_state["loop_tag"] = tag
     st.session_state["loop_source"] = ""
@@ -1930,6 +1956,7 @@ def apply_tag_in_focus(tag: str) -> None:
 def apply_source_in_focus(source: str) -> None:
     """Open The Loop In Focus for one sidebar publisher: all tags, all dates, empty query."""
     st.session_state["loop_focus"] = True
+    st.session_state["loop_searched"] = True
     st.session_state["loop_select_tab"] = True
     st.session_state["loop_tag"] = ""
     st.session_state["loop_source"] = source
@@ -1944,25 +1971,42 @@ def render_search_page_controls(result: dict[str, object]) -> None:
     page = int(result.get("page") or 1)
     total_pages = int(result.get("totalPages") or 0)
     total_count = int(result.get("totalCount") or 0)
-    st.caption(
-        f"Page {page} of {total_pages} · {total_count} "
-        f"stor{'y' if total_count == 1 else 'ies'}"
-    )
-    if total_pages <= 1:
+    if total_count <= 0:
         return
-    previous, nxt = st.columns(2)
-    with previous:
-        if page > 1 and st.button("Previous", key=f"loop_prev_{page}"):
-            st.session_state["loop_page"] = page - 1
-            rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
-            if callable(rerun):
-                rerun()
-    with nxt:
-        if page < total_pages and st.button("Next", key=f"loop_next_{page}"):
-            st.session_state["loop_page"] = page + 1
-            rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
-            if callable(rerun):
-                rerun()
+    if total_pages < 1:
+        total_pages = 1
+    try:
+        left, mid, right = st.columns([1, 2, 1], vertical_alignment="center")
+    except TypeError:
+        left, mid, right = st.columns([1, 2, 1])
+    with left:
+        clicked_prev = st.button(
+            "< Previous",
+            key=f"loop_prev_{page}",
+            type="primary",
+            disabled=page <= 1,
+        )
+    with mid:
+        st.markdown(
+            f'<p class="loop-page-caption">Page {page} of {total_pages}</p>',
+            unsafe_allow_html=True,
+        )
+    with right:
+        clicked_next = st.button(
+            "Next >",
+            key=f"loop_next_{page}",
+            type="primary",
+            disabled=page >= total_pages,
+        )
+    rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
+    if clicked_prev and page > 1:
+        st.session_state["loop_page"] = page - 1
+        if callable(rerun):
+            rerun()
+    if clicked_next and page < total_pages:
+        st.session_state["loop_page"] = page + 1
+        if callable(rerun):
+            rerun()
 
 
 def render_loop_explorer(path: Path) -> None:
@@ -1982,6 +2026,7 @@ def render_loop_explorer(path: Path) -> None:
     ):
         st.session_state.setdefault(key, "")
     st.session_state.setdefault("loop_page", 1)
+    st.session_state.setdefault("loop_searched", False)
 
     internal_tags = taxonomy_tags()
     tag_options = [""] + internal_tags
@@ -2003,6 +2048,7 @@ def render_loop_explorer(path: Path) -> None:
     if st.session_state.get("loop_focus"):
         if st.button("← Back to Search"):
             st.session_state["loop_focus"] = False
+            st.session_state["loop_searched"] = False
             st.session_state["loop_restore_tab"] = True
             st.session_state["loop_tag"] = ""
             st.session_state["loop_source"] = ""
@@ -2088,6 +2134,7 @@ def render_loop_explorer(path: Path) -> None:
         submitted = st.form_submit_button("Search", type="primary")
     if submitted:
         st.session_state["loop_page"] = 1
+        st.session_state["loop_searched"] = True
         tag = st.session_state.get("loop_tag") or ""
         source = st.session_state.get("loop_source") or ""
         year = st.session_state.get("loop_year") or ""
@@ -2103,6 +2150,9 @@ def render_loop_explorer(path: Path) -> None:
             rerun()
         return
 
+    if not st.session_state.get("loop_searched"):
+        return
+
     tag = st.session_state.get("loop_tag") or ""
     source = st.session_state.get("loop_source") or ""
     year = st.session_state.get("loop_year") or ""
@@ -2110,6 +2160,7 @@ def render_loop_explorer(path: Path) -> None:
     day = st.session_state.get("loop_day") or ""
     query = (st.session_state.get("loop_query") or "").strip()
     page = int(st.session_state.get("loop_page") or 1)
+    st.header("All Stories")
     result = search_stories_page(
         str(path), tag, source, query, year, month, day, page=page
     )

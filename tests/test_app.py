@@ -806,8 +806,21 @@ class AppImportTests(unittest.TestCase):
         self.assertIn('st.form("loop_search_form")', source)
         self.assertIn('st.form_submit_button("Search", type="primary")', source)
         self.assertIn("setdefault(key, \"\")", source)
+        self.assertIn('setdefault("loop_searched", False)', source)
+        self.assertIn('st.header("All Stories")', source)
+        self.assertIn("if not st.session_state.get(\"loop_searched\"):", source)
+        self.assertIn('"< Previous"', source)
+        self.assertIn('"Next >"', source)
+        self.assertIn("loop-page-caption", source)
+        self.assertIn("st.columns([1, 2, 1]", source)
+        self.assertNotIn("st.columns(2)", source.split("def render_search_page_controls")[1][:800])
+        self.assertNotIn('st.caption(\n        f"Page {page} of {total_pages}', source)
         self.assertIn("tag_col, source_col = st.columns(2)", source)
         self.assertNotIn("on_change=_enter_loop_focus", source)
+        self.assertIn("unique_source_filters", source)
+        self.assertNotIn(
+            "unique_sources(db_path_str) + unique_sub_feeds(db_path_str)", source
+        )
         self.assertEqual(
             self.app.default_briefing_date(
                 ["2026-10-30", "2026-10-24"], "2026-10-30", generating=False
@@ -827,6 +840,52 @@ class AppImportTests(unittest.TestCase):
             "2026-10-24",
         )
         self.assertIsNone(self.app.default_briefing_date([], "2026-10-30"))
+
+    def test_source_filters_are_publishers_not_sub_feeds(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "loop.db"
+            connection = sqlite3.connect(path)
+            connection.execute(
+                """
+                CREATE TABLE stories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    published_date TEXT,
+                    headline TEXT,
+                    url TEXT,
+                    source TEXT,
+                    sub_feed TEXT,
+                    tags TEXT
+                )
+                """
+            )
+            connection.executemany(
+                "INSERT INTO stories (published_date, headline, url, source, sub_feed, tags) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        "2026-11-04",
+                        "Campaign story",
+                        "https://example.com/campaign",
+                        "Politico",
+                        "Elections & Campaigns",
+                        '["US Politics"]',
+                    ),
+                    (
+                        "2026-11-04",
+                        "Wire story",
+                        "https://example.com/wire",
+                        "AP News",
+                        "Politics",
+                        '["US Politics"]',
+                    ),
+                ],
+            )
+            connection.commit()
+            connection.close()
+            names = self.app.unique_source_filters(str(path))
+        self.assertEqual(names, ["Politico", "AP News"])
+        self.assertNotIn("Elections & Campaigns", names)
+        self.assertNotIn("Politics", names)
 
 
 class HeadlineAndPopoverTests(unittest.TestCase):

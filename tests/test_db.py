@@ -172,6 +172,43 @@ class LoopDatabaseTests(unittest.TestCase):
         self.assertEqual(by_url["https://example.com/bill"]["is_selected"], 1)
         self.assertEqual(by_url["https://example.com/other"]["is_selected"], 0)
 
+    def test_append_does_not_insert_duplicate_url_or_headline_source(self):
+        snapshot = {"fed_funds": {"status": "ok", "rate": 4.33}}
+        first = {
+            "published_at": "2026-11-03",
+            "headline": "Policy bill advances",
+            "link": "https://example.com/bill",
+            "source": "Example News",
+            "tags": ["US Politics"],
+            "is_selected": 0,
+        }
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "loop.db"
+            self.assertEqual(db.append_stories([first], snapshot, db_path=path), 1)
+            later_url = {
+                **first,
+                "published_at": "2026-11-04",
+                "headline": "Policy bill advances (updated)",
+                "is_selected": 1,
+            }
+            self.assertEqual(db.append_stories([later_url], snapshot, db_path=path), 0)
+            by_url = db.load_stories(path)
+            self.assertEqual(len(by_url), 1)
+            self.assertEqual(by_url[0]["headline"], "Policy bill advances (updated)")
+            self.assertEqual(by_url[0]["published_date"], "2026-11-04")
+            other_url_same_title = {
+                **later_url,
+                "published_at": "2026-11-05",
+                "link": "https://example.com/bill?utm=1",
+            }
+            self.assertEqual(
+                db.append_stories([other_url_same_title], snapshot, db_path=path), 0
+            )
+            rows = db.load_stories(path)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["url"], "https://example.com/bill?utm=1")
+        self.assertEqual(rows[0]["published_date"], "2026-11-05")
+
     def test_ensure_schema_dedupes_same_day_urls_for_unique_index(self):
         with TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "loop.db"

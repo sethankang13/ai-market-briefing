@@ -34,19 +34,26 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = project_path(_CONFIG["pipeline"]["output_dir"]) / "THE_LOOP.md"
 
 
+_TAXONOMY_TAGS = write_brief.TAG_LABELS
+_TAG_PATTERN_LIST = ", ".join(_TAXONOMY_TAGS)
+
 TRAJECTORY_SYSTEM_PROMPT = (
     "You write Loop: AI Market Briefing's multi-week meta-synthesis from "
     "stored daily_summary and tag_notes JSON. Do not claim you read full "
     "articles. Do not invent facts that are not supported by the supplied "
     "daily summaries or tag notes. Label market-impact or causal language "
-    "as interpretation. Return JSON only (no Markdown wrapper) with this "
-    "shape:\n"
+    "as interpretation. "
+    "Return JSON only (no Markdown wrapper) with this shape:\n"
     '{"narrative_arcs": ["arc 1", "arc 2", "arc 3"], '
     '"signal_momentum": {"gaining": ["topic"], "fading": ["topic"]}, '
-    '"pivot_points": ["shift 1"]}\n'
+    '"pivot_points": ["shift 1"], '
+    '"tag_patterns": {"US Politics": "pattern"}}\n'
     "narrative_arcs: 3-4 persistent multi-week story arcs. "
     "signal_momentum: topics that are gaining versus fading. "
-    "pivot_points: major shifts, policy turns, or market reversals."
+    "pivot_points: major shifts, policy turns, or market reversals. "
+    "tag_patterns: one short Tag-by-Tag Narrative Pattern per unhyphenated "
+    f"taxonomy tag that has stored notes. Use these exact keys: {_TAG_PATTERN_LIST}. "
+    "Omit a tag when the stored notes do not support a pattern; do not invent one."
 )
 
 
@@ -254,6 +261,18 @@ def _string_list(value: object) -> list[str]:
     return []
 
 
+def _tag_pattern_map(value: object) -> dict[str, str]:
+    """Keep only unhyphenated taxonomy tags with non-empty pattern copy."""
+    if not isinstance(value, dict):
+        return {}
+    patterns: dict[str, str] = {}
+    for tag in _TAXONOMY_TAGS:
+        text = value.get(tag)
+        if isinstance(text, str) and text.strip():
+            patterns[tag] = text.strip()
+    return patterns
+
+
 def parse_macro_payload(raw: object) -> dict[str, Any] | None:
     """Return stored briefing JSON with daily_summary and/or tag_notes."""
     data: object = raw
@@ -355,6 +374,26 @@ def mock_trajectory_report(days: int = 14) -> dict[str, Any]:
             "Mock pivot: a policy reversal in the stored window.",
             "Mock pivot: a market snapshot shift in Fed Funds or indexes.",
         ],
+        "tag_patterns": {
+            "US Politics": (
+                f"Mock pattern: US Politics stays a through-line across {window} days."
+            ),
+            "Market Valuations": (
+                "Mock pattern: Market Valuations tracks the stored index snapshots."
+            ),
+            "Labor & Economy": (
+                "Mock pattern: Labor & Economy remains a persistent rates thread."
+            ),
+            "Geopolitics & Trade": (
+                "Mock pattern: Geopolitics & Trade stays coupled with technology notes."
+            ),
+            "Tech & Innovation": (
+                "Mock pattern: Tech & Innovation keeps appearing beside policy notes."
+            ),
+            "Venture & M&A": (
+                "Mock pattern: Venture & M&A follows the same multi-week deal path."
+            ),
+        },
     }
 
 
@@ -363,6 +402,7 @@ def empty_trajectory_report() -> dict[str, Any]:
         "narrative_arcs": [],
         "signal_momentum": {"gaining": [], "fading": []},
         "pivot_points": [],
+        "tag_patterns": {},
         "empty": True,
     }
 
@@ -394,12 +434,14 @@ def parse_trajectory_report(text: str) -> dict[str, Any]:
         gaining = _string_list(momentum)
     arcs = _string_list(data.get("narrative_arcs"))
     pivots = _string_list(data.get("pivot_points"))
-    if not arcs and not gaining and not fading and not pivots:
+    tag_patterns = _tag_pattern_map(data.get("tag_patterns"))
+    if not arcs and not gaining and not fading and not pivots and not tag_patterns:
         raise ValueError("Trajectory response missed narrative, momentum, and pivots.")
     return {
         "narrative_arcs": arcs,
         "signal_momentum": {"gaining": gaining, "fading": fading},
         "pivot_points": pivots,
+        "tag_patterns": tag_patterns,
     }
 
 
@@ -474,6 +516,21 @@ def render_trajectory_markdown(report: dict[str, Any], days: int) -> str:
             lines.append(f"- {point}")
     else:
         lines.append("- (none)")
+    lines.append("")
+
+    lines.extend(["## 🏛️ Tag-by-Tag Narrative Patterns", ""])
+    patterns = report.get("tag_patterns")
+    if not isinstance(patterns, dict):
+        patterns = {}
+    wrote = False
+    for tag in _TAXONOMY_TAGS:
+        text = patterns.get(tag)
+        if isinstance(text, str) and text.strip():
+            lines.extend([f"### {tag}", "", text.strip(), ""])
+            wrote = True
+    if not wrote:
+        lines.append("No stored tag-by-tag patterns for this window.")
+        lines.append("")
     return "\n".join(lines) + "\n"
 
 
@@ -512,7 +569,8 @@ def synthesize_trajectory(
         [
             "Write the macro trajectory from the stored briefing copy below.",
             format_macro_window(records, days),
-            "Return JSON only with narrative_arcs, signal_momentum, and pivot_points.",
+            "Return JSON only with narrative_arcs, signal_momentum, pivot_points, "
+            "and tag_patterns keyed by the unhyphenated taxonomy tags.",
         ]
     )
     try:

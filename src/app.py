@@ -9,7 +9,7 @@ Run from the project folder:
 
 from __future__ import annotations
 
-LOOP_VERSION = "4.2"
+LOOP_VERSION = "4.2.1"
 
 import html
 import json
@@ -57,7 +57,16 @@ _PERCENT_DOWN_SPAN = re.compile(
     r'<span style="color:\s*#C04545">([^<]*)</span>', re.I
 )
 TAB_DAILY = "Daily Loop"
-TAB_LOOP = "The Loop"
+TAB_LOOP = "Loop Search"
+TAB_RADAR = "Macro Radar"
+TRAJECTORY_SERIES = ("Dow", "S&P 500", "Nasdaq", "Fed Funds")
+TRAJECTORY_COLORS = {
+    "Dow": "#263B60",
+    "S&P 500": "#7D9A6F",
+    "Nasdaq": "#7A9CC4",
+    "Fed Funds": "#C45C5C",
+}
+THE_LOOP_FILENAME = "THE_LOOP.md"
 LOOP_HEADER_HTML = """
 <div class="loop-header">
   <div class="loop-mark" aria-label="LOOP glasses">
@@ -80,6 +89,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 import streamlit as st
+import fetch_market
 from config_loader import flatten_feed_urls, load_config, nested_feed_tree, project_path
 from write_brief import (
     TAG_ARCHIVE_BASE,
@@ -827,7 +837,11 @@ def brand_theme_script() -> str:
     });
   }
   var TAB_DAILY = "Daily Loop";
-  var TAB_LOOP = "The Loop";
+  var TAB_LOOP = "Loop Search";
+  var TAB_RADAR = "Macro Radar";
+  function isAppTab(name) {
+    return name === TAB_DAILY || name === TAB_LOOP || name === TAB_RADAR;
+  }
   function tabLabel(btn) {
     return String((btn && (btn.innerText || btn.textContent)) || "").replace(new RegExp("\\s+", "g"), " ").trim();
   }
@@ -839,14 +853,14 @@ def brand_theme_script() -> str:
     if (forced) {
       var name = forced.getAttribute("data-loop-select-tab");
       forced.removeAttribute("data-loop-select-tab");
-      if (name === TAB_DAILY || name === TAB_LOOP) {
+      if (isAppTab(name)) {
         try { win.sessionStorage.setItem("loopActiveTab", name); } catch (err) {}
         return name;
       }
     }
     try {
       var stored = win.sessionStorage.getItem("loopActiveTab");
-      if (stored === TAB_DAILY || stored === TAB_LOOP) return stored;
+      if (isAppTab(stored)) return stored;
     } catch (err) {}
     try {
       var params = new URLSearchParams((win.location && win.location.search) || "");
@@ -906,7 +920,7 @@ def brand_theme_script() -> str:
         : null;
       if (!tab) return;
       var label = tabLabel(tab);
-      if (label !== TAB_DAILY && label !== TAB_LOOP) return;
+      if (!isAppTab(label)) return;
       try { win.sessionStorage.setItem("loopActiveTab", label); } catch (err) {}
       if (event.isTrusted === false) return;
       if (tab.getAttribute("aria-selected") === "true") return;
@@ -933,7 +947,7 @@ def brand_theme_script() -> str:
         : null;
       if (!tab) return;
       var label = tabLabel(tab);
-      if (label === TAB_DAILY || label === TAB_LOOP) {
+      if (isAppTab(label)) {
         try { win.sessionStorage.setItem("loopActiveTab", label); } catch (err) {}
         if (event.isTrusted !== false) {
           setTimeout(function () {
@@ -992,6 +1006,203 @@ def briefs_directory() -> Path:
 
 def db_path() -> Path:
     return project_path(load_config()["pipeline"]["db_path"])
+
+
+def the_loop_path() -> Path:
+    return briefs_directory() / THE_LOOP_FILENAME
+
+
+def snapshot_series_values(snapshot: dict) -> dict[str, float]:
+    """Numeric Dow, S&P 500, Nasdaq, and Fed Funds from one stored snapshot."""
+    values: dict[str, float] = {}
+    fed = snapshot.get("fed_funds")
+    if isinstance(fed, dict) and fed.get("status") == "ok":
+        rate = fed.get("rate")
+        if isinstance(rate, (int, float)):
+            values["Fed Funds"] = float(rate)
+    indexes = snapshot.get("indexes") if isinstance(snapshot.get("indexes"), dict) else {}
+    for symbol, label in fetch_market.INDEXES:
+        entry = indexes.get(symbol)
+        if isinstance(entry, dict) and entry.get("status") == "ok":
+            close = entry.get("previous_close")
+            if isinstance(close, (int, float)):
+                values[label] = float(close)
+    return values
+
+
+def load_market_history(path: Path | None = None, days: int = 14) -> list[dict[str, object]]:
+    """One stored snapshot per published_date in the last N days. Never invents quotes."""
+    db_file = Path(path) if path is not None else db_path()
+    if not db_file.is_file():
+        return []
+    modifier = f"-{int(days)} days"
+    sql = (
+        "SELECT published_date, market_snapshot_json FROM stories "
+        "WHERE published_date >= date('now', ?) "
+        "AND market_snapshot_json IS NOT NULL "
+        "AND TRIM(market_snapshot_json) != '' "
+        "ORDER BY published_date ASC, id ASC"
+    )
+    connection = sqlite3.connect(db_file)
+    connection.row_factory = sqlite3.Row
+    try:
+        rows = connection.execute(sql, (modifier,)).fetchall()
+    except sqlite3.Error:
+        return []
+    finally:
+        connection.close()
+
+    by_date: dict[str, dict[str, float]] = {}
+    for row in rows:
+        day = str(row["published_date"] or "").strip()
+        if not day:
+            continue
+        raw = row["market_snapshot_json"]
+        try:
+            data = json.loads(raw) if isinstance(raw, str) else raw
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        values = snapshot_series_values(data)
+        if values:
+            by_date[day] = values
+    points: list[dict[str, object]] = []
+    for day in sorted(by_date):
+        for name, value in by_date[day].items():
+            points.append({"date": day, "name": name, "value": value})
+    return points
+
+
+def apply_chart_mode(
+    points: list[dict[str, object]],
+    selected: list[str],
+    mode: str,
+) -> list[dict[str, object]]:
+    """Map stored levels to raw values or % change from the first point in range."""
+    wanted = [name for name in TRAJECTORY_SERIES if name in selected]
+    filtered = [
+        point
+        for point in points
+        if point.get("name") in wanted and isinstance(point.get("value"), (int, float))
+    ]
+    if mode == "raw":
+        rows = []
+        for point in filtered:
+            value = float(point["value"])
+            rows.append(
+                {
+                    "date": point["date"],
+                    "name": point["name"],
+                    "value": value,
+                    "y": value,
+                    "pct": None,
+                }
+            )
+        return rows
+    bases: dict[str, float] = {}
+    rows = []
+    for point in filtered:
+        name = str(point["name"])
+        value = float(point["value"])
+        if name not in bases:
+            if value == 0:
+                continue
+            bases[name] = value
+        pct = (value / bases[name] - 1.0) * 100.0
+        rows.append(
+            {
+                "date": point["date"],
+                "name": name,
+                "value": value,
+                "y": pct,
+                "pct": pct,
+            }
+        )
+    return rows
+
+
+def market_trajectory_figure(
+    points: list[dict[str, object]],
+    selected: list[str],
+    mode: str,
+):
+    """Plotly Express line chart for stored index and Fed Funds history."""
+    import pandas as pd
+    import plotly.express as px
+
+    rows = apply_chart_mode(points, selected, mode)
+    if not rows:
+        return None
+    frame = pd.DataFrame(rows)
+    ordered = [name for name in TRAJECTORY_SERIES if name in set(frame["name"])]
+    fig = px.line(
+        frame,
+        x="date",
+        y="y",
+        color="name",
+        color_discrete_map=TRAJECTORY_COLORS,
+        category_orders={"name": ordered},
+        markers=True,
+    )
+    for trace in fig.data:
+        subset = frame[frame["name"] == trace.name]
+        if mode == "raw":
+            hover = [
+                f"{day}<br>{trace.name}<br>value {value:g}"
+                for day, value in zip(subset["date"], subset["value"])
+            ]
+        else:
+            hover = [
+                f"{day}<br>{trace.name}<br>{pct:.2f}% change<br>value {value:g}"
+                for day, pct, value in zip(subset["date"], subset["y"], subset["value"])
+            ]
+        trace.customdata = [[text] for text in hover]
+        trace.hovertemplate = "%{customdata[0]}<extra></extra>"
+    y_title = "Value" if mode == "raw" else "% Change"
+    layout = {
+        "font": {
+            "family": 'Inter, "Helvetica Neue", Helvetica, Arial, sans-serif',
+            "color": "#171C25",
+        },
+        "paper_bgcolor": "rgba(0,0,0,0)",
+        "plot_bgcolor": "rgba(0,0,0,0)",
+        "legend_title_text": "",
+        "xaxis_title": "Date",
+        "yaxis_title": y_title,
+        "hovermode": "closest",
+        "margin": {"l": 40, "r": 40, "t": 24, "b": 40},
+    }
+    selected_names = set(frame["name"])
+    if mode == "raw" and "Fed Funds" in selected_names and (
+        selected_names - {"Fed Funds"}
+    ):
+        for trace in fig.data:
+            if trace.name == "Fed Funds":
+                trace.yaxis = "y2"
+        layout["yaxis"] = {"title": "Index"}
+        layout["yaxis2"] = {
+            "title": "Fed Funds %",
+            "overlaying": "y",
+            "side": "right",
+        }
+    fig.update_layout(**layout)
+    return fig
+
+
+def extract_macro_trajectory_markdown(text: str) -> str:
+    """Keep synthesis blocks; drop historical At a Glance and story lists."""
+    start = text.find("# Macro Trajectory")
+    if start == -1:
+        start = text.find("## 🏛️ Tag-by-Tag Narrative Patterns")
+    if start == -1:
+        return ""
+    rest = text[start:]
+    for marker in ("\n## Market Snapshot Trends", "\n## At a Glance"):
+        index = rest.find(marker)
+        if index > 0:
+            rest = rest[:index]
+    return rest.strip() + "\n"
 
 
 def list_briefing_dates(briefs_dir: Path | None = None) -> list[str]:
@@ -2138,6 +2349,66 @@ def render_search_page_controls(result: dict[str, object]) -> None:
             rerun()
 
 
+def render_macro_radar(path: Path) -> None:
+    """Multi-week synthesis plus interactive stored market trajectory."""
+    st.header("Macro Radar")
+    st.caption(
+        "Stored multi-week synthesis and market snapshots from data/loop.db. "
+        "Not live quotes. Streamlit does not call Gemini."
+    )
+    loop_file = the_loop_path()
+    if loop_file.is_file():
+        excerpt = extract_macro_trajectory_markdown(
+            loop_file.read_text(encoding="utf-8")
+        )
+        if excerpt:
+            st.markdown(excerpt)
+        else:
+            st.info(
+                "briefs/THE_LOOP.md has no Macro Trajectory yet. "
+                "Generate one with python3 src/write_the_loop.py --synthesize."
+            )
+    else:
+        st.info(
+            "No briefs/THE_LOOP.md yet. Generate one with "
+            "python3 src/write_the_loop.py --synthesize."
+        )
+
+    st.subheader("Market Trajectory")
+    days = st.radio(
+        "Range",
+        (14, 30, 60),
+        horizontal=True,
+        format_func=lambda value: f"{value} days",
+        key="radar_days",
+    )
+    selected = st.multiselect(
+        "Series",
+        list(TRAJECTORY_SERIES),
+        default=list(TRAJECTORY_SERIES),
+        key="radar_series",
+    )
+    mode_label = st.radio(
+        "Scale",
+        ("Normalized % Change", "Raw values"),
+        horizontal=True,
+        key="radar_mode",
+    )
+    mode = "raw" if mode_label == "Raw values" else "pct"
+    if not selected:
+        st.info("Select at least one series to plot.")
+        return
+    points = load_market_history(path, int(days or 14))
+    if not points:
+        st.info("No stored market snapshots in this window.")
+        return
+    fig = market_trajectory_figure(points, list(selected), mode)
+    if fig is None:
+        st.info("No stored points for the selected series.")
+        return
+    st.plotly_chart(fig, use_container_width=True)
+
+
 def render_loop_explorer(path: Path) -> None:
     if not path.is_file():
         st.info(
@@ -2211,7 +2482,7 @@ def render_loop_explorer(path: Path) -> None:
         render_story_cards(group_stories_by_headline(result["rows"]))
         return
 
-    st.header("The Loop")
+    st.header("Loop Search")
     st.caption("Search saved stories")
     with st.form("loop_search_form"):
         st.markdown("**Filters**")
@@ -2336,14 +2607,18 @@ def main() -> None:
     )
     if restore_loop_tab:
         st.markdown(
-            '<div data-loop-select-tab="The Loop" hidden></div>',
+            '<div data-loop-select-tab="Loop Search" hidden></div>',
             unsafe_allow_html=True,
         )
-    daily_tab, explorer_tab = st.tabs([TAB_DAILY, TAB_LOOP])
+    daily_tab, explorer_tab, radar_tab = st.tabs(
+        ["Daily Loop", "Loop Search", "Macro Radar"]
+    )
     with daily_tab:
         render_daily_loop()
     with explorer_tab:
         render_loop_explorer(path)
+    with radar_tab:
+        render_macro_radar(path)
 
 
 if __name__ == "__main__":

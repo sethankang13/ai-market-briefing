@@ -1,6 +1,8 @@
+import json
 import os
 import sqlite3
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -409,9 +411,9 @@ class AppImportTests(unittest.TestCase):
         script = self.app.brand_theme_script()
         config = Path(self.app.__file__).resolve().parents[1] / ".streamlit" / "config.toml"
         toml = config.read_text(encoding="utf-8")
-        self.assertEqual(self.app.LOOP_VERSION, "4.2")
+        self.assertEqual(self.app.LOOP_VERSION, "4.2.1")
         version_file = Path(self.app.__file__).resolve().parents[1] / "VERSION"
-        self.assertEqual(version_file.read_text(encoding="utf-8").strip(), "4.2")
+        self.assertEqual(version_file.read_text(encoding="utf-8").strip(), "4.2.1")
         self.assertIn('data-loop-theme="light"', css)
         self.assertIn('data-loop-theme="dark"', css)
         self.assertNotIn('data-loop-theme="system"', css)
@@ -550,7 +552,7 @@ class AppImportTests(unittest.TestCase):
         self.assertIn('font = "Inter"', toml)
         self.assertIn("st.header(selected)", source)
         self.assertNotIn('st.title(f"Daily Loop: {selected}")', source)
-        self.assertIn('st.header("The Loop")', source)
+        self.assertIn('st.header("Loop Search")', source)
         self.assertIn("Search saved stories", source)
         self.assertIn("**Filters**", source)
         colors = list(self.app.TAG_COLORS.values())
@@ -594,14 +596,18 @@ class AppImportTests(unittest.TestCase):
             lock.write_text("99999999", encoding="utf-8")
             self.assertFalse(self.app.is_briefing_generating(lock))
 
-    def test_tab_titles_are_daily_loop_and_the_loop(self):
+    def test_tab_titles_are_daily_loop_search_and_macro_radar(self):
         source = Path(self.app.__file__).read_text(encoding="utf-8")
         self.assertEqual(self.app.TAB_DAILY, "Daily Loop")
-        self.assertEqual(self.app.TAB_LOOP, "The Loop")
-        self.assertEqual(source.count("st.tabs([TAB_DAILY, TAB_LOOP])"), 1)
+        self.assertEqual(self.app.TAB_LOOP, "Loop Search")
+        self.assertEqual(self.app.TAB_RADAR, "Macro Radar")
+        self.assertIn(
+            'st.tabs(\n        ["Daily Loop", "Loop Search", "Macro Radar"]\n    )',
+            source,
+        )
         self.assertNotIn("st.tabs([TAB_LOOP, TAB_DAILY])", source)
         self.assertIn("clear_loop_query_params", source)
-        self.assertIn('data-loop-select-tab="The Loop"', source)
+        self.assertIn('data-loop-select-tab="Loop Search"', source)
         self.assertIn("loop_select_tab", source)
         self.assertIn("loop_restore_tab", source)
         self.assertIn("loopActiveTab", source)
@@ -614,9 +620,96 @@ class AppImportTests(unittest.TestCase):
         self.assertIn(".assign(href)", source)
         self.assertIn("retargetLoopLinks", source)
         self.assertIn("st.header(selected)", source)
-        self.assertIn('st.header("The Loop")', source)
+        self.assertIn('st.header("Loop Search")', source)
+        self.assertIn('st.header("Macro Radar")', source)
+        self.assertIn("plotly.express", source)
+        self.assertIn("Normalized % Change", source)
         self.assertNotIn("Daily Briefings", source)
         self.assertNotIn("The Loop Explorer", source)
+        daily = Path(self.app.__file__).read_text(encoding="utf-8")
+        start = daily.index("def render_daily_loop")
+        end = daily.index("\ndef ", start + 1)
+        daily_src = daily[start:end]
+        self.assertNotIn("plotly", daily_src)
+        self.assertNotIn("Macro Radar", daily_src)
+        self.assertNotIn("load_market_history", daily_src)
+
+    def test_macro_radar_history_percent_change_and_plotly_line(self):
+        today = date.today()
+        day0 = (today - timedelta(days=3)).isoformat()
+        day1 = (today - timedelta(days=1)).isoformat()
+        old = (today - timedelta(days=40)).isoformat()
+
+        def snapshot(dow, spx, nasdaq, fed):
+            return json.dumps(
+                {
+                    "fed_funds": {"status": "ok", "rate": fed},
+                    "indexes": {
+                        "^DJI": {"status": "ok", "previous_close": dow},
+                        "^GSPC": {"status": "ok", "previous_close": spx},
+                        "^IXIC": {"status": "ok", "previous_close": nasdaq},
+                    },
+                }
+            )
+
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "loop.db"
+            connection = sqlite3.connect(path)
+            connection.execute(
+                """
+                CREATE TABLE stories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    published_date TEXT,
+                    headline TEXT,
+                    url TEXT,
+                    source TEXT,
+                    market_snapshot_json TEXT
+                )
+                """
+            )
+            connection.executemany(
+                "INSERT INTO stories (published_date, headline, url, source, market_snapshot_json) "
+                "VALUES (?, ?, ?, ?, ?)",
+                [
+                    (old, "Old", "https://example.com/old", "Example", snapshot(10000, 1000, 2000, 1.0)),
+                    (day0, "First", "https://example.com/a", "Example", snapshot(40000, 5000, 15000, 4.25)),
+                    (day1, "Second", "https://example.com/b", "Example", snapshot(42000, 5100, 14850, 4.50)),
+                ],
+            )
+            connection.commit()
+            connection.close()
+            points = self.app.load_market_history(path, days=14)
+            names = {point["name"] for point in points}
+            dates = {point["date"] for point in points}
+
+        self.assertEqual(names, set(self.app.TRAJECTORY_SERIES))
+        self.assertEqual(dates, {day0, day1})
+        rows = self.app.apply_chart_mode(points, list(self.app.TRAJECTORY_SERIES), "pct")
+        dow = [row for row in rows if row["name"] == "Dow"]
+        self.assertEqual(dow[0]["y"], 0.0)
+        self.assertAlmostEqual(dow[1]["y"], 5.0)
+        fig = self.app.market_trajectory_figure(
+            points, list(self.app.TRAJECTORY_SERIES), "pct"
+        )
+        self.assertEqual(len(fig.data), 4)
+        self.assertEqual({trace.name for trace in fig.data}, set(self.app.TRAJECTORY_SERIES))
+        for trace in fig.data:
+            self.assertEqual(
+                trace.line.color, self.app.TRAJECTORY_COLORS[trace.name]
+            )
+            self.assertIn("%{customdata[0]}", trace.hovertemplate)
+            self.assertIn(trace.name, trace.customdata[0][0])
+        excerpt = self.app.extract_macro_trajectory_markdown(
+            "# The Loop: Macro Summary (Last 14 Days)\n\n"
+            "# Macro Trajectory (Last 14 Days)\n\n"
+            "## 🏛️ Tag-by-Tag Narrative Patterns\n\n"
+            "### US Politics\n\nPolicy stays the through-line.\n\n"
+            "## At a Glance\n\n- skip me\n"
+        )
+        self.assertIn("Tag-by-Tag Narrative Patterns", excerpt)
+        self.assertIn("US Politics", excerpt)
+        self.assertNotIn("At a Glance", excerpt)
+        self.assertNotIn("skip me", excerpt)
 
     def test_search_stories_date_range_year_month_day(self):
         with TemporaryDirectory() as temp_dir:

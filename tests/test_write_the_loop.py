@@ -46,6 +46,29 @@ def sample_row(**overrides):
 
 
 class WriteTheLoopCliTests(unittest.TestCase):
+    def test_parse_keeps_unhyphenated_tag_patterns(self):
+        parsed = write_the_loop.parse_trajectory_report(
+            json.dumps(
+                {
+                    "narrative_arcs": ["One arc"],
+                    "signal_momentum": {"gaining": ["US Politics"], "fading": []},
+                    "pivot_points": ["A pivot"],
+                    "tag_patterns": {
+                        "US Politics": "Policy holds.",
+                        "Unknown": "drop me",
+                        "Labor-Economy": "hyphen drop",
+                    },
+                }
+            )
+        )
+        self.assertEqual(parsed["tag_patterns"], {"US Politics": "Policy holds."})
+        markdown = write_the_loop.render_trajectory_markdown(parsed, 14)
+        self.assertIn("## 🏛️ Tag-by-Tag Narrative Patterns", markdown)
+        self.assertIn("### US Politics", markdown)
+        self.assertIn("Policy holds.", markdown)
+        self.assertNotIn("Unknown", markdown)
+        self.assertNotIn("Labor-Economy", markdown)
+
     def test_argparse_converts_days_and_tag_types(self):
         args = write_the_loop.parse_arguments(
             ["--days", "14", "--tag", "US Politics", "--limit", "8"]
@@ -212,10 +235,20 @@ class WriteTheLoopCliTests(unittest.TestCase):
         self.assertIn("## Narrative Arcs", report)
         self.assertIn("## Signal Momentum", report)
         self.assertIn("## Pivot Points", report)
+        self.assertIn("## 🏛️ Tag-by-Tag Narrative Patterns", report)
+        self.assertIn("### US Politics", report)
+        self.assertIn("### Market Valuations", report)
+        self.assertIn("### Labor & Economy", report)
+        self.assertIn("### Geopolitics & Trade", report)
+        self.assertIn("### Tech & Innovation", report)
+        self.assertIn("### Venture & M&A", report)
         self.assertIn("Mock arc 1:", report)
         self.assertIn("Mock gaining: US Politics", report)
         self.assertIn("Mock fading: Venture & M&A", report)
         self.assertIn("Mock pivot:", report)
+        self.assertIn("Mock pattern: US Politics", report)
+        self.assertNotIn("US-Politics", report)
+        self.assertNotIn("Labor-Economy", report)
         self.assertLess(
             report.find("# Macro Trajectory (Last 14 Days)"),
             report.find("## At a Glance"),
@@ -290,6 +323,9 @@ class WriteTheLoopCliTests(unittest.TestCase):
                     "fading": ["Venture & M&A"],
                 },
                 "pivot_points": ["A rate-path reversal."],
+                "tag_patterns": {
+                    "US Politics": "Policy notes stay the stored through-line."
+                },
             }
         )
         gemini_response = {
@@ -339,8 +375,18 @@ class WriteTheLoopCliTests(unittest.TestCase):
         self.assertIn("Policy headlines dominated the window.", prompt)
         self.assertIn("The bill remains the week's core.", prompt)
         self.assertIn("narrative_arcs", prompt)
+        self.assertIn("tag_patterns", prompt)
+        self.assertIn("US Politics", prompt)
+        self.assertIn("Market Valuations", prompt)
+        self.assertIn("Labor & Economy", prompt)
+        self.assertIn("Geopolitics & Trade", prompt)
+        self.assertIn("Tech & Innovation", prompt)
+        self.assertIn("Venture & M&A", prompt)
+        self.assertNotIn("At a Glance", write_the_loop.TRAJECTORY_SYSTEM_PROMPT)
         self.assertTrue(report.startswith("# The Loop: Macro Summary (Last 14 Days)\n"))
         self.assertIn("# Macro Trajectory (Last 14 Days)", report)
+        self.assertIn("## 🏛️ Tag-by-Tag Narrative Patterns", report)
+        self.assertIn("Policy notes stay the stored through-line.", report)
         self.assertIn("Policy and markets stay linked.", report)
         self.assertIn("US Politics", report)
         self.assertIn("A rate-path reversal.", report)

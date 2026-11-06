@@ -4,16 +4,16 @@
 
 A personal daily briefing that turns public RSS into a local Markdown file and a local Streamlit reader. It is a deterministic **ETL pipeline**, **one Gemini Flash `generateContent` call per run** (not per story), and a read-only Streamlit UI. Not a chatbot, not email, not a public website.
 
-**Architecture: v4.2 (SHIPPED).**
+**Architecture: v4.2.1 (SHIPPED).**
 
 ## Architecture (v4.1)
 
 | Piece | What it is |
 | --- | --- |
-| Brand | **LOOP: AI Market Briefing**. Daily file `# Looping... (YYYY-MM-DD)` (app title `Daily Loop: YYYY-MM-DD`). History `# The Loop: Macro Summary (Last N Days)`. `--synthesize` prepends `# Macro Trajectory (Last N Days)`. |
+| Brand | **LOOP: AI Market Briefing**. Daily file `# Looping... (YYYY-MM-DD)` (app title `Daily Loop: YYYY-MM-DD`). History `# The Loop: Macro Summary (Last N Days)`. `--synthesize` prepends `# Macro Trajectory (Last N Days)` and `## 🏛️ Tag-by-Tag Narrative Patterns`. |
 | ETL | Collect → enrich/tag → select → market snapshot → one Gemini Flash macro → write brief → upsert `data/loop.db`. Raw JSON is immutable. Publisher HTML is not fetched on the live path. |
 | Model | One Gemini Flash completion per live run (`gemini-3.8-flash` → `3.7` → `3.6` → `2.5-flash`). OpenAI `gpt-4o-mini` is the fallback. `--mock` skips models. |
-| UI | Local Streamlit on `http://127.0.0.1:8501` (`Daily Loop`, `The Loop`, `?tag=` archive). Streamlit ⋮ Light / Dark / System only. Loop.app starts the UI; it does not run Gemini. |
+| UI | Local Streamlit on `http://127.0.0.1:8501` (`Daily Loop`, `Loop Search`, `Macro Radar`, `?tag=` archive). Streamlit ⋮ Light / Dark / System only. Loop.app starts the UI; it does not run Gemini. |
 | Schedule | LaunchAgent `com.loop.dailybriefing`: **8:00 AM every day** (7 days) and `RunAtLoad`. Wrapper `scripts/run_daily.sh` → live `python3 src/run_briefing.py`. |
 | Memory | All collected RSS (selected and not) upserts into gitignored `data/loop.db` (`is_selected` marks brief picks). |
 | Taxonomy | Six unhyphenated tags with integer weights (highest assigned tag owns the brief section). |
@@ -100,7 +100,7 @@ Per-article HTML scrape lives in `src/archived_article_summarizer.py` and is not
 ```text
 /Users/ethankang/Documents/ai-market-briefing/
 ├── README.md
-├── VERSION                 # 4.2
+├── VERSION                 # 4.2.1
 ├── config/config.yaml      # feeds, taxonomy, tag_weights, models, paths
 ├── src/run_briefing.py     # orchestrator
 ├── src/app.py              # Streamlit
@@ -123,7 +123,8 @@ Per-article HTML scrape lives in `src/archived_article_summarizer.py` and is not
 | v4.0 | SHIPPED | Local Streamlit: Daily Loop + The Loop; Loop.app launcher. |
 | v4.0.1 | SHIPPED | `RunAtLoad`, skip-if-today’s-brief-exists, lockfile UI, honest Fed Funds. |
 | v4.1 | **SHIPPED** | LOOP brand, ⋮ Light/Dark/System, Daily Loop date select, **8:00 AM every day**, full RSS in `loop.db`, one Gemini Flash per run. |
-| v4.2 | **SHIPPED** | Meta-synthesis: `write_the_loop.py --synthesize` prepends narrative arcs, signal momentum, and pivot points from stored `macro_report` JSON (one Gemini Flash call, or `--mock`). |
+| v4.2 | SHIPPED | Meta-synthesis: `write_the_loop.py --synthesize` prepends narrative arcs, signal momentum, and pivot points from stored `macro_report` JSON (one Gemini Flash call, or `--mock`). |
+| v4.2.1 | **SHIPPED** | Macro Radar tab: tag-by-tag narrative patterns in `THE_LOOP.md` plus Plotly market trajectory (14/30/60, % change / raw). Daily Loop stays briefing + date dropdown + At a Glance. Loop Search is the story explorer. |
 | v5.0 | Planned | Delivery after the local habit is solid (PDF / email), still citing the sources actually used. |
 | v5.1 | Planned | Entity tracking and source-grounded story clusters (one event, every supporting link, facts vs interpretation). |
 

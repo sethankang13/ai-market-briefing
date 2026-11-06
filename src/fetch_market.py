@@ -20,7 +20,7 @@ from typing import Any
 
 
 USER_AGENT = (
-    "Loop-AI-Market-Briefing/4.2 "
+    "Loop-AI-Market-Briefing/4.2.1 "
     "(local briefing; https://github.com/sethankang13/ai-market-briefing)"
 )
 REQUEST_HEADERS = {

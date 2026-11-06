@@ -67,7 +67,9 @@ SYSTEM_PROMPT = (
     "per-story Why It Matters, or a tags line. "
     "daily_summary: what happened today across all headlines, and what it "
     "could mean. research_radar: 3-5 high-impact topics worth manual "
-    "follow-up. Never write pending-placeholder copy such as "
+    "follow-up. Do NOT wrap key figures, quotes, entity names, or phrases "
+    "in backticks. Write plain unformatted executive text without inline "
+    "code blocks. Never write pending-placeholder copy such as "
     '"AI Summary Pending" or "AI Headline Pending".'
 )
 

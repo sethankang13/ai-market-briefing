@@ -12,12 +12,14 @@ from write_brief import (
     TAG_ARCHIVE_BASE,
     TAG_COLORS,
     concise_topic_label,
+    copy_from_run,
     createGeminiResearchUrl,
     create_gemini_research_url,
     glance_phrase,
     latest_briefing_source,
     normalize_headline,
     render_brief,
+    sanitize_markdown_text,
     section_for_story,
     slugify,
     tag_archive_url,
@@ -248,6 +250,48 @@ class WriteBriefTests(unittest.TestCase):
         self.assertNotIn("#C04545", briefing)
         self.assertNotIn("#2F7D4F", briefing)
         self.assertNotIn("timeout", briefing)
+
+    def test_sanitize_markdown_text_strips_inline_backticks(self):
+        self.assertEqual(
+            sanitize_markdown_text("The `S&P 500` rose after the `Fed` hold."),
+            "The S&P 500 rose after the Fed hold.",
+        )
+        self.assertEqual(sanitize_markdown_text("No ticks here."), "No ticks here.")
+        self.assertEqual(sanitize_markdown_text("`one` and `two`"), "one and two")
+        notes, summary, radar = copy_from_run(
+            {
+                "stories": [story("Bill advances", ["US Politics"])],
+                "tag_notes": {
+                    "US Politics": "The `bill` continues a policy cluster."
+                },
+                "daily_summary": "Policy hit the `S&P 500` and quotes from `Powell`.",
+                "research_radar": ["Follow the `markup`."],
+            }
+        )
+        self.assertEqual(
+            notes["US Politics"], "The bill continues a policy cluster."
+        )
+        self.assertEqual(
+            summary, "Policy hit the S&P 500 and quotes from Powell."
+        )
+        self.assertEqual(radar, ["Follow the markup."])
+        briefing = render_brief(
+            {
+                "stories": [story("Bill advances", ["US Politics"])],
+                "tag_notes": {
+                    "US Politics": "The `bill` continues a policy cluster."
+                },
+                "daily_summary": "Policy hit the `S&P 500`.",
+                "research_radar": ["Follow the `markup`."],
+            },
+            "2026-10-23",
+        )
+        self.assertIn("The bill continues a policy cluster.", briefing)
+        self.assertIn("Policy hit the S&P 500.", briefing)
+        self.assertIn("Follow the markup", briefing)
+        self.assertNotIn("`S&P 500`", briefing)
+        self.assertNotIn("`bill`", briefing)
+        self.assertNotIn("`markup`", briefing)
 
     def test_daily_summary_follows_tag_sections_and_does_not_need_ai_summary(self):
         briefing = render_brief(

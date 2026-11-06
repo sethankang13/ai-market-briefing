@@ -37,6 +37,13 @@ TAG_COLORS = {
     "Tech & Innovation": "#7A9CC4",
     "Venture & M&A": "#D4A07A",
 }
+
+
+def sanitize_markdown_text(text: str) -> str:
+    """Strip inline backtick spans from briefing copy."""
+    return re.sub(r"`([^`\n]+)`", r"\1", text)
+
+
 PENDING_MARKERS = (
     "AI Summary Pending",
     "AI Headline Pending",
@@ -348,26 +355,38 @@ def copy_from_run(selected_run: dict[str, object]) -> tuple[dict[str, str], str,
     radar = selected_run.get("research_radar")
     if isinstance(notes, dict) and isinstance(summary, str) and summary.strip():
         cleaned_notes = {
-            str(tag): text.strip()
+            str(tag): sanitize_markdown_text(text.strip())
             for tag, text in notes.items()
             if isinstance(tag, str) and isinstance(text, str) and text.strip()
         }
         radar_items = (
-            [item.strip() for item in radar if isinstance(item, str) and item.strip()]
+            [
+                sanitize_markdown_text(item.strip())
+                for item in radar
+                if isinstance(item, str) and item.strip()
+            ]
             if isinstance(radar, list)
             else []
         )
-        return cleaned_notes, summary.strip(), radar_items
+        return cleaned_notes, sanitize_markdown_text(summary.strip()), radar_items
 
     macro = selected_run.get("macro_report")
     if isinstance(macro, str) and macro.strip():
         try:
             from summarize_stories import parse_briefing_copy
 
-            return parse_briefing_copy(macro)
+            parsed_notes, parsed_summary, parsed_radar = parse_briefing_copy(macro)
+            return (
+                {
+                    tag: sanitize_markdown_text(text)
+                    for tag, text in parsed_notes.items()
+                },
+                sanitize_markdown_text(parsed_summary),
+                [sanitize_markdown_text(item) for item in parsed_radar],
+            )
         except Exception:
             if not any(marker.lower() in macro.lower() for marker in PENDING_MARKERS):
-                return {}, macro.strip(), []
+                return {}, sanitize_markdown_text(macro.strip()), []
     return {}, "", []
 
 

@@ -602,6 +602,25 @@ def open_loop_file(output_path: Path) -> None:
         print(f"Could not open {output_path}: {error}")
 
 
+def generate_synthesis_report(
+    days: int = 14,
+    mock: bool = False,
+    db_path: Path | None = None,
+    output_path: Path | None = None,
+) -> Path:
+    """Write ``briefs/THE_LOOP.md`` with a multi-week trajectory.
+
+    Used by Macro Radar on demand. Daily ``run_daily.sh`` does not call this.
+    """
+    return save_the_loop(
+        output_path=output_path,
+        db_path=db_path,
+        days=int(days),
+        synthesize=True,
+        mock=bool(mock),
+    )
+
+
 def save_the_loop(
     output_path: Path | None = None,
     db_path: Path | None = None,

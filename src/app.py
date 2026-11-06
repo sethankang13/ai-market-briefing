@@ -1,7 +1,8 @@
 """Local Streamlit UI for LOOP: AI Market Briefing.
 
 Reads existing ``briefs/YYYY-MM-DD.md`` files and ``data/loop.db``.
-Does not call Gemini, OpenAI, or any other model.
+Does not call Gemini on Daily Loop or Loop Search. Macro Radar can run
+on-demand synthesis from stored briefing copy.
 
 Run from the project folder:
     streamlit run src/app.py
@@ -67,6 +68,19 @@ TRAJECTORY_COLORS = {
     "Fed Funds": "#C45C5C",
 }
 THE_LOOP_FILENAME = "THE_LOOP.md"
+SYNTHESIS_WINDOWS = {
+    "14 Days": 14,
+    "30 Days": 30,
+    "60 Days": 60,
+    "90 Days": 90,
+}
+TIMELINE_WINDOWS = {
+    "2 Weeks": 14,
+    "1 Month": 30,
+    "3 Months": 90,
+    "6 Months": 180,
+    "1 Year": 365,
+}
 LOOP_HEADER_HTML = """
 <div class="loop-header">
   <div class="loop-mark" aria-label="LOOP glasses">
@@ -91,12 +105,14 @@ if str(SRC_DIR) not in sys.path:
 import streamlit as st
 import fetch_market
 from config_loader import flatten_feed_urls, load_config, nested_feed_tree, project_path
+import write_the_loop
 from write_brief import (
     TAG_ARCHIVE_BASE,
     TAG_COLORS,
     TAG_LABELS,
     ask_gemini_topic_html,
     humanize_tag,
+    sanitize_markdown_text,
     tag_archive_url,
     tag_hashtag_html,
 )
@@ -1145,20 +1161,10 @@ def market_trajectory_figure(
         category_orders={"name": ordered},
         markers=True,
     )
-    for trace in fig.data:
-        subset = frame[frame["name"] == trace.name]
-        if mode == "raw":
-            hover = [
-                f"{day}<br>{trace.name}<br>value {value:g}"
-                for day, value in zip(subset["date"], subset["value"])
-            ]
-        else:
-            hover = [
-                f"{day}<br>{trace.name}<br>{pct:.2f}% change<br>value {value:g}"
-                for day, pct, value in zip(subset["date"], subset["y"], subset["value"])
-            ]
-        trace.customdata = [[text] for text in hover]
-        trace.hovertemplate = "%{customdata[0]}<extra></extra>"
+    if mode == "raw":
+        fig.update_traces(hovertemplate="%{y:,.2f}")
+    else:
+        fig.update_traces(hovertemplate="%{y:+,.2f}%")
     y_title = "Value" if mode == "raw" else "% Change"
     layout = {
         "font": {
@@ -1168,9 +1174,13 @@ def market_trajectory_figure(
         "paper_bgcolor": "rgba(0,0,0,0)",
         "plot_bgcolor": "rgba(0,0,0,0)",
         "legend_title_text": "",
+        "legend": {
+            "itemclick": "toggle",
+            "itemdoubleclick": "toggleothers",
+        },
         "xaxis_title": "Date",
         "yaxis_title": y_title,
-        "hovermode": "closest",
+        "hovermode": "x unified",
         "margin": {"l": 40, "r": 40, "t": 24, "b": 40},
     }
     selected_names = set(frame["name"])
@@ -1545,6 +1555,7 @@ def rewrite_ask_gemini_topics(markdown: str) -> str:
 
 def display_brief_markdown(markdown: str) -> str:
     """Hyperlink At a Glance / titles to RSS URLs; drop standalone URL lines."""
+    markdown = sanitize_markdown_text(markdown)
     markdown = markdown.replace("?loop=1&tag=", "?tag=")
     markdown = markdown.replace("?tag=", "?loop=1&tag=")
     markdown = rewrite_snapshot_deltas(markdown)
@@ -2350,37 +2361,47 @@ def render_search_page_controls(result: dict[str, object]) -> None:
 
 
 def render_macro_radar(path: Path) -> None:
-    """Multi-week synthesis plus interactive stored market trajectory."""
+    """On-demand multi-week synthesis plus interactive stored market trajectory."""
     st.header("Macro Radar")
     st.caption(
-        "Stored multi-week synthesis and market snapshots from data/loop.db. "
-        "Not live quotes. Streamlit does not call Gemini."
+        "On-demand multi-week synthesis and stored market snapshots from "
+        "data/loop.db. Not live quotes. Daily briefing does not run this."
     )
+    window_label = st.selectbox(
+        "Synthesis Window",
+        ["14 Days", "30 Days", "60 Days", "90 Days"],
+        key="radar_synthesis_window",
+    )
+    is_mock = st.checkbox("Mock Mode (Offline)", key="radar_mock")
+    if st.button("⚡ Generate Macro Synthesis", type="primary"):
+        selected_days = SYNTHESIS_WINDOWS.get(window_label, 14)
+        with st.spinner("Synthesizing multi-week trajectory..."):
+            write_the_loop.generate_synthesis_report(days=selected_days, mock=is_mock)
+        st.rerun()
+
     loop_file = the_loop_path()
     if loop_file.is_file():
         excerpt = extract_macro_trajectory_markdown(
-            loop_file.read_text(encoding="utf-8")
+            sanitize_markdown_text(loop_file.read_text(encoding="utf-8"))
         )
         if excerpt:
             st.markdown(excerpt)
         else:
             st.info(
-                "briefs/THE_LOOP.md has no Macro Trajectory yet. "
-                "Generate one with python3 src/write_the_loop.py --synthesize."
+                "No Macro Trajectory yet. Choose a window and generate synthesis."
             )
     else:
         st.info(
-            "No briefs/THE_LOOP.md yet. Generate one with "
-            "python3 src/write_the_loop.py --synthesize."
+            "No briefs/THE_LOOP.md yet. Choose a window and generate synthesis."
         )
 
     st.subheader("Market Trajectory")
-    days = st.radio(
-        "Range",
-        (14, 30, 60),
+    timeline = st.radio(
+        "Timeline",
+        ["2 Weeks", "1 Month", "3 Months", "6 Months", "1 Year"],
         horizontal=True,
-        format_func=lambda value: f"{value} days",
-        key="radar_days",
+        index=0,
+        key="radar_timeline",
     )
     selected = st.multiselect(
         "Series",
@@ -2398,7 +2419,8 @@ def render_macro_radar(path: Path) -> None:
     if not selected:
         st.info("Select at least one series to plot.")
         return
-    points = load_market_history(path, int(days or 14))
+    days = TIMELINE_WINDOWS.get(timeline, 14)
+    points = load_market_history(path, int(days))
     if not points:
         st.info("No stored market snapshots in this window.")
         return

@@ -197,6 +197,20 @@ class WriteTheLoopCliTests(unittest.TestCase):
             mock=False,
         )
 
+    def test_generate_synthesis_report_writes_with_synthesize(self):
+        with patch.object(
+            write_the_loop, "save_the_loop", return_value=Path("out.md")
+        ) as save:
+            saved = write_the_loop.generate_synthesis_report(days=30, mock=True)
+        self.assertEqual(saved, Path("out.md"))
+        save.assert_called_once_with(
+            output_path=None,
+            db_path=None,
+            days=30,
+            synthesize=True,
+            mock=True,
+        )
+
     def test_main_passes_synthesize_mock_days(self):
         with patch.object(write_the_loop, "save_the_loop", return_value=Path("out.md")) as save:
             write_the_loop.main(

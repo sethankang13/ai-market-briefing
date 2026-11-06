@@ -624,6 +624,25 @@ class AppImportTests(unittest.TestCase):
         self.assertIn('st.header("Macro Radar")', source)
         self.assertIn("plotly.express", source)
         self.assertIn("Normalized % Change", source)
+        self.assertIn('"Synthesis Window"', source)
+        self.assertIn('["14 Days", "30 Days", "60 Days", "90 Days"]', source)
+        self.assertIn('"Mock Mode (Offline)"', source)
+        self.assertIn(
+            'st.button("⚡ Generate Macro Synthesis", type="primary")', source
+        )
+        self.assertIn('"Timeline"', source)
+        self.assertIn(
+            '["2 Weeks", "1 Month", "3 Months", "6 Months", "1 Year"]', source
+        )
+        self.assertIn("generate_synthesis_report", source)
+        self.assertIn('hovermode": "x unified"', source)
+        self.assertIn('hovertemplate="%{y:,.2f}"', source)
+        self.assertIn('hovertemplate="%{y:+,.2f}%"', source)
+        self.assertEqual(self.app.TIMELINE_WINDOWS["2 Weeks"], 14)
+        self.assertEqual(self.app.TIMELINE_WINDOWS["1 Month"], 30)
+        self.assertEqual(self.app.TIMELINE_WINDOWS["3 Months"], 90)
+        self.assertEqual(self.app.TIMELINE_WINDOWS["6 Months"], 180)
+        self.assertEqual(self.app.TIMELINE_WINDOWS["1 Year"], 365)
         self.assertNotIn("Daily Briefings", source)
         self.assertNotIn("The Loop Explorer", source)
         daily = Path(self.app.__file__).read_text(encoding="utf-8")
@@ -697,8 +716,13 @@ class AppImportTests(unittest.TestCase):
             self.assertEqual(
                 trace.line.color, self.app.TRAJECTORY_COLORS[trace.name]
             )
-            self.assertIn("%{customdata[0]}", trace.hovertemplate)
-            self.assertIn(trace.name, trace.customdata[0][0])
+            self.assertEqual(trace.hovertemplate, "%{y:+,.2f}%")
+        self.assertEqual(fig.layout.hovermode, "x unified")
+        raw_fig = self.app.market_trajectory_figure(
+            points, list(self.app.TRAJECTORY_SERIES), "raw"
+        )
+        for trace in raw_fig.data:
+            self.assertEqual(trace.hovertemplate, "%{y:,.2f}")
         excerpt = self.app.extract_macro_trajectory_markdown(
             "# The Loop: Macro Summary (Last 14 Days)\n\n"
             "# Macro Trajectory (Last 14 Days)\n\n"

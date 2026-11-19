@@ -1,5 +1,6 @@
 import json
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -348,10 +349,11 @@ class WriteTheLoopCliTests(unittest.TestCase):
         with TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "loop.db"
             output = Path(temp_dir) / "THE_LOOP.md"
+            recent = (date.today() - timedelta(days=1)).isoformat()
             write_the_loop.db.append_stories(
                 [
                     {
-                        "published_at": "2026-11-04",
+                        "published_at": recent,
                         "headline": "Policy bill advances",
                         "link": "https://example.com/bill",
                         "source": "Example News",

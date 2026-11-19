@@ -12,7 +12,7 @@ A personal daily briefing that turns public RSS into a local Markdown file and a
 | --- | --- |
 | Brand | **LOOP: AI Market Briefing**. Daily file `# Looping... (YYYY-MM-DD)` (app title `Daily Loop: YYYY-MM-DD`). History `# The Loop: Macro Summary (Last N Days)`. `--synthesize` prepends `# Macro Trajectory (Last N Days)` and `## 🏛️ Tag-by-Tag Narrative Patterns`. |
 | ETL | Collect → enrich/tag → select → market snapshot → one Gemini Flash macro → write brief → upsert `data/loop.db`. Raw JSON is immutable. Publisher HTML is not fetched on the live path. |
-| Model | One Gemini Flash completion per live run (`gemini-3.8-flash` → `3.7` → `3.6` → `2.5-flash`). OpenAI `gpt-4o-mini` is the fallback. `--mock` skips models. |
+| Model | One Gemini Flash completion per live run (`gemini-3.8-flash` → `3.7` → `3.6` → `gemini-3-flash-preview`). Overloaded models retry before the next id. OpenAI `gpt-4o-mini` is the fallback. `--mock` skips models. |
 | UI | Local Streamlit on `http://127.0.0.1:8501` (`Daily Loop`, `Loop Search`, `Macro Radar`, `?tag=` archive). Streamlit ⋮ Light / Dark / System only. Loop.app starts the UI; it does not run Gemini. |
 | Schedule | LaunchAgent `com.loop.dailybriefing`: **8:00 AM every day** (7 days) and `RunAtLoad`. Wrapper `scripts/run_daily.sh` → live `python3 src/run_briefing.py`. |
 | Memory | All collected RSS (selected and not) upserts into gitignored `data/loop.db` (`is_selected` marks brief picks). |

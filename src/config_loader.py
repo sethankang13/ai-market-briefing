@@ -134,7 +134,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "gemini-3.8-flash",
             "gemini-3.7-flash",
             "gemini-3.6-flash",
-            "gemini-2.5-flash",
+            "gemini-3-flash-preview",
         ],
         "openai_fallback": "gpt-4o-mini",
     },

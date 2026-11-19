@@ -254,17 +254,69 @@ class SummarizeStoriesTests(unittest.TestCase):
             raise AssertionError(f"unexpected url {url}")
 
         with patch.dict(os.environ, {"GEMINI_API_KEY": "gemini-test"}, clear=True):
-            with patch.object(summarize_stories, "_post_json", side_effect=fake_post):
-                result = summarize_stories.summarize_macro(
-                    [sample_story(), sample_story("Second headline")],
-                    history=[],
-                )
+            with patch.object(summarize_stories, "time") as time_mod:
+                time_mod.sleep.return_value = None
+                with patch.object(summarize_stories, "_post_json", side_effect=fake_post):
+                    result = summarize_stories.summarize_macro(
+                        [sample_story(), sample_story("Second headline")],
+                        history=[],
+                    )
 
         self.assertEqual(result.provider, "gemini")
         self.assertIn("tag_notes", result.macro_report)
-        self.assertEqual(len(calls), 2)
-        self.assertIn("gemini-3.8-flash", calls[0])
-        self.assertIn("gemini-3.7-flash", calls[1])
+        self.assertEqual(len(calls), 4)
+        self.assertTrue(all("gemini-3.8-flash" in url for url in calls[:3]))
+        self.assertIn("gemini-3.7-flash", calls[3])
+
+    def test_gemini_retries_503_on_same_model_then_succeeds(self):
+        calls = []
+
+        def fake_post(url, payload, headers, timeout=60):
+            calls.append(url)
+            if len(calls) < 3:
+                raise urllib.error.HTTPError(url, 503, "high demand", {}, None)
+            return gemini_body(sample_macro())
+
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "gemini-test"}, clear=True):
+            with patch.object(summarize_stories, "time") as time_mod:
+                time_mod.sleep.return_value = None
+                with patch.object(summarize_stories, "_post_json", side_effect=fake_post):
+                    result = summarize_stories.summarize_macro(
+                        [sample_story()], history=[]
+                    )
+
+        self.assertEqual(result.provider, "gemini")
+        self.assertEqual(len(calls), 3)
+        self.assertTrue(all("gemini-3.8-flash" in url for url in calls))
+        self.assertEqual(time_mod.sleep.call_count, 2)
+
+    def test_gemini_404_skips_to_preview_without_retrying(self):
+        calls = []
+
+        def fake_post(url, payload, headers, timeout=60):
+            calls.append(url)
+            if "gemini-3.8-flash" in url:
+                raise urllib.error.HTTPError(url, 404, "gone", {}, None)
+            if "gemini-3.7-flash" in url:
+                raise urllib.error.HTTPError(url, 404, "gone", {}, None)
+            if "gemini-3.6-flash" in url:
+                raise urllib.error.HTTPError(url, 404, "gone", {}, None)
+            if "gemini-3-flash-preview" in url:
+                return gemini_body(sample_macro())
+            raise AssertionError(f"unexpected url {url}")
+
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "gemini-test"}, clear=True):
+            with patch.object(summarize_stories, "time") as time_mod:
+                time_mod.sleep.return_value = None
+                with patch.object(summarize_stories, "_post_json", side_effect=fake_post):
+                    result = summarize_stories.summarize_macro(
+                        [sample_story()], history=[]
+                    )
+
+        self.assertEqual(result.provider, "gemini")
+        self.assertEqual(len(calls), 4)
+        self.assertIn("gemini-3-flash-preview", calls[-1])
+        time_mod.sleep.assert_not_called()
 
     def test_mock_path_never_posts_and_does_not_load_history_from_network(self):
         stories = [sample_story()]
